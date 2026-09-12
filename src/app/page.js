@@ -1,204 +1,392 @@
 'use client'
 
-import React, { useState } from 'react'
-import { Lock, Unlock, UploadCloud, ShieldCheck, FileCheck, Copy, ArrowRight } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+import { auth, db, googleProvider } from '../../lib/firebase'
+import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth'
+import { collection, addDoc, query, where, getDocs, serverTimestamp } from 'firebase/firestore'
+import { 
+  Lock, Plus, ShieldCheck, Copy, ExternalLink, 
+  ArrowUpRight, Clock, CheckCircle2, AlertCircle, LogOut,
+  Sparkles, Layers, IndianRupee, FileText
+} from 'lucide-react'
+import Link from 'next/link'
 
-export default function PayDropApp() {
-  const [file, setFile] = useState(null)
-  const [amount, setAmount] = useState('')
+export default function Dashboard() {
+  const [user, setUser] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [deliveries, setDeliveries] = useState([])
+  const [showModal, setShowModal] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [copiedId, setCopiedId] = useState(null)
+
   const [title, setTitle] = useState('')
-  const [lockedLink, setLockedLink] = useState('')
-  const [activeTab, setActiveTab] = useState('creator') // 'creator' ya 'client'
-  const [isPaid, setIsPaid] = useState(false)
-  const [copied, setCopied] = useState(false)
+  const [clientName, setClientName] = useState('')
+  const [clientEmail, setClientEmail] = useState('')
+  const [amount, setAmount] = useState('')
+  const [expiryDays, setExpiryDays] = useState('7')
+  const [watermark, setWatermark] = useState(true)
+  const [fileUrl, setFileUrl] = useState('')
 
-  const handleGenerate = (e) => {
-    e.preventDefault()
-    if (!file || !amount) return
-    const fakeId = Math.random().toString(36).substring(2, 9)
-    setLockedLink(`https://paydrop.app/pay/${fakeId}`)
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser)
+      setLoading(false)
+      if (currentUser) {
+        fetchDeliveries(currentUser.uid)
+      }
+    })
+    return () => unsubscribe()
+  }, [])
+
+  const fetchDeliveries = async (uid) => {
+    try {
+      const q = query(
+        collection(db, 'deliveries'),
+        where('userId', '==', uid)
+      )
+      const snapshot = await getDocs(q)
+      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+      docs.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
+      setDeliveries(docs)
+    } catch (err) {
+      console.error("Error fetching deliveries:", err)
+    }
   }
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(lockedLink)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+  const handleGoogleLogin = async () => {
+    try {
+      await signInWithPopup(auth, googleProvider)
+    } catch (err) {
+      alert("Login failed: " + err.message)
+    }
+  }
+
+  const handleCreateDelivery = async (e) => {
+    e.preventDefault()
+    if (!title || !amount || !user) return
+
+    setCreating(true)
+    try {
+      const expiresAt = new Date()
+      expiresAt.setDate(expiresAt.getDate() + parseInt(expiryDays))
+
+      await addDoc(collection(db, 'deliveries'), {
+        userId: user.uid,
+        userEmail: user.email,
+        title,
+        clientName: clientName || 'Unnamed Client',
+        clientEmail: clientEmail || '',
+        amount: Number(amount),
+        currency: 'INR',
+        status: 'Awaiting Payment',
+        watermarkEnabled: watermark,
+        fileUrl: fileUrl || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1200',
+        expiresAt: expiresAt.toISOString(),
+        createdAt: serverTimestamp(),
+        downloadCount: 0
+      })
+
+      setShowModal(false)
+      setTitle('')
+      setClientName('')
+      setClientEmail('')
+      setAmount('')
+      fetchDeliveries(user.uid)
+    } catch (err) {
+      alert("Failed to create delivery: " + err.message)
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  const copyLink = (id) => {
+    const url = `${window.location.origin}/d/${id}`
+    navigator.clipboard.writeText(url)
+    setCopiedId(id)
+    setTimeout(() => setCopiedId(null), 2500)
+  }
+
+  const totalRevenue = deliveries
+    .filter(d => d.status === 'Paid')
+    .reduce((acc, curr) => acc + (curr.amount || 0), 0)
+  
+  const pendingAmount = deliveries
+    .filter(d => d.status === 'Awaiting Payment')
+    .reduce((acc, curr) => acc + (curr.amount || 0), 0)
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#07090e] text-zinc-300 flex items-center justify-center text-sm">
+        Loading ReleaseDrop Workspace...
+      </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-[#07090e] text-zinc-100 flex flex-col items-center justify-center p-6 text-center">
+        <div className="h-12 w-12 rounded-2xl bg-emerald-500 flex items-center justify-center font-black text-black text-xl mb-4 shadow-xl shadow-emerald-500/20">
+          R
+        </div>
+        <h1 className="text-3xl font-extrabold tracking-tight">ReleaseDrop Workspace</h1>
+        <p className="text-zinc-400 text-sm mt-2 max-w-sm">Sign in to manage deliveries, lock high-res assets, and get paid securely.</p>
+        <button
+          onClick={handleGoogleLogin}
+          className="mt-6 px-6 py-3 bg-zinc-100 hover:bg-white text-black font-bold text-sm rounded-xl transition flex items-center gap-2 shadow-lg active:scale-95"
+        >
+          Sign In with Google
+        </button>
+      </div>
+    )
   }
 
   return (
-    <main className="min-h-screen bg-[#07090e] text-zinc-100 flex flex-col items-center p-6 sm:p-12 relative overflow-hidden">
-      {/* Background Glow */}
-      <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[550px] h-[350px] bg-emerald-500/10 blur-[140px] pointer-events-none rounded-full" />
-
-      {/* Header */}
-      <header className="w-full max-w-3xl flex justify-between items-center mb-10 z-10 border-b border-zinc-800/80 pb-5">
-        <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-emerald-500 flex items-center justify-center font-black text-black">
-            P
+    <div className="min-h-screen bg-[#07090e] text-zinc-100 antialiased font-sans flex flex-col">
+      <header className="border-b border-zinc-800/80 bg-zinc-950/60 backdrop-blur-xl sticky top-0 z-30">
+        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Link href="/" className="flex items-center gap-2.5">
+              <div className="h-8 w-8 rounded-lg bg-emerald-500 flex items-center justify-center font-black text-black text-sm">
+                R
+              </div>
+              <span className="font-bold text-lg tracking-tight">ReleaseDrop</span>
+            </Link>
+            <span className="hidden sm:inline-block text-xs bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded-full border border-zinc-700">
+              Workspace
+            </span>
           </div>
-          <span className="text-xl font-bold tracking-tight">PayDrop</span>
-        </div>
 
-        {/* View Switcher for Testing */}
-        <div className="flex items-center bg-zinc-900 border border-zinc-800 p-1 rounded-xl text-xs">
-          <button
-            onClick={() => setActiveTab('creator')}
-            className={`px-3 py-1.5 rounded-lg transition-all ${activeTab === 'creator' ? 'bg-zinc-800 text-white font-medium shadow-sm' : 'text-zinc-400 hover:text-white'}`}
-          >
-            Creator View
-          </button>
-          <button
-            onClick={() => setActiveTab('client')}
-            className={`px-3 py-1.5 rounded-lg transition-all ${activeTab === 'client' ? 'bg-zinc-800 text-white font-medium shadow-sm' : 'text-zinc-400 hover:text-white'}`}
-          >
-            Client Pay View
-          </button>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setShowModal(true)}
+              className="bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs px-4 py-2.5 rounded-xl transition flex items-center gap-1.5 shadow-md shadow-emerald-500/10 active:scale-95"
+            >
+              <Plus className="w-4 h-4" /> New Delivery
+            </button>
+            <div className="flex items-center gap-2 pl-3 border-l border-zinc-800">
+              <span className="text-xs text-zinc-400 hidden sm:inline">{user.displayName || user.email}</span>
+              <button 
+                onClick={() => signOut(auth)}
+                className="p-2 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-red-400 transition"
+                title="Sign Out"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
         </div>
       </header>
 
-      {/* Creator Screen */}
-      {activeTab === 'creator' && (
-        <section className="w-full max-w-lg bg-zinc-900/60 border border-zinc-800/80 backdrop-blur-xl p-6 sm:p-8 rounded-2xl shadow-2xl z-10">
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold tracking-tight">Lock & Deliver Assets</h1>
-            <p className="text-sm text-zinc-400 mt-1">Clients can preview watermarked assets, but download unlocks only after payment.</p>
+      <main className="max-w-6xl mx-auto px-6 py-10 flex-1 w-full space-y-8">
+        <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="p-5 rounded-2xl bg-zinc-900/50 border border-zinc-800/80">
+            <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Settled Revenue</span>
+            <div className="text-2xl font-black text-white mt-1">₹{totalRevenue.toLocaleString('en-IN')}</div>
+            <span className="text-[11px] text-emerald-400 mt-1 block">100% verified release</span>
           </div>
 
-          <form onSubmit={handleGenerate} className="space-y-4">
-            <div>
-              <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Project Title</label>
-              <input
-                type="text"
-                placeholder="e.g. YouTube Video Edit - Final Cut"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="mt-1.5 w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-emerald-500 transition"
-              />
-            </div>
+          <div className="p-5 rounded-2xl bg-zinc-900/50 border border-zinc-800/80">
+            <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Pending Release</span>
+            <div className="text-2xl font-black text-amber-400 mt-1">₹{pendingAmount.toLocaleString('en-IN')}</div>
+            <span className="text-[11px] text-zinc-500 mt-1 block">Files locked awaiting payment</span>
+          </div>
 
-            <div>
-              <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Price (INR ₹)</label>
-              <input
-                type="number"
-                placeholder="e.g. 5000"
-                required
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="mt-1.5 w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-emerald-500 transition"
-              />
+          <div className="p-5 rounded-2xl bg-zinc-900/50 border border-zinc-800/80">
+            <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Paid Deliveries</span>
+            <div className="text-2xl font-black text-white mt-1">
+              {deliveries.filter(d => d.status === 'Paid').length}
             </div>
+            <span className="text-[11px] text-zinc-500 mt-1 block">Completed handoffs</span>
+          </div>
 
-            <div>
-              <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Select Deliverable File</label>
-              <label className="mt-1.5 border border-dashed border-zinc-700 hover:border-emerald-500/80 bg-zinc-950/50 rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer transition">
-                <UploadCloud className="w-8 h-8 text-zinc-500 mb-2" />
-                <span className="text-sm font-medium text-zinc-300">
-                  {file ? file.name : "Click to select MP4, ZIP, or PNG"}
-                </span>
-                <span className="text-xs text-zinc-500 mt-1">
-                  {file ? `${(file.size / (1024 * 1024)).toFixed(2)} MB` : "Files stay encrypted"}
-                </span>
-                <input
-                  type="file"
-                  className="hidden"
-                  onChange={(e) => setFile(e.target.files[0])}
-                />
-              </label>
-            </div>
-
-            <button
-              type="submit"
-              className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-semibold rounded-xl py-3 mt-2 text-sm flex items-center justify-center gap-2 transition active:scale-[0.98]"
-            >
-              <Lock className="w-4 h-4" /> Create Locked PayLink
-            </button>
-          </form>
-
-          {lockedLink && (
-            <div className="mt-6 p-4 rounded-xl bg-zinc-950 border border-emerald-500/30">
-              <span className="text-xs text-emerald-400 font-medium">Link Ready to Share:</span>
-              <div className="flex items-center gap-2 mt-2">
-                <input
-                  readOnly
-                  value={lockedLink}
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-zinc-300 font-mono focus:outline-none"
-                />
-                <button
-                  onClick={handleCopy}
-                  className="p-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-lg transition"
-                >
-                  <Copy className="w-4 h-4" />
-                </button>
-              </div>
-              {copied && <span className="text-[11px] text-zinc-400 mt-1 block">Copied to clipboard!</span>}
-            </div>
-          )}
+          <div className="p-5 rounded-2xl bg-zinc-900/50 border border-zinc-800/80">
+            <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Active Deliveries</span>
+            <div className="text-2xl font-black text-white mt-1">{deliveries.length}</div>
+            <span className="text-[11px] text-zinc-500 mt-1 block">Total project portals</span>
+          </div>
         </section>
-      )}
 
-      {/* Client Pay & Download Screen */}
-      {activeTab === 'client' && (
-        <section className="w-full max-w-lg bg-zinc-900/60 border border-zinc-800/80 backdrop-blur-xl p-6 sm:p-8 rounded-2xl shadow-2xl z-10">
-          <div className="flex items-center justify-between pb-4 border-b border-zinc-800">
-            <div>
-              <span className="text-xs text-zinc-400 uppercase tracking-wider font-semibold">Deliverable Locked</span>
-              <h2 className="text-lg font-bold mt-0.5">{title || "Final Commercial Edit v2.mp4"}</h2>
-            </div>
-            <div className="text-right">
-              <span className="text-xs text-zinc-400 block">Total Due</span>
-              <span className="text-lg font-black text-emerald-400">₹{amount || "4,999"}</span>
-            </div>
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold">Recent Deliveries</h2>
+            <span className="text-xs text-zinc-500">{deliveries.length} total links generated</span>
           </div>
 
-          {/* Watermark Protected Preview Box */}
-          <div className="relative my-6 rounded-xl overflow-hidden border border-zinc-800 bg-zinc-950 aspect-video flex items-center justify-center">
-            {/* Moving dynamic watermark layer */}
-            <div className="absolute inset-0 select-none pointer-events-none flex flex-wrap items-center justify-around opacity-20 text-zinc-300 font-mono text-xs rotate-[-15deg] gap-8">
-              <span>CONFIDENTIAL - UNPAID DRAFT</span>
-              <span>PROTECTED BY PAYDROP</span>
-              <span>PAY TO REMOVE WATERMARK</span>
-              <span>CONFIDENTIAL - UNPAID DRAFT</span>
-            </div>
-
-            <div className="z-10 text-center p-4">
-              <Lock className="w-10 h-10 text-emerald-400/80 mx-auto mb-2 animate-pulse" />
-              <p className="text-sm font-medium text-zinc-300">Protected Preview Mode</p>
-              <p className="text-xs text-zinc-500 mt-1">High-bitrate file unlocked after settlement verification</p>
-            </div>
-          </div>
-
-          {/* Action Button */}
-          {!isPaid ? (
-            <div className="space-y-3">
+          {deliveries.length === 0 ? (
+            <div className="p-12 rounded-2xl border border-dashed border-zinc-800 text-center bg-zinc-900/20">
+              <Lock className="w-10 h-10 text-zinc-600 mx-auto mb-3" />
+              <h3 className="text-base font-semibold text-zinc-200">No deliveries yet</h3>
+              <p className="text-xs text-zinc-500 mt-1 max-w-sm mx-auto">
+                Create your first delivery to lock your master files and share a secure payment link with your client.
+              </p>
               <button
-                onClick={() => setIsPaid(true)}
-                className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl py-3 text-sm flex items-center justify-center gap-2 transition active:scale-[0.98] shadow-lg shadow-emerald-500/10"
+                onClick={() => setShowModal(true)}
+                className="mt-5 px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold rounded-xl transition"
               >
-                Pay ₹{amount || "4,999"} & Unlock High-Res File
-                <ArrowRight className="w-4 h-4" />
+                + Create First Delivery
               </button>
-              <div className="flex items-center justify-center gap-1.5 text-xs text-zinc-500">
-                <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                <span>End-to-end verified release • Instant unlock</span>
-              </div>
             </div>
           ) : (
-            <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-center space-y-3">
-              <div className="inline-flex p-2 rounded-full bg-emerald-500/20 text-emerald-400 mb-1">
-                <FileCheck className="w-6 h-6" />
+            <div className="border border-zinc-800/80 rounded-2xl overflow-hidden bg-zinc-950/40">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-zinc-900/80 border-b border-zinc-800 text-zinc-400 uppercase font-semibold">
+                    <tr>
+                      <th className="px-5 py-3.5">Delivery Title</th>
+                      <th className="px-5 py-3.5">Client</th>
+                      <th className="px-5 py-3.5">Amount</th>
+                      <th className="px-5 py-3.5">Status</th>
+                      <th className="px-5 py-3.5 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-800/60">
+                    {deliveries.map((item) => (
+                      <tr key={item.id} className="hover:bg-zinc-900/30 transition">
+                        <td className="px-5 py-4 font-semibold text-zinc-200">
+                          {item.title}
+                        </td>
+                        <td className="px-5 py-4 text-zinc-400">
+                          {item.clientName}
+                        </td>
+                        <td className="px-5 py-4 font-bold text-white">
+                          ₹{item.amount?.toLocaleString('en-IN')}
+                        </td>
+                        <td className="px-5 py-4">
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium ${
+                            item.status === 'Paid' 
+                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+                              : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                          }`}>
+                            {item.status === 'Paid' ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
+                            {item.status}
+                          </span>
+                        </td>
+                        <td className="px-5 py-4 text-right space-x-2">
+                          <button
+                            onClick={() => copyLink(item.id)}
+                            className="p-1.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 rounded-lg border border-zinc-800 transition inline-flex items-center gap-1 text-[11px]"
+                            title="Copy Client PayLink"
+                          >
+                            <Copy className="w-3.5 h-3.5" />
+                            {copiedId === item.id ? 'Copied!' : 'Copy Link'}
+                          </button>
+                          <Link
+                            href={`/d/${item.id}`}
+                            target="_blank"
+                            className="p-1.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 rounded-lg border border-zinc-800 transition inline-flex items-center text-[11px]"
+                            title="Open Client Page"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-              <h3 className="text-sm font-bold text-emerald-300">Payment Captured Successfully!</h3>
-              <p className="text-xs text-zinc-400">Master production files are now decrypted and ready.</p>
-              <button
-                onClick={() => alert("File downloading started...")}
-                className="w-full bg-zinc-100 hover:bg-white text-black font-bold rounded-lg py-2.5 text-xs transition"
-              >
-                Download Original High-Res (ZIP)
-              </button>
             </div>
           )}
         </section>
+      </main>
+
+      {showModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-zinc-950 border border-zinc-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5">
+            <div className="flex items-center justify-between border-b border-zinc-800/80 pb-4">
+              <div>
+                <h3 className="text-base font-bold text-white">Create New Delivery</h3>
+                <p className="text-xs text-zinc-400">Lock your asset and set the settlement price.</p>
+              </div>
+              <button 
+                onClick={() => setShowModal(false)}
+                className="text-zinc-500 hover:text-zinc-200 text-lg font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateDelivery} className="space-y-4">
+              <div>
+                <label className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Project Title *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Brand Commercial Edit v2 (4K)"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  className="mt-1 w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-zinc-100 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Client Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. John Doe"
+                    value={clientName}
+                    onChange={(e) => setClientName(e.target.value)}
+                    className="mt-1 w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-zinc-100 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Amount (INR ₹) *</label>
+                  <input
+                    type="number"
+                    required
+                    placeholder="e.g. 5000"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    className="mt-1 w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-zinc-100 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Master File URL / Cloudinary Resource</label>
+                <input
+                  type="url"
+                  placeholder="Direct link to master package/file (or leave blank for demo preview)"
+                  value={fileUrl}
+                  onChange={(e) => setFileUrl(e.target.value)}
+                  className="mt-1 w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-zinc-100 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-900/60 border border-zinc-800">
+                <div className="text-left">
+                  <div className="text-xs font-semibold text-zinc-200">Visible Anti-Piracy Watermark</div>
+                  <div className="text-[10px] text-zinc-400">Overlays dynamic "UNPAID PREVIEW" on client inspection</div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={watermark}
+                  onChange={(e) => setWatermark(e.target.checked)}
+                  className="w-4 h-4 accent-emerald-500 cursor-pointer"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-zinc-800/80">
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="px-4 py-2.5 text-xs text-zinc-400 hover:text-white transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={creating}
+                  className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black font-bold text-xs rounded-xl transition flex items-center gap-2"
+                >
+                  {creating ? 'Locking Asset...' : 'Create Protected Link'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
-    </main>
+    </div>
   )
-        }
+}
+  
