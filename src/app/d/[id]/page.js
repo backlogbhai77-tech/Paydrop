@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
-import { db } from '@/lib/firebase'
+import { db } from '../../../lib/firebase'
 import { doc, getDoc, updateDoc } from 'firebase/firestore'
 import { 
   Lock, Unlock, ShieldCheck, Download, CheckCircle2, 
@@ -37,7 +37,6 @@ export default function ClientDeliveryPage() {
       }
 
       const data = docSnap.data()
-      // Expiry Check
       if (data.expiresAt && new Date(data.expiresAt) < new Date()) {
         setError("This delivery has expired. The original assets are no longer accessible.")
       }
@@ -54,14 +53,11 @@ export default function ClientDeliveryPage() {
     }
   }
 
-  // Payment Verification Simulation (Modular Backend Ready)
   const handleUnlockPayment = async () => {
     setProcessingPayment(true)
     try {
-      // Simulate real server webhook & payment confirmation delay
       await new Promise(resolve => setTimeout(resolve, 2000))
 
-      // Update Firestore state to 'Paid'
       const docRef = doc(db, 'deliveries', deliveryId)
       await updateDoc(docRef, {
         status: 'Paid',
@@ -113,10 +109,8 @@ export default function ClientDeliveryPage() {
 
   return (
     <div className="min-h-screen bg-[#06080e] text-zinc-100 antialiased font-sans flex flex-col selection:bg-emerald-500 selection:text-black relative overflow-hidden">
-      {/* Background Ambience */}
       <div className="absolute top-[-20%] left-1/2 -translate-x-1/2 w-[700px] h-[350px] bg-emerald-500/10 blur-[150px] pointer-events-none rounded-full" />
 
-      {/* Brand Header */}
       <header className="border-b border-zinc-800/80 bg-zinc-950/60 backdrop-blur-xl px-6 h-16 flex items-center justify-between z-10">
         <div className="flex items-center gap-2.5">
           <div className="h-8 w-8 rounded-lg bg-emerald-500 flex items-center justify-center font-black text-black text-sm">
@@ -137,9 +131,7 @@ export default function ClientDeliveryPage() {
         </div>
       </header>
 
-      {/* Main Delivery Container */}
       <main className="flex-1 max-w-3xl mx-auto w-full px-6 py-10 z-10 space-y-6">
-        {/* Project Intro */}
         <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-6 sm:p-7 backdrop-blur-xl shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Client Deliverable</span>
@@ -160,7 +152,6 @@ export default function ClientDeliveryPage() {
           </div>
         </div>
 
-        {/* Protected Visual Preview */}
         <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-5 backdrop-blur-xl space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -173,14 +164,12 @@ export default function ClientDeliveryPage() {
           </div>
 
           <div className="relative rounded-xl overflow-hidden border border-zinc-800 bg-zinc-950 aspect-video flex items-center justify-center group">
-            {/* Background Thumbnail/Image */}
             <img 
               src={delivery?.fileUrl || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1200"} 
               alt="Deliverable Preview" 
               className={`w-full h-full object-cover transition duration-500 ${isUnlocked ? '' : 'filter brightness-75'}`}
             />
 
-            {/* Anti-Piracy Watermark Overlay (Hidden when unlocked) */}
             {!isUnlocked && delivery?.watermarkEnabled && (
               <div className="absolute inset-0 pointer-events-none select-none flex flex-wrap items-center justify-around opacity-30 text-white font-mono text-xs rotate-[-15deg] gap-10 p-6">
                 <span>RELEASEDROP UNPAID PREVIEW</span>
@@ -190,7 +179,6 @@ export default function ClientDeliveryPage() {
               </div>
             )}
 
-            {/* Center Lock Badge */}
             {!isUnlocked && (
               <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] flex flex-col items-center justify-center p-4 text-center">
                 <div className="p-3 bg-zinc-900/90 border border-zinc-700/80 rounded-2xl shadow-2xl mb-2">
@@ -203,7 +191,6 @@ export default function ClientDeliveryPage() {
           </div>
         </div>
 
-        {/* Deliverable Files Package */}
         <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-5 backdrop-blur-xl space-y-3">
           <span className="text-xs font-bold text-zinc-200 uppercase tracking-wider block">Deliverable Package</span>
           
@@ -219,6 +206,85 @@ export default function ClientDeliveryPage() {
                     {!isUnlocked && <Lock className="w-3 h-3 text-amber-400" />}
                   </div>
                   <div className="text-[10px] text-zinc-500">Master Source Assets & Clean 4K Renders</div>
+                </div>
+              </div>
+
+              <div>
+                {isUnlocked ? (
+                  <button 
+                    onClick={handleDownload}
+                    className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs rounded-lg transition flex items-center gap-1.5"
+                  >
+                    <Download className="w-3.5 h-3.5" /> Download
+                  </button>
+                ) : (
+                  <span className="text-[11px] font-medium text-zinc-500 flex items-center gap-1">
+                    <Lock className="w-3 h-3" /> Locked
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-6 shadow-2xl text-center space-y-4">
+          {!isUnlocked ? (
+            <>
+              <div className="space-y-1">
+                <h3 className="text-base font-bold text-white">Unlock & Release Original Files</h3>
+                <p className="text-xs text-zinc-400">Instant unlock via UPI, NetBanking or Credit/Debit Cards.</p>
+              </div>
+
+              <button
+                onClick={handleUnlockPayment}
+                disabled={processingPayment}
+                className="w-full sm:w-auto px-10 py-3.5 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black font-extrabold text-sm rounded-xl transition flex items-center justify-center gap-2 mx-auto shadow-lg shadow-emerald-500/20 active:scale-95"
+              >
+                {processingPayment ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                    Verifying Settlement...
+                  </>
+                ) : (
+                  <>
+                    <Lock className="w-4 h-4" /> Pay ₹{delivery?.amount?.toLocaleString('en-IN')} & Decrypt Assets
+                  </>
+                )}
+              </button>
+
+              <div className="flex items-center justify-center gap-2 text-[11px] text-zinc-500">
+                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                <span>256-bit encrypted transfer • Automated payment verification</span>
+              </div>
+            </>
+          ) : (
+            <div className="space-y-3 py-2">
+              <div className="inline-flex p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-2xl">
+                <CheckCircle2 className="w-7 h-7" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">Settlement Verified Successfully!</h3>
+                <p className="text-xs text-zinc-400 mt-0.5">Payment received. Original production files are now decrypted.</p>
+              </div>
+
+              <button
+                onClick={handleDownload}
+                className="px-8 py-3 bg-white hover:bg-zinc-200 text-black font-bold text-xs rounded-xl transition inline-flex items-center gap-2 shadow-lg"
+              >
+                <Download className="w-4 h-4" /> Download Complete Package (.ZIP)
+              </button>
+            </div>
+          )}
+        </div>
+      </main>
+
+      <footer className="py-6 border-t border-zinc-900 text-center text-[11px] text-zinc-600">
+        Powered by <span className="font-semibold text-zinc-400">ReleaseDrop</span> • The payment-locked delivery platform
+      </footer>
+    </div>
+  )
+              }
+                      ders</div>
                 </div>
               </div>
 
