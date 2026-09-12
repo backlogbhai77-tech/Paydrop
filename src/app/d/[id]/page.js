@@ -6,7 +6,7 @@ import { db } from '../../../lib/firebase'
 import { doc, getDoc, updateDoc } from 'firebase/firestore'
 import { 
   Lock, Unlock, ShieldCheck, Download, CheckCircle2, 
-  AlertTriangle, Clock, FileArchive, Video, Image as ImageIcon, Sparkles, ExternalLink
+  AlertTriangle, Clock, FileArchive, Video
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -77,7 +77,7 @@ export default function ClientDeliveryPage() {
     if (delivery?.fileUrl && delivery.fileUrl.startsWith('http')) {
       window.open(delivery.fileUrl, '_blank')
     } else {
-      alert("Demo Download: In production, this issues a one-time signed URL to private storage.")
+      alert("Asset decrypted. Demo master download initiated.")
     }
   }
 
@@ -279,90 +279,9 @@ export default function ClientDeliveryPage() {
       </main>
 
       <footer className="py-6 border-t border-zinc-900 text-center text-[11px] text-zinc-600">
-        Powered by <span className="font-semibold text-zinc-400">ReleaseDrop</span> • The payment-locked delivery platform
+        Powered by <span className="font-semibold text-zinc-400">ReleaseDrop</span>
       </footer>
     </div>
   )
-              }
-                      ders</div>
-                </div>
-              </div>
-
-              <div>
-                {isUnlocked ? (
-                  <button 
-                    onClick={handleDownload}
-                    className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs rounded-lg transition flex items-center gap-1.5"
-                  >
-                    <Download className="w-3.5 h-3.5" /> Download
-                  </button>
-                ) : (
-                  <span className="text-[11px] font-medium text-zinc-500 flex items-center gap-1">
-                    <Lock className="w-3 h-3" /> Locked
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Payment & Download Action Box */}
-        <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-6 shadow-2xl text-center space-y-4">
-          {!isUnlocked ? (
-            <>
-              <div className="space-y-1">
-                <h3 className="text-base font-bold text-white">Unlock & Release Original Files</h3>
-                <p className="text-xs text-zinc-400">Instant unlock via UPI, NetBanking or Credit/Debit Cards.</p>
-              </div>
-
-              <button
-                onClick={handleUnlockPayment}
-                disabled={processingPayment}
-                className="w-full sm:w-auto px-10 py-3.5 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black font-extrabold text-sm rounded-xl transition flex items-center justify-center gap-2 mx-auto shadow-lg shadow-emerald-500/20 active:scale-95"
-              >
-                {processingPayment ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                    Verifying Settlement...
-                  </>
-                ) : (
-                  <>
-                    <Lock className="w-4 h-4" /> Pay ₹{delivery?.amount?.toLocaleString('en-IN')} & Decrypt Assets
-                  </>
-                )}
-              </button>
-
-              <div className="flex items-center justify-center gap-2 text-[11px] text-zinc-500">
-                <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                <span>256-bit encrypted transfer • Automated payment verification</span>
-              </div>
-            </>
-          ) : (
-            <div className="space-y-3 py-2">
-              <div className="inline-flex p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-2xl">
-                <CheckCircle2 className="w-7 h-7" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-white">Settlement Verified Successfully!</h3>
-                <p className="text-xs text-zinc-400 mt-0.5">Payment received. Original production files are now decrypted.</p>
-              </div>
-
-              <button
-                onClick={handleDownload}
-                className="px-8 py-3 bg-white hover:bg-zinc-200 text-black font-bold text-xs rounded-xl transition inline-flex items-center gap-2 shadow-lg"
-              >
-                <Download className="w-4 h-4" /> Download Complete Package (.ZIP)
-              </button>
-            </div>
-          )}
-        </div>
-      </main>
-
-      {/* Footer */}
-      <footer className="py-6 border-t border-zinc-900 text-center text-[11px] text-zinc-600">
-        Powered by <span className="font-semibold text-zinc-400">ReleaseDrop</span> • The payment-locked delivery platform
-      </footer>
-    </div>
-  )
-    }
-    
+            }
+              
