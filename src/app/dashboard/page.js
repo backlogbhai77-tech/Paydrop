@@ -1,0 +1,334 @@
+'use client'
+
+import React, { useState, useEffect } from 'react'
+import { auth, db, googleProvider } from '../../lib/firebase'
+import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth'
+import { collection, addDoc, query, where, getDocs, serverTimestamp } from 'firebase/firestore'
+import { 
+  Lock, Plus, Copy, ExternalLink, 
+  Clock, CheckCircle2, LogOut
+} from 'lucide-react'
+import Link from 'next/link'
+
+export default function Dashboard() {
+  const [user, setUser] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [deliveries, setDeliveries] = useState([])
+  const [showModal, setShowModal] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [copiedId, setCopiedId] = useState(null)
+
+  const [title, setTitle] = useState('')
+  const [clientName, setClientName] = useState('')
+  const [amount, setAmount] = useState('')
+  const [expiryDays, setExpiryDays] = useState('7')
+  const [watermark, setWatermark] = useState(true)
+  const [fileUrl, setFileUrl] = useState('')
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser)
+      setLoading(false)
+      if (currentUser) {
+        fetchDeliveries(currentUser.uid)
+      }
+    })
+    return () => unsubscribe()
+  }, [])
+
+  const fetchDeliveries = async (uid) => {
+    try {
+      const q = query(
+        collection(db, 'deliveries'),
+        where('userId', '==', uid)
+      )
+      const snapshot = await getDocs(q)
+      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+      docs.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
+      setDeliveries(docs)
+    } catch (err) {
+      console.error("Error fetching deliveries:", err)
+    }
+  }
+
+  const handleGoogleLogin = async () => {
+    try {
+      await signInWithPopup(auth, googleProvider)
+    } catch (err) {
+      alert("Login failed: " + err.message)
+    }
+  }
+
+  const handleCreateDelivery = async (e) => {
+    e.preventDefault()
+    if (!title || !amount || !user) return
+
+    setCreating(true)
+    try {
+      const expiresAt = new Date()
+      expiresAt.setDate(expiresAt.getDate() + parseInt(expiryDays))
+
+      await addDoc(collection(db, 'deliveries'), {
+        userId: user.uid,
+        userEmail: user.email,
+        title,
+        clientName: clientName || 'Unnamed Client',
+        amount: Number(amount),
+        currency: 'INR',
+        status: 'Awaiting Payment',
+        watermarkEnabled: watermark,
+        fileUrl: fileUrl || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1200',
+        expiresAt: expiresAt.toISOString(),
+        createdAt: serverTimestamp(),
+        downloadCount: 0
+      })
+
+      setShowModal(false)
+      setTitle('')
+      setClientName('')
+      setAmount('')
+      fetchDeliveries(user.uid)
+    } catch (err) {
+      alert("Failed to create delivery: " + err.message)
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  const copyLink = (id) => {
+    const url = `${window.location.origin}/d/${id}`
+    navigator.clipboard.writeText(url)
+    setCopiedId(id)
+    setTimeout(() => setCopiedId(null), 2500)
+  }
+
+  const totalRevenue = deliveries
+    .filter(d => d.status === 'Paid')
+    .reduce((acc, curr) => acc + (curr.amount || 0), 0)
+  
+  const pendingAmount = deliveries
+    .filter(d => d.status === 'Awaiting Payment')
+    .reduce((acc, curr) => acc + (curr.amount || 0), 0)
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#07090e] text-zinc-300 flex items-center justify-center text-sm">
+        Loading ReleaseDrop Workspace...
+      </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-[#07090e] text-zinc-100 flex flex-col items-center justify-center p-6 text-center">
+        <div className="h-12 w-12 rounded-2xl bg-emerald-500 flex items-center justify-center font-black text-black text-xl mb-4 shadow-xl shadow-emerald-500/20">
+          R
+        </div>
+        <h1 className="text-3xl font-extrabold tracking-tight">ReleaseDrop Workspace</h1>
+        <p className="text-zinc-400 text-sm mt-2 max-w-sm">Sign in to manage deliveries, lock high-res assets, and get paid securely.</p>
+        <button
+          onClick={handleGoogleLogin}
+          className="mt-6 px-6 py-3 bg-zinc-100 hover:bg-white text-black font-bold text-sm rounded-xl transition flex items-center gap-2 shadow-lg active:scale-95"
+        >
+          Sign In with Google
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-[#07090e] text-zinc-100 antialiased font-sans flex flex-col">
+      <header className="border-b border-zinc-800/80 bg-zinc-950/60 backdrop-blur-xl sticky top-0 z-30">
+        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Link href="/" className="flex items-center gap-2.5">
+              <div className="h-8 w-8 rounded-lg bg-emerald-500 flex items-center justify-center font-black text-black text-sm">
+                R
+              </div>
+              <span className="font-bold text-lg tracking-tight">ReleaseDrop</span>
+            </Link>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setShowModal(true)}
+              className="bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs px-4 py-2.5 rounded-xl transition flex items-center gap-1.5 shadow-md shadow-emerald-500/10 active:scale-95"
+            >
+              <Plus className="w-4 h-4" /> New Delivery
+            </button>
+            <div className="flex items-center gap-2 pl-3 border-l border-zinc-800">
+              <span className="text-xs text-zinc-400 hidden sm:inline">{user.displayName || user.email}</span>
+              <button 
+                onClick={() => signOut(auth)}
+                className="p-2 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-red-400 transition"
+                title="Sign Out"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-6xl mx-auto px-6 py-10 flex-1 w-full space-y-8">
+        <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="p-5 rounded-2xl bg-zinc-900/50 border border-zinc-800/80">
+            <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Settled Revenue</span>
+            <div className="text-2xl font-black text-white mt-1">₹{totalRevenue.toLocaleString('en-IN')}</div>
+          </div>
+          <div className="p-5 rounded-2xl bg-zinc-900/50 border border-zinc-800/80">
+            <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Pending Release</span>
+            <div className="text-2xl font-black text-amber-400 mt-1">₹{pendingAmount.toLocaleString('en-IN')}</div>
+          </div>
+          <div className="p-5 rounded-2xl bg-zinc-900/50 border border-zinc-800/80">
+            <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Paid Deliveries</span>
+            <div className="text-2xl font-black text-white mt-1">
+              {deliveries.filter(d => d.status === 'Paid').length}
+            </div>
+          </div>
+          <div className="p-5 rounded-2xl bg-zinc-900/50 border border-zinc-800/80">
+            <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Active Deliveries</span>
+            <div className="text-2xl font-black text-white mt-1">{deliveries.length}</div>
+          </div>
+        </section>
+
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold">Recent Deliveries</h2>
+          </div>
+
+          {deliveries.length === 0 ? (
+            <div className="p-12 rounded-2xl border border-dashed border-zinc-800 text-center bg-zinc-900/20">
+              <Lock className="w-10 h-10 text-zinc-600 mx-auto mb-3" />
+              <h3 className="text-base font-semibold text-zinc-200">No deliveries yet</h3>
+              <p className="text-xs text-zinc-500 mt-1">Create your first delivery to lock files.</p>
+              <button
+                onClick={() => setShowModal(true)}
+                className="mt-4 px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold rounded-xl transition"
+              >
+                + Create Delivery
+              </button>
+            </div>
+          ) : (
+            <div className="border border-zinc-800/80 rounded-2xl overflow-hidden bg-zinc-950/40">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-zinc-900/80 border-b border-zinc-800 text-zinc-400 uppercase font-semibold">
+                    <tr>
+                      <th className="px-5 py-3.5">Title</th>
+                      <th className="px-5 py-3.5">Client</th>
+                      <th className="px-5 py-3.5">Amount</th>
+                      <th className="px-5 py-3.5">Status</th>
+                      <th className="px-5 py-3.5 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-800/60">
+                    {deliveries.map((item) => (
+                      <tr key={item.id} className="hover:bg-zinc-900/30 transition">
+                        <td className="px-5 py-4 font-semibold text-zinc-200">{item.title}</td>
+                        <td className="px-5 py-4 text-zinc-400">{item.clientName}</td>
+                        <td className="px-5 py-4 font-bold text-white">₹{item.amount?.toLocaleString('en-IN')}</td>
+                        <td className="px-5 py-4">
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium ${
+                            item.status === 'Paid' 
+                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+                              : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                          }`}>
+                            {item.status === 'Paid' ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
+                            {item.status}
+                          </span>
+                        </td>
+                        <td className="px-5 py-4 text-right space-x-2">
+                          <button
+                            onClick={() => copyLink(item.id)}
+                            className="p-1.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 rounded-lg border border-zinc-800 transition text-[11px]"
+                          >
+                            {copiedId === item.id ? 'Copied!' : 'Copy Link'}
+                          </button>
+                          <Link
+                            href={`/d/${item.id}`}
+                            target="_blank"
+                            className="p-1.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 rounded-lg border border-zinc-800 transition inline-block text-[11px]"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5 inline" />
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </section>
+      </main>
+
+      {showModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-zinc-950 border border-zinc-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+              <h3 className="text-base font-bold text-white">Create New Delivery</h3>
+              <button onClick={() => setShowModal(false)} className="text-zinc-500 hover:text-zinc-200">✕</button>
+            </div>
+
+            <form onSubmit={handleCreateDelivery} className="space-y-3">
+              <div>
+                <label className="text-[11px] font-semibold text-zinc-400 uppercase">Project Title *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Brand Commercial Reel"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  className="mt-1 w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-100 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-semibold text-zinc-400 uppercase">Client Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Acme Studio"
+                    value={clientName}
+                    onChange={(e) => setClientName(e.target.value)}
+                    className="mt-1 w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-100 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-semibold text-zinc-400 uppercase">Amount (INR ₹) *</label>
+                  <input
+                    type="number"
+                    required
+                    placeholder="e.g. 5000"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    className="mt-1 w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-100 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-800">
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="px-4 py-2 text-xs text-zinc-400 hover:text-white"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={creating}
+                  className="px-5 py-2 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black font-bold text-xs rounded-xl"
+                >
+                  {creating ? 'Locking...' : 'Create Protected Link'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+    }
+      
