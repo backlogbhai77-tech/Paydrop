@@ -5,9 +5,13 @@ import { auth, db, googleProvider } from '../../lib/firebase'
 import { signInWithPopup, signInWithRedirect, signOut, onAuthStateChanged } from 'firebase/auth'
 import { collection, addDoc, query, where, getDocs, deleteDoc, doc, serverTimestamp } from 'firebase/firestore'
 import { 
-  ShieldCheck, Lock, Plus, LogOut, Eye, Trash2, ArrowUpRight, Coins, Layers
+  ShieldCheck, Lock, Plus, LogOut, Eye, Trash2, ArrowUpRight, 
+  UploadCloud, Coins
 } from 'lucide-react'
 import Link from 'next/link'
+
+const CLOUDINARY_CLOUD_NAME = "nrfujht8"
+const CLOUDINARY_UPLOAD_PRESET = "releasedrop_vault"
 
 export default function Dashboard() {
   const [user, setUser] = useState(null)
@@ -20,8 +24,10 @@ export default function Dashboard() {
   const [title, setTitle] = useState('')
   const [clientName, setClientName] = useState('')
   const [amount, setAmount] = useState('')
-  const [fileUrl, setFileUrl] = useState('')
-  const [previewUrl, setPreviewUrl] = useState('')
+  
+  const [selectedFile, setSelectedFile] = useState(null)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [uploading, setUploading] = useState(false)
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (currentUser) => {
@@ -52,12 +58,63 @@ export default function Dashboard() {
     }
   }
 
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0]
+    if (file) {
+      setSelectedFile(file)
+    }
+  }
+
+  const uploadFileToCloudinary = (file) => {
+    setUploading(true)
+    setUploadProgress(10)
+
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET)
+
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest()
+      const resourceType = file.type.startsWith('video') ? 'video' : 'auto'
+      xhr.open('POST', `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/${resourceType}/upload`)
+
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const percent = Math.round((event.loaded / event.total) * 100)
+          setUploadProgress(percent)
+        }
+      }
+
+      xhr.onload = () => {
+        setUploading(false)
+        if (xhr.status === 200) {
+          const data = JSON.parse(xhr.responseText)
+          resolve(data.secure_url)
+        } else {
+          reject(new Error("Cloudinary upload failed. Check if preset 'releasedrop_vault' is set to Unsigned."))
+        }
+      }
+
+      xhr.onerror = () => {
+        setUploading(false)
+        reject(new Error("Network error during file upload."))
+      }
+
+      xhr.send(formData)
+    })
+  }
+
   const handleCreateDelivery = async (e) => {
     e.preventDefault()
-    if (!title || !amount || !fileUrl || !user) return
+    if (!title || !amount || !selectedFile || !user) {
+      alert("Please enter title, amount, and pick a file from device.")
+      return
+    }
 
     setCreating(true)
     try {
+      const secureFileUrl = await uploadFileToCloudinary(selectedFile)
+
       const numAmount = Number(amount) || 0
       const platformFee = Math.max(Math.round(numAmount * 0.05), 50)
       const creatorPayout = Math.max(numAmount - platformFee, 0)
@@ -73,8 +130,10 @@ export default function Dashboard() {
         platformFee,
         creatorPayout,
         status: 'Awaiting Payment',
-        previewUrl: previewUrl.trim() || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1200',
-        fileUrl: fileUrl.trim(),
+        previewUrl: secureFileUrl,
+        fileUrl: secureFileUrl,
+        fileName: selectedFile.name,
+        fileSize: (selectedFile.size / (1024 * 1024)).toFixed(2) + " MB",
         expiresAt: expiresAt.toISOString(),
         viewCount: 0,
         createdAt: serverTimestamp()
@@ -84,8 +143,8 @@ export default function Dashboard() {
       setTitle('')
       setClientName('')
       setAmount('')
-      setFileUrl('')
-      setPreviewUrl('')
+      setSelectedFile(null)
+      setUploadProgress(0)
       fetchDeliveries(user.uid)
     } catch (err) {
       alert(err.message)
@@ -133,14 +192,14 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-[#06080e] text-zinc-100 font-sans flex flex-col">
-      <header className="border-b border-zinc-900 bg-zinc-950/80 px-6 h-16 flex items-center justify-between">
+      <header className="border-b border-zinc-900 bg-zinc-950/80 px-6 h-16 flex items-center justify-between sticky top-0 z-30 backdrop-blur-md">
         <div className="flex items-center gap-2">
           <div className="h-8 w-8 rounded-lg bg-emerald-500 flex items-center justify-center font-black text-black text-sm">R</div>
           <span className="font-bold text-sm">ReleaseDrop Core</span>
         </div>
         <div className="flex items-center gap-3">
-          <button onClick={() => setShowModal(true)} className="bg-emerald-500 text-black font-bold text-xs px-3.5 py-2 rounded-xl flex items-center gap-1">
-            <Plus className="w-4 h-4" /> New Vault
+          <button onClick={() => setShowModal(true)} className="bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition">
+            <Plus className="w-4 h-4" /> Upload & Lock
           </button>
           <button onClick={() => signOut(auth)} className="p-2 text-zinc-500 hover:text-red-400">
             <LogOut className="w-4 h-4" />
@@ -151,20 +210,20 @@ export default function Dashboard() {
       <main className="max-w-6xl mx-auto px-6 py-8 flex-1 w-full space-y-6">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-900">
-            <span className="text-[10px] font-mono text-zinc-500 uppercase">Settled Earnings</span>
+            <span className="text-[10px] font-mono text-zinc-500 uppercase">Settled Volume</span>
             <div className="text-xl font-black mt-1">₹{totalSettled.toLocaleString('en-IN')}</div>
           </div>
           <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-900">
-            <span className="text-[10px] font-mono text-zinc-500 uppercase">Pending Escrow</span>
+            <span className="text-[10px] font-mono text-zinc-500 uppercase">Locked in Escrow</span>
             <div className="text-xl font-black text-amber-400 mt-1">₹{pendingEscrow.toLocaleString('en-IN')}</div>
           </div>
           <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-900">
-            <span className="text-[10px] font-mono text-zinc-500 uppercase">Total Vaults</span>
+            <span className="text-[10px] font-mono text-zinc-500 uppercase">Active Portals</span>
             <div className="text-xl font-black mt-1">{deliveries.length}</div>
           </div>
           <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-900">
-            <span className="text-[10px] font-mono text-zinc-500 uppercase">Plan</span>
-            <div className="text-sm font-bold text-emerald-400 mt-1">Pro Escrow (5%)</div>
+            <span className="text-[10px] font-mono text-zinc-500 uppercase">Engine Tier</span>
+            <div className="text-sm font-bold text-emerald-400 mt-1">Cloud Direct Pro</div>
           </div>
         </div>
 
@@ -173,10 +232,10 @@ export default function Dashboard() {
             <table className="w-full text-left text-xs">
               <thead className="bg-zinc-900/60 border-b border-zinc-900 text-zinc-400 font-mono text-[10px] uppercase">
                 <tr>
-                  <th className="px-5 py-3">Deliverable</th>
+                  <th className="px-5 py-3">Asset File</th>
                   <th className="px-5 py-3">Client</th>
-                  <th className="px-5 py-3">Amount</th>
-                  <th className="px-5 py-3">Views</th>
+                  <th className="px-5 py-3">Settlement</th>
+                  <th className="px-5 py-3">Telemetry</th>
                   <th className="px-5 py-3">Status</th>
                   <th className="px-5 py-3 text-right">Actions</th>
                 </tr>
@@ -184,12 +243,15 @@ export default function Dashboard() {
               <tbody className="divide-y divide-zinc-900">
                 {deliveries.map(item => (
                   <tr key={item.id} className="hover:bg-zinc-900/40">
-                    <td className="px-5 py-4 font-bold">{item.title}</td>
+                    <td className="px-5 py-4">
+                      <div className="font-bold text-zinc-100">{item.title}</div>
+                      <div className="text-[10px] font-mono text-zinc-500 mt-0.5">{item.fileName || 'Master Asset'} • {item.fileSize || ''}</div>
+                    </td>
                     <td className="px-5 py-4 text-zinc-400">{item.clientName}</td>
-                    <td className="px-5 py-4 font-bold">₹{item.grossAmount?.toLocaleString('en-IN')}</td>
+                    <td className="px-5 py-4 font-bold text-white">₹{item.grossAmount?.toLocaleString('en-IN')}</td>
                     <td className="px-5 py-4 text-zinc-400 flex items-center gap-1 pt-5"><Eye className="w-3 h-3" /> {item.viewCount || 0}</td>
                     <td className="px-5 py-4">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-mono ${item.status === 'Paid' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'}`}>
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-mono ${item.status === 'Paid' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'}`}>
                         {item.status}
                       </span>
                     </td>
@@ -214,19 +276,24 @@ export default function Dashboard() {
 
       {showModal && (
         <div className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-4">
-          <div className="bg-zinc-950 border border-zinc-800 rounded-2xl max-w-md w-full p-6 space-y-4">
+          <div className="bg-zinc-950 border border-zinc-800 rounded-3xl max-w-md w-full p-6 space-y-4">
             <div className="flex justify-between items-center border-b border-zinc-800 pb-3">
-              <h3 className="text-sm font-bold text-white">Create Payment-Locked Vault</h3>
+              <div>
+                <h3 className="text-sm font-bold text-white">Direct File Upload & Lock</h3>
+                <span className="text-[10px] text-zinc-500">Pick any image/video directly from device</span>
+              </div>
               <button onClick={() => setShowModal(false)} className="text-zinc-500 text-xs">✕</button>
             </div>
+
             <form onSubmit={handleCreateDelivery} className="space-y-3">
               <div>
-                <label className="text-[10px] uppercase font-mono text-zinc-400">Title *</label>
-                <input type="text" required placeholder="Project Name" value={title} onChange={e => setTitle(e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs" />
+                <label className="text-[10px] uppercase font-mono text-zinc-400">Deliverable Title *</label>
+                <input type="text" required placeholder="e.g. Master Ad Edit 4K" value={title} onChange={e => setTitle(e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs" />
               </div>
+
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-[10px] uppercase font-mono text-zinc-400">Client</label>
+                  <label className="text-[10px] uppercase font-mono text-zinc-400">Client Name</label>
                   <input type="text" placeholder="Client Name" value={clientName} onChange={e => setClientName(e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs" />
                 </div>
                 <div>
@@ -234,18 +301,43 @@ export default function Dashboard() {
                   <input type="number" required placeholder="5000" value={amount} onChange={e => setAmount(e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs" />
                 </div>
               </div>
+
               <div>
-                <label className="text-[10px] uppercase font-mono text-zinc-400">Secret File / Drive Link *</label>
-                <input type="url" required placeholder="https://drive.google.com/..." value={fileUrl} onChange={e => setFileUrl(e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs font-mono" />
+                <label className="text-[10px] uppercase font-mono text-zinc-400 block mb-1">Pick Master File From Phone *</label>
+                <label className="border-2 border-dashed border-zinc-800 hover:border-emerald-500/50 rounded-2xl p-5 flex flex-col items-center justify-center cursor-pointer bg-zinc-900/30 transition">
+                  <UploadCloud className="w-7 h-7 text-emerald-400 mb-1.5" />
+                  <span className="text-xs font-bold text-zinc-200">
+                    {selectedFile ? selectedFile.name : "Tap to choose from Gallery / Files"}
+                  </span>
+                  <span className="text-[10px] text-zinc-500 mt-0.5">
+                    {selectedFile ? `${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB Selected` : "Supports MP4, MOV, PNG, JPG, ZIP"}
+                  </span>
+                  <input 
+                    type="file" 
+                    required 
+                    onChange={handleFileSelect} 
+                    className="hidden" 
+                    accept="image/*,video/*,.zip"
+                  />
+                </label>
               </div>
-              <div>
-                <label className="text-[10px] uppercase font-mono text-zinc-400">Preview Image URL (Optional)</label>
-                <input type="url" placeholder="https://..." value={previewUrl} onChange={e => setPreviewUrl(e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs" />
-              </div>
+
+              {uploading && (
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-[11px] font-mono text-zinc-400">
+                    <span>Uploading deliverable...</span>
+                    <span>{uploadProgress}%</span>
+                  </div>
+                  <div className="w-full h-1.5 bg-zinc-900 rounded-full overflow-hidden">
+                    <div className="h-full bg-emerald-500 transition-all duration-200" style={{ width: `${uploadProgress}%` }} />
+                  </div>
+                </div>
+              )}
+
               <div className="flex justify-end gap-2 pt-2 border-t border-zinc-900">
                 <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 text-xs text-zinc-400">Cancel</button>
-                <button type="submit" disabled={creating} className="px-5 py-2 bg-emerald-500 text-black font-bold text-xs rounded-xl">
-                  {creating ? 'Locking...' : 'Deploy Vault'}
+                <button type="submit" disabled={creating || uploading} className="px-5 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs rounded-xl disabled:opacity-50">
+                  {creating ? 'Uploading & Encrypting...' : 'Upload & Lock'}
                 </button>
               </div>
             </form>
