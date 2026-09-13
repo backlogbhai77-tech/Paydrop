@@ -12,6 +12,7 @@ import Link from 'next/link'
 
 const CLOUDINARY_CLOUD_NAME = "nrfujht8"
 const CLOUDINARY_UPLOAD_PRESET = "releasedrop_vault"
+const CLOUDINARY_API_KEY = "458849254429864"
 
 export default function Dashboard() {
   const [user, setUser] = useState(null)
@@ -72,6 +73,7 @@ export default function Dashboard() {
     const formData = new FormData()
     formData.append('file', file)
     formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET)
+    formData.append('api_key', CLOUDINARY_API_KEY)
 
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest()
