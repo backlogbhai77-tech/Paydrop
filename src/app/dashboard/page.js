@@ -8,7 +8,8 @@ import {
   Zap, Bell, Menu, X, Plus, Home, FolderKanban, CreditCard, 
   BarChart3, Users, Settings, UploadCloud, CheckCircle2, 
   Lock, ArrowRight, ArrowLeft, Shield, Eye, Copy, Check, 
-  Trash2, ExternalLink, Sparkles, FileText, ChevronRight
+  Trash2, ExternalLink, Sparkles, FileText, ChevronRight,
+  TrendingUp, AlertCircle, RefreshCw, FileCheck
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -26,7 +27,7 @@ export default function Dashboard() {
   const [copiedId, setCopiedId] = useState(null)
 
   // Multi-step Wizard State
-  const [wizardStep, setWizardStep] = useState(1) // 1: Files, 2: Details, 3: Protection, 4: Review
+  const [wizardStep, setWizardStep] = useState(1)
   const [creating, setCreating] = useState(false)
   
   // Form State
@@ -35,10 +36,11 @@ export default function Dashboard() {
   const [clientEmail, setClientEmail] = useState('')
   const [notes, setNotes] = useState('')
   const [amount, setAmount] = useState('')
-  const [watermarkText, setWatermarkText] = useState('CONFIDENTIAL • UNPAID PREVIEW')
+  const [watermarkText, setWatermarkText] = useState('UNPAID PREVIEW • CONFIDENTIAL')
   const [selectedFile, setSelectedFile] = useState(null)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState(null)
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (currentUser) => {
@@ -71,24 +73,34 @@ export default function Dashboard() {
 
   const handleFileSelect = (e) => {
     const file = e.target.files[0]
-    if (file) setSelectedFile(file)
+    if (file) {
+      setSelectedFile(file)
+      setUploadError(null)
+    }
   }
 
+  // Bulletproof Cloudinary Upload with direct resource typing
   const uploadFileToCloudinary = (file) => {
     setUploading(true)
-    setUploadProgress(10)
+    setUploadProgress(5)
+    setUploadError(null)
 
     const formData = new FormData()
     formData.append('file', file)
     formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET)
 
+    const isVideo = file.type.startsWith('video') || file.name.match(/\.(mp4|mov|webm|mkv)$/i)
+    const endpoint = isVideo 
+      ? `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/video/upload`
+      : `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`
+
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest()
-      xhr.open('POST', `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`)
+      xhr.open('POST', endpoint)
 
       xhr.upload.onprogress = (event) => {
         if (event.lengthComputable) {
-          const percent = Math.round((event.loaded / event.total) * 100)
+          const percent = Math.round((event.loaded / event.total) * 98)
           setUploadProgress(percent)
         }
       }
@@ -97,18 +109,23 @@ export default function Dashboard() {
         setUploading(false)
         try {
           const res = JSON.parse(xhr.responseText)
-          if (xhr.status === 200 && res.secure_url) {
-            resolve(res.secure_url)
+          if (xhr.status === 200 && (res.secure_url || res.url)) {
+            setUploadProgress(100)
+            resolve(res.secure_url || res.url)
           } else {
-            reject(new Error(res?.error?.message || "Upload failed"))
+            const errDetail = res?.error?.message || `Server responded with status ${xhr.status}`
+            setUploadError(errDetail)
+            reject(new Error(errDetail))
           }
         } catch (e) {
-          reject(new Error("File upload error"))
+          setUploadError("Invalid response from storage engine")
+          reject(new Error("Parse error"))
         }
       }
 
       xhr.onerror = () => {
         setUploading(false)
+        setUploadError("Network connection interrupted. Check your internet.")
         reject(new Error("Network failed"))
       }
 
@@ -138,12 +155,13 @@ export default function Dashboard() {
         grossAmount: numAmount,
         platformFee,
         creatorPayout,
-        watermarkText,
+        watermarkText: watermarkText || 'UNPAID PREVIEW',
         status: 'Awaiting Payment',
         previewUrl: secureUrl,
         fileUrl: secureUrl,
         fileName: selectedFile.name,
         fileSize: (selectedFile.size / (1024 * 1024)).toFixed(2) + " MB",
+        fileType: selectedFile.type || 'video/mp4',
         expiresAt: expiresAt.toISOString(),
         viewCount: 0,
         createdAt: serverTimestamp()
@@ -160,14 +178,14 @@ export default function Dashboard() {
       setCurrentView('overview')
       fetchDeliveries(user.uid)
     } catch (err) {
-      alert("Error: " + err.message)
+      alert("Deployment halted: " + err.message)
     } finally {
       setCreating(false)
     }
   }
 
   const handleDelete = async (id) => {
-    if (!confirm("Revoke this delivery portal? Client link will be permanently terminated.")) return
+    if (!confirm("Revoke this delivery link? Client access will be permanently revoked.")) return
     await deleteDoc(doc(db, 'deliveries', id))
     setDeliveries(prev => prev.filter(d => d.id !== id))
   }
@@ -191,25 +209,25 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F8F9FB] flex flex-col items-center justify-center text-xs gap-3">
-        <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-        <span className="font-semibold text-slate-500">Loading ReleaseDrop Studio...</span>
+      <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center text-xs gap-3">
+        <div className="w-8 h-8 border-[2.5px] border-blue-600 border-t-transparent rounded-full animate-spin" />
+        <span className="font-semibold text-slate-500 tracking-wide">Initializing Studio Session...</span>
       </div>
     )
   }
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-[#F8F9FB] flex flex-col items-center justify-center p-6 text-center antialiased">
+      <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center p-6 text-center antialiased">
         <div className="h-12 w-12 rounded-2xl bg-blue-600 flex items-center justify-center text-white font-bold text-xl mb-4 shadow-lg shadow-blue-500/20">
           <Zap className="w-6 h-6 fill-white" />
         </div>
         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 border border-blue-100 text-blue-600 text-[11px] font-semibold mb-3">
-          <Shield className="w-3.5 h-3.5" /> ReleaseDrop Enterprise
+          <Shield className="w-3.5 h-3.5" /> ReleaseDrop Enterprise Core
         </div>
-        <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Sign in to your account</h1>
+        <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Welcome back</h1>
         <p className="text-slate-500 text-xs sm:text-sm mt-2 max-w-sm">
-          Stop sending final files before you get paid. Unlock deliverables with automated escrow.
+          Stop sending final files before you get paid. Automated escrow file delivery for pro creators.
         </p>
         <button 
           onClick={handleGoogleLogin} 
@@ -224,16 +242,16 @@ export default function Dashboard() {
   const userInitial = user.displayName ? user.displayName.slice(0, 2).toUpperCase() : user.email?.slice(0, 2).toUpperCase()
 
   return (
-    <div className="min-h-screen bg-[#F8F9FB] text-slate-900 font-sans flex antialiased">
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans flex antialiased">
       
       {/* 1. Deep Navy Desktop Sidebar */}
-      <aside className="hidden lg:flex w-64 bg-[#0B132B] text-slate-300 flex-col justify-between p-5 sticky top-0 h-screen z-30">
+      <aside className="hidden lg:flex w-64 bg-[#091124] text-slate-300 flex-col justify-between p-5 sticky top-0 h-screen z-30 border-r border-slate-800/60">
         <div className="space-y-6">
           <div className="flex items-center gap-2.5 px-2">
             <div className="h-8 w-8 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-600/30">
               <Zap className="w-4 h-4 fill-white" />
             </div>
-            <span className="font-extrabold text-base tracking-tight text-white">ReleaseDrop</span>
+            <span className="font-black text-base tracking-tight text-white">ReleaseDrop</span>
           </div>
 
           <nav className="space-y-1">
@@ -269,14 +287,14 @@ export default function Dashboard() {
         </div>
 
         {/* User Card */}
-        <div className="border-t border-slate-800 pt-4 flex items-center justify-between px-2">
+        <div className="border-t border-slate-800/80 pt-4 flex items-center justify-between px-2">
           <div className="flex items-center gap-2.5">
             <div className="h-8 w-8 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center">
               {userInitial}
             </div>
             <div className="truncate max-w-[120px]">
               <div className="text-xs font-bold text-white truncate">{user.displayName || user.email}</div>
-              <div className="text-[10px] text-slate-400">Free Tier</div>
+              <div className="text-[10px] text-slate-400 font-mono">Pro Creator</div>
             </div>
           </div>
           <button onClick={() => signOut(auth)} className="p-1.5 text-slate-400 hover:text-red-400 transition" title="Log Out">
@@ -285,10 +303,10 @@ export default function Dashboard() {
         </div>
       </aside>
 
-      {/* 2. Main Content Canvas */}
+      {/* 2. Main Canvas */}
       <div className="flex-1 flex flex-col min-w-0">
         
-        {/* Top Minimalist Header */}
+        {/* Top Header */}
         <header className="h-16 bg-white border-b border-slate-200/80 px-4 sm:px-8 flex items-center justify-between sticky top-0 z-20">
           <div className="flex items-center gap-3">
             <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-lg">
@@ -315,14 +333,13 @@ export default function Dashboard() {
           </div>
         </header>
 
-        {/* View Mode Router */}
+        {/* View Router */}
         <main className="flex-1 p-4 sm:p-8 max-w-6xl w-full mx-auto space-y-6">
           
-          {/* VIEW A: CREATE NEW DELIVERY (4-STEP FULL WIZARD) */}
+          {/* VIEW A: CREATE NEW DELIVERY WIZARD */}
           {currentView === 'create' && (
             <div className="max-w-3xl mx-auto space-y-6">
               
-              {/* Back breadcrumb */}
               <button 
                 onClick={() => setCurrentView('overview')} 
                 className="text-xs font-semibold text-slate-500 hover:text-slate-800 flex items-center gap-1"
@@ -330,11 +347,9 @@ export default function Dashboard() {
                 <ArrowLeft className="w-3.5 h-3.5" /> Back to Overview
               </button>
 
-              <div className="flex items-center justify-between">
-                <div>
-                  <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Create a new delivery</h1>
-                  <p className="text-xs text-slate-500 mt-0.5">Protect and lock files behind escrow in 4 simple steps.</p>
-                </div>
+              <div>
+                <h1 className="text-xl font-black text-slate-900 tracking-tight">Create a new delivery</h1>
+                <p className="text-xs text-slate-500 mt-0.5">Encrypt and lock deliverables behind verified escrow.</p>
               </div>
 
               {/* Stepper Header */}
@@ -367,9 +382,9 @@ export default function Dashboard() {
                     <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mb-3">
                       <UploadCloud className="w-6 h-6" />
                     </div>
-                    <span className="text-sm font-bold text-slate-900">Drop your files here</span>
+                    <span className="text-sm font-bold text-slate-900">Drop your master files here</span>
                     <span className="text-[11px] text-slate-400 mt-1 max-w-xs">
-                      MP4, MOV, PNG, JPG, PDF, ZIP, PSD, AI, FIG — up to 500MB each
+                      MP4, MOV, PNG, JPG, PDF, ZIP — direct upload to secure media vault
                     </span>
                     <label className="mt-4 px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-xl cursor-pointer shadow-sm">
                       Browse Files
@@ -386,6 +401,13 @@ export default function Dashboard() {
                       <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
                         <div className="w-full h-full bg-blue-600" />
                       </div>
+                    </div>
+                  )}
+
+                  {uploadError && (
+                    <div className="p-3 bg-red-50 border border-red-200 text-red-600 text-xs rounded-xl flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      <span>{uploadError}</span>
                     </div>
                   )}
 
@@ -442,10 +464,10 @@ export default function Dashboard() {
                   </div>
 
                   <div>
-                    <label className="text-xs font-bold text-slate-800 block mb-1">Personal Note to Client</label>
+                    <label className="text-xs font-bold text-slate-800 block mb-1">Delivery Notes / Handover Instructions</label>
                     <textarea 
                       rows={3}
-                      placeholder="Thanks for your business! Here is the finalized cut ready for broadcast."
+                      placeholder="Thanks for working with us! Master files will decrypt automatically after escrow authorization."
                       value={notes} 
                       onChange={e => setNotes(e.target.value)} 
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-900 focus:outline-none focus:border-blue-600 focus:bg-white" 
@@ -483,31 +505,28 @@ export default function Dashboard() {
                   {numAmountPreview > 0 && (
                     <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2 text-xs">
                       <div className="flex justify-between text-slate-600">
-                        <span>Client Pays:</span>
+                        <span>Client Authorization:</span>
                         <span className="font-bold text-slate-900">₹{numAmountPreview.toLocaleString('en-IN')}</span>
                       </div>
                       <div className="flex justify-between text-slate-400">
-                        <span>ReleaseDrop Platform Escrow Fee (5%):</span>
+                        <span>Platform Escrow Fee (5%):</span>
                         <span>-₹{previewFee.toLocaleString('en-IN')}</span>
                       </div>
                       <div className="flex justify-between text-blue-600 font-bold pt-2 border-t border-slate-200">
-                        <span>Your Bank Disbursement:</span>
+                        <span>Net Bank Payout:</span>
                         <span className="text-base">₹{previewPayout.toLocaleString('en-IN')}</span>
                       </div>
                     </div>
                   )}
 
                   <div>
-                    <label className="text-xs font-bold text-slate-800 block mb-1">Anti-Theft Forensic Watermark</label>
+                    <label className="text-xs font-bold text-slate-800 block mb-1">Anti-Theft Inspection Watermark</label>
                     <input 
                       type="text" 
                       value={watermarkText} 
                       onChange={e => setWatermarkText(e.target.value)} 
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-600" 
                     />
-                    <span className="text-[11px] text-slate-400 mt-1 block">
-                      This watermark will be overlaid dynamically on video/images until payment is authorized.
-                    </span>
                   </div>
 
                   <div className="flex justify-between items-center pt-2">
@@ -529,7 +548,7 @@ export default function Dashboard() {
                   <div className="border border-slate-200 rounded-2xl p-5 space-y-4 bg-slate-50/50">
                     <div className="flex items-center justify-between border-b border-slate-200 pb-3">
                       <div>
-                        <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">PROJECT</span>
+                        <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">DELIVERABLE</span>
                         <h3 className="text-base font-extrabold text-slate-900">{title}</h3>
                       </div>
                       <span className="px-3 py-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-[10px] font-bold">
@@ -547,18 +566,18 @@ export default function Dashboard() {
                         <span className="font-bold text-slate-900">₹{numAmountPreview.toLocaleString('en-IN')}</span>
                       </div>
                       <div>
-                        <span className="text-slate-400 block">File Name:</span>
+                        <span className="text-slate-400 block">File:</span>
                         <span className="font-bold text-slate-800 truncate">{selectedFile?.name}</span>
                       </div>
                       <div>
-                        <span className="text-slate-400 block">File Size:</span>
+                        <span className="text-slate-400 block">Payload Size:</span>
                         <span className="font-bold text-slate-800">{(selectedFile?.size / (1024*1024)).toFixed(2)} MB</span>
                       </div>
                     </div>
                   </div>
 
                   {uploading && (
-                    <div className="space-y-1">
+                    <div className="space-y-1.5">
                       <div className="flex justify-between text-xs font-semibold text-slate-600">
                         <span>Uploading deliverable to vault...</span>
                         <span>{uploadProgress}%</span>
@@ -585,11 +604,10 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* VIEW B: OVERVIEW DASHBOARD */}
+          {/* VIEW B: OVERVIEW DASHBOARD (EMERGENT 1:1 REVENUE GRAPH + FUNNEL) */}
           {currentView === 'overview' && (
             <div className="space-y-6">
               
-              {/* Header Title */}
               <div className="flex items-center justify-between">
                 <div>
                   <h1 className="text-xl font-black text-slate-900 tracking-tight">Overview</h1>
@@ -606,51 +624,78 @@ export default function Dashboard() {
               {/* 4 Metric Cards Matrix */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">REVENUE</span>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block font-mono">REVENUE</span>
                   <div className="text-2xl font-black text-slate-900 mt-1">₹{totalRevenue.toLocaleString('en-IN')}</div>
-                  <span className="text-[10px] text-slate-400 mt-1 block">0 verified payments</span>
+                  <span className="text-[10px] text-slate-400 mt-1 block">{paidDeliveries.length} verified payments</span>
                 </div>
 
                 <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">PENDING</span>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block font-mono">PENDING</span>
                   <div className="text-2xl font-black text-slate-900 mt-1">₹{pendingAmount.toLocaleString('en-IN')}</div>
                   <span className="text-[10px] text-slate-400 mt-1 block">awaiting client payment</span>
                 </div>
 
                 <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">PAID DELIVERIES</span>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block font-mono">PAID DELIVERIES</span>
                   <div className="text-2xl font-black text-slate-900 mt-1">{paidDeliveries.length}</div>
                   <span className="text-[10px] text-slate-400 mt-1 block">0 total</span>
                 </div>
 
                 <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">ACTIVE DELIVERIES</span>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block font-mono">ACTIVE DELIVERIES</span>
                   <div className="text-2xl font-black text-slate-900 mt-1">{pendingDeliveries.length}</div>
                   <span className="text-[10px] text-slate-400 mt-1 block">{deliveries.length} active links</span>
                 </div>
               </div>
 
-              {/* Timeline Revenue Graph Section */}
+              {/* High-Contrast Curved Revenue Graph */}
               <div className="p-6 rounded-2xl bg-white border border-slate-200/80 shadow-sm space-y-4">
-                <div>
-                  <h3 className="text-xs font-bold text-slate-900">Revenue — last 14 days</h3>
-                  <p className="text-[11px] text-slate-400">Verified payments only. Demo transactions included.</p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-xs font-bold text-slate-900">Revenue — last 14 days</h3>
+                    <p className="text-[11px] text-slate-400">Verified payments only. Demo transactions included.</p>
+                  </div>
+                  <span className="text-[11px] font-bold text-slate-500 font-mono">₹{totalRevenue} TOTAL</span>
                 </div>
 
-                {/* SVG Visual Graph */}
-                <div className="h-36 w-full pt-4 relative">
-                  <svg className="w-full h-full overflow-visible" viewBox="0 0 500 100" preserveAspectRatio="none">
-                    <line x1="0" y1="20" x2="500" y2="20" stroke="#F1F5F9" strokeWidth="1" />
-                    <line x1="0" y1="50" x2="500" y2="50" stroke="#F1F5F9" strokeWidth="1" />
-                    <line x1="0" y1="80" x2="500" y2="80" stroke="#F1F5F9" strokeWidth="1" />
-                    <polyline
+                {/* Styled Professional SVG Chart with Gradients */}
+                <div className="h-44 w-full pt-4 relative">
+                  <svg className="w-full h-full overflow-visible" viewBox="0 0 600 120" preserveAspectRatio="none">
+                    <defs>
+                      <linearGradient id="revenueGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stopColor="#2563EB" stopOpacity="0.15" />
+                        <stop offset="100%" stopColor="#2563EB" stopOpacity="0.0" />
+                      </linearGradient>
+                    </defs>
+
+                    {/* Grid lines */}
+                    <line x1="0" y1="20" x2="600" y2="20" stroke="#F1F5F9" strokeWidth="1" strokeDasharray="3 3" />
+                    <line x1="0" y1="60" x2="600" y2="60" stroke="#F1F5F9" strokeWidth="1" strokeDasharray="3 3" />
+                    <line x1="0" y1="100" x2="600" y2="100" stroke="#F1F5F9" strokeWidth="1" strokeDasharray="3 3" />
+
+                    {/* Area fill */}
+                    <path
+                      fill="url(#revenueGrad)"
+                      d={paidDeliveries.length > 0 
+                        ? "M 0 115 Q 150 115, 300 70 T 600 20 L 600 115 L 0 115 Z"
+                        : "M 0 115 L 600 115 L 600 115 L 0 115 Z"
+                      }
+                    />
+
+                    {/* Main stroke line */}
+                    <path
                       fill="none"
                       stroke="#2563EB"
                       strokeWidth="2.5"
-                      points="0,95 40,95 80,95 120,95 160,95 200,95 240,95 280,95 320,95 360,95 400,95 440,95 480,95 500,95"
+                      strokeLinecap="round"
+                      d={paidDeliveries.length > 0
+                        ? "M 0 115 Q 150 115, 300 70 T 600 20"
+                        : "M 0 115 L 600 115"
+                      }
                     />
                   </svg>
-                  <div className="flex justify-between text-[9px] font-mono text-slate-400 pt-2 border-t border-slate-100">
+
+                  <div className="flex justify-between text-[9px] font-mono text-slate-400 pt-3 border-t border-slate-100">
                     <span>08-31</span>
                     <span>09-02</span>
                     <span>09-04</span>
@@ -663,44 +708,56 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Telemetry Funnel Tracker */}
-              <div className="p-6 rounded-2xl bg-white border border-slate-200/80 shadow-sm space-y-3">
+              {/* Delivery Funnel Tracker (Exact Emergent Metrics) */}
+              <div className="p-6 rounded-2xl bg-white border border-slate-200/80 shadow-sm space-y-4">
                 <div>
                   <h3 className="text-xs font-bold text-slate-900">Delivery funnel</h3>
                   <p className="text-[11px] text-slate-400">All-time, privacy-conscious (hashed visitors).</p>
                 </div>
 
-                <div className="space-y-2 pt-2 text-xs">
-                  <div className="flex justify-between items-center text-slate-600">
-                    <span>Delivery views</span>
-                    <span className="font-bold text-slate-900">{totalViews}</span>
-                  </div>
-                  <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-blue-600" style={{ width: totalViews > 0 ? '100%' : '0%' }} />
-                  </div>
-
-                  <div className="flex justify-between items-center text-slate-600 pt-1">
-                    <span>Preview views</span>
-                    <span className="font-bold text-slate-900">{totalViews}</span>
-                  </div>
-                  <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-blue-500" style={{ width: totalViews > 0 ? '80%' : '0%' }} />
+                <div className="space-y-3 pt-1 text-xs">
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-center text-slate-600">
+                      <span>Delivery views</span>
+                      <span className="font-bold text-slate-900 font-mono">{totalViews}</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-blue-600 transition-all duration-500" style={{ width: totalViews > 0 ? '100%' : '0%' }} />
+                    </div>
                   </div>
 
-                  <div className="flex justify-between items-center text-slate-600 pt-1">
-                    <span>Payment attempts</span>
-                    <span className="font-bold text-slate-900">{paidDeliveries.length}</span>
-                  </div>
-                  <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-blue-400" style={{ width: paidDeliveries.length > 0 ? '50%' : '0%' }} />
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-center text-slate-600">
+                      <span>Preview views</span>
+                      <span className="font-bold text-slate-900 font-mono">{totalViews}</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-blue-500 transition-all duration-500" style={{ width: totalViews > 0 ? '85%' : '0%' }} />
+                    </div>
                   </div>
 
-                  <div className="flex justify-between items-center text-slate-600 pt-1">
-                    <span>Successful payments</span>
-                    <span className="font-bold text-slate-900">{paidDeliveries.length}</span>
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-center text-slate-600">
+                      <span>Payment attempts</span>
+                      <span className="font-bold text-slate-900 font-mono">{paidDeliveries.length}</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-blue-400 transition-all duration-500" style={{ width: paidDeliveries.length > 0 ? '60%' : '0%' }} />
+                    </div>
                   </div>
-                  <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-emerald-500" style={{ width: paidDeliveries.length > 0 ? '50%' : '0%' }} />
+
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-center text-slate-600">
+                      <span>Successful payments</span>
+                      <span className="font-bold text-slate-900 font-mono">{paidDeliveries.length}</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-emerald-500 transition-all duration-500" style={{ width: paidDeliveries.length > 0 ? '60%' : '0%' }} />
+                    </div>
+                  </div>
+
+                  <div className="pt-2 text-[10px] font-mono text-slate-400">
+                    Conversion: <span className="font-bold text-slate-800">{totalViews > 0 ? Math.round((paidDeliveries.length / totalViews) * 100) : 0}%</span>
                   </div>
                 </div>
               </div>
@@ -716,7 +773,7 @@ export default function Dashboard() {
 
                 {deliveries.length === 0 ? (
                   <div className="py-12 text-center space-y-2">
-                    <div className="text-2xl">📦</div>
+                    <div className="text-3xl">📦</div>
                     <h4 className="text-xs font-bold text-slate-800">No deliveries yet</h4>
                     <p className="text-[11px] text-slate-400">Your protected deliveries will appear here.</p>
                     <button 
@@ -735,7 +792,7 @@ export default function Dashboard() {
                           <span className="text-[10px] text-slate-400">{item.clientName} • {item.fileSize || ''}</span>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className="font-bold text-slate-900">₹{item.grossAmount?.toLocaleString('en-IN')}</span>
+                          <span className="font-bold text-slate-900 font-mono">₹{item.grossAmount?.toLocaleString('en-IN')}</span>
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${item.status === 'Paid' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
                             {item.status}
                           </span>
@@ -777,7 +834,7 @@ export default function Dashboard() {
                           {item.clientName}
                         </span>
                         <h3 className="text-sm font-extrabold text-slate-900">{item.title}</h3>
-                        <p className="text-[11px] text-slate-400 mt-0.5">{item.fileName || 'Master File'} • {item.fileSize}</p>
+                        <p className="text-[11px] text-slate-400 mt-0.5 font-mono">{item.fileName || 'Master File'} • {item.fileSize}</p>
                       </div>
                       <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
                         item.status === 'Paid' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
@@ -788,8 +845,8 @@ export default function Dashboard() {
 
                     <div className="flex items-center justify-between pt-3 border-t border-slate-100 text-xs">
                       <div>
-                        <span className="text-[10px] text-slate-400 font-bold uppercase block">Payout</span>
-                        <span className="font-extrabold text-slate-900">₹{item.grossAmount?.toLocaleString('en-IN')}</span>
+                        <span className="text-[10px] text-slate-400 font-bold uppercase block font-mono">Payout</span>
+                        <span className="font-extrabold text-slate-900 text-sm font-mono">₹{item.grossAmount?.toLocaleString('en-IN')}</span>
                       </div>
 
                       <div className="flex items-center gap-2">
@@ -808,7 +865,7 @@ export default function Dashboard() {
                         </Link>
                         <button 
                           onClick={() => handleDelete(item.id)} 
-                          className="p-2 bg-slate-100 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg transition"
+                          className="p-2 bg-slate-100 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-xl transition"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -826,7 +883,7 @@ export default function Dashboard() {
       {/* 3. Mobile Slide-out Drawer */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex lg:hidden">
-          <div className="w-72 bg-[#0B132B] text-slate-300 h-full p-5 flex flex-col justify-between shadow-2xl">
+          <div className="w-72 bg-[#091124] text-slate-300 h-full p-5 flex flex-col justify-between shadow-2xl">
             <div className="space-y-6">
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2.5">
