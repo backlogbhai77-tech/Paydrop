@@ -5,9 +5,9 @@ import { auth, db, googleProvider } from '../../lib/firebase'
 import { signInWithPopup, signInWithRedirect, signOut, onAuthStateChanged } from 'firebase/auth'
 import { collection, addDoc, query, where, getDocs, deleteDoc, doc, serverTimestamp } from 'firebase/firestore'
 import { 
-  ShieldCheck, Lock, Plus, LogOut, Eye, Trash2, ArrowUpRight, 
-  UploadCloud, Coins, Layers, Sparkles, CheckCircle2, Clock, 
-  Film, FileCheck, Copy
+  FolderKanban, ShieldCheck, Plus, LogOut, Eye, Trash2, 
+  ExternalLink, UploadCloud, CreditCard, LayoutDashboard,
+  Settings, Menu, X, ArrowUpRight, Copy, Check, Lock, Sparkles
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -19,13 +19,14 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [deliveries, setDeliveries] = useState([])
   const [showModal, setShowModal] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [creating, setCreating] = useState(false)
   const [copiedId, setCopiedId] = useState(null)
 
+  // Form Fields
   const [title, setTitle] = useState('')
   const [clientName, setClientName] = useState('')
   const [amount, setAmount] = useState('')
-  
   const [selectedFile, setSelectedFile] = useState(null)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [uploading, setUploading] = useState(false)
@@ -61,9 +62,7 @@ export default function Dashboard() {
 
   const handleFileSelect = (e) => {
     const file = e.target.files[0]
-    if (file) {
-      setSelectedFile(file)
-    }
+    if (file) setSelectedFile(file)
   }
 
   const uploadFileToCloudinary = (file) => {
@@ -92,17 +91,16 @@ export default function Dashboard() {
           if (xhr.status === 200 && res.secure_url) {
             resolve(res.secure_url)
           } else {
-            const serverMsg = res?.error?.message || xhr.responseText
-            reject(new Error("Cloudinary error: " + serverMsg))
+            reject(new Error(res?.error?.message || "Upload error"))
           }
         } catch (e) {
-          reject(new Error("Upload failed with status: " + xhr.status))
+          reject(new Error("Upload failed"))
         }
       }
 
       xhr.onerror = () => {
         setUploading(false)
-        reject(new Error("Network error during file upload."))
+        reject(new Error("Network failed"))
       }
 
       xhr.send(formData)
@@ -111,15 +109,11 @@ export default function Dashboard() {
 
   const handleCreateDelivery = async (e) => {
     e.preventDefault()
-    if (!title || !amount || !selectedFile || !user) {
-      alert("Please enter title, amount, and pick a deliverable file from device.")
-      return
-    }
+    if (!title || !amount || !selectedFile || !user) return
 
     setCreating(true)
     try {
-      const secureFileUrl = await uploadFileToCloudinary(selectedFile)
-
+      const secureUrl = await uploadFileToCloudinary(selectedFile)
       const numAmount = Number(amount) || 0
       const platformFee = Math.max(Math.round(numAmount * 0.05), 50)
       const creatorPayout = Math.max(numAmount - platformFee, 0)
@@ -130,13 +124,13 @@ export default function Dashboard() {
         userId: user.uid,
         userEmail: user.email,
         title,
-        clientName: clientName || 'Private Client',
+        clientName: clientName || 'Client',
         grossAmount: numAmount,
         platformFee,
         creatorPayout,
         status: 'Awaiting Payment',
-        previewUrl: secureFileUrl,
-        fileUrl: secureFileUrl,
+        previewUrl: secureUrl,
+        fileUrl: secureUrl,
         fileName: selectedFile.name,
         fileSize: (selectedFile.size / (1024 * 1024)).toFixed(2) + " MB",
         expiresAt: expiresAt.toISOString(),
@@ -149,17 +143,16 @@ export default function Dashboard() {
       setClientName('')
       setAmount('')
       setSelectedFile(null)
-      setUploadProgress(0)
       fetchDeliveries(user.uid)
     } catch (err) {
-      alert(err.message)
+      alert("Error: " + err.message)
     } finally {
       setCreating(false)
     }
   }
 
   const handleDelete = async (id) => {
-    if (!confirm("Revoke this delivery portal? The client link will immediately stop working.")) return
+    if (!confirm("Revoke this portal link?")) return
     await deleteDoc(doc(db, 'deliveries', id))
     setDeliveries(prev => prev.filter(d => d.id !== id))
   }
@@ -167,41 +160,30 @@ export default function Dashboard() {
   const copyLink = (id) => {
     navigator.clipboard.writeText(`${window.location.origin}/d/${id}`)
     setCopiedId(id)
-    setTimeout(() => setCopiedId(null), 2500)
+    setTimeout(() => setCopiedId(null), 2000)
   }
 
   const totalSettled = deliveries.filter(d => d.status === 'Paid').reduce((acc, c) => acc + (c.creatorPayout || c.grossAmount || 0), 0)
   const pendingEscrow = deliveries.filter(d => d.status === 'Awaiting Payment').reduce((acc, c) => acc + (c.creatorPayout || c.grossAmount || 0), 0)
-  const numAmountPreview = Number(amount) || 0
-  const previewFee = Math.max(Math.round(numAmountPreview * 0.05), 50)
-  const previewPayout = Math.max(numAmountPreview - previewFee, 0)
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#050608] text-zinc-400 flex items-center justify-center text-xs">
-        <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mr-2" />
-        <span className="font-mono uppercase tracking-widest text-[11px] text-zinc-500">Loading Workspace...</span>
+      <div className="min-h-screen bg-[#090D16] text-slate-400 flex flex-col items-center justify-center text-xs gap-3">
+        <div className="w-7 h-7 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+        <span className="font-mono text-slate-500">Loading ReleaseDrop...</span>
       </div>
     )
   }
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-[#050608] text-zinc-100 flex flex-col items-center justify-center p-6 text-center">
-        <div className="h-14 w-14 rounded-2xl bg-gradient-to-tr from-emerald-600 to-emerald-400 flex items-center justify-center font-black text-black text-2xl mb-5 shadow-2xl shadow-emerald-500/20">
-          R
+      <div className="min-h-screen bg-[#090D16] text-slate-100 flex flex-col items-center justify-center p-6 text-center">
+        <div className="h-12 w-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-indigo-400 flex items-center justify-center text-white font-bold text-xl mb-4 shadow-xl shadow-indigo-500/20">
+          RD
         </div>
-        <span className="text-[10px] font-mono tracking-widest uppercase px-2.5 py-1 bg-zinc-900 border border-zinc-800 text-emerald-400 rounded-full mb-3">
-          Agency & Creator Protocol
-        </span>
-        <h1 className="text-3xl font-black tracking-tight">ReleaseDrop Workspace</h1>
-        <p className="text-zinc-400 text-xs mt-2 max-w-sm leading-relaxed">
-          Lock high-resolution production assets behind automated payment escrows. Eliminate revision theft and ghosting.
-        </p>
-        <button 
-          onClick={handleGoogleLogin} 
-          className="mt-6 px-6 py-3.5 bg-white hover:bg-zinc-100 text-black font-black text-xs rounded-xl transition shadow-xl active:scale-95"
-        >
+        <h1 className="text-2xl font-bold tracking-tight">ReleaseDrop Workspace</h1>
+        <p className="text-slate-400 text-xs mt-1.5 max-w-xs leading-relaxed">Enterprise payment-locked asset delivery portal.</p>
+        <button onClick={handleGoogleLogin} className="mt-6 px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs rounded-xl shadow-lg shadow-indigo-500/20 active:scale-95 transition">
           Sign In with Google
         </button>
       </div>
@@ -209,282 +191,253 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-[#050608] text-zinc-100 font-sans flex flex-col selection:bg-emerald-500 selection:text-black">
-      {/* SaaS App Header */}
-      <header className="border-b border-zinc-800/80 bg-zinc-950/70 backdrop-blur-xl px-6 h-16 flex items-center justify-between sticky top-0 z-30">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2.5">
-            <div className="h-8 w-8 rounded-lg bg-emerald-500 flex items-center justify-center font-black text-black text-sm shadow-md shadow-emerald-500/20">
-              R
+    <div className="min-h-screen bg-[#090D16] text-slate-200 font-sans flex">
+      {/* Desktop Sidebar */}
+      <aside className="hidden lg:flex w-64 bg-[#0D121F] border-r border-slate-800/80 flex-col justify-between p-5">
+        <div className="space-y-6">
+          <div className="flex items-center gap-3 px-2">
+            <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-400 flex items-center justify-center text-white font-black text-sm shadow-md shadow-indigo-500/20">
+              RD
             </div>
-            <div className="flex flex-col">
-              <span className="font-black text-sm tracking-tight leading-none text-white">ReleaseDrop</span>
-              <span className="text-[9px] font-mono text-zinc-500 tracking-wider">CREATOR CORE</span>
+            <div>
+              <div className="font-bold text-sm tracking-tight text-white">ReleaseDrop</div>
+              <div className="text-[10px] font-mono text-slate-500">ESCROW CONSOLE</div>
             </div>
           </div>
+
+          <nav className="space-y-1">
+            <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-indigo-600/10 text-indigo-400 text-xs font-semibold">
+              <LayoutDashboard className="w-4 h-4" /> Portals Overview
+            </button>
+            <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800/40 hover:text-slate-200 text-xs font-medium transition">
+              <FolderKanban className="w-4 h-4" /> Deliverables
+            </button>
+            <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800/40 hover:text-slate-200 text-xs font-medium transition">
+              <CreditCard className="w-4 h-4" /> Payouts & Escrow
+            </button>
+          </nav>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="border-t border-slate-800/80 pt-4 flex items-center justify-between px-2">
+          <div className="truncate max-w-[140px]">
+            <div className="text-xs font-medium text-slate-200 truncate">{user.displayName || user.email}</div>
+            <div className="text-[10px] text-slate-500 font-mono">Pro Escrow</div>
+          </div>
+          <button onClick={() => signOut(auth)} className="p-2 text-slate-400 hover:text-red-400 transition" title="Log Out">
+            <LogOut className="w-4 h-4" />
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Top Navbar */}
+        <header className="h-16 border-b border-slate-800/80 bg-[#0D121F]/80 backdrop-blur-xl px-4 sm:px-8 flex items-center justify-between sticky top-0 z-20">
+          <div className="flex items-center gap-3">
+            <button onClick={() => setMobileMenuOpen(true)} className="lg:hidden p-2 text-slate-400 hover:text-white">
+              <Menu className="w-5 h-5" />
+            </button>
+            <span className="text-sm font-semibold text-white tracking-tight">Active Portals</span>
+          </div>
+
           <button 
             onClick={() => setShowModal(true)} 
-            className="bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-xs px-4 py-2 rounded-xl flex items-center gap-1.5 transition shadow-lg shadow-emerald-500/10 active:scale-95"
+            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-xl shadow-lg shadow-indigo-600/20 active:scale-95 transition flex items-center gap-2"
           >
-            <Plus className="w-4 h-4" /> Lock New Delivery
+            <Plus className="w-4 h-4" /> New Delivery Vault
           </button>
-          <div className="flex items-center gap-2 pl-3 border-l border-zinc-800">
-            <span className="text-xs text-zinc-400 hidden sm:inline">{user.displayName || user.email}</span>
-            <button 
-              onClick={() => signOut(auth)} 
-              className="p-2 text-zinc-500 hover:text-red-400 rounded-lg hover:bg-zinc-900 transition"
-              title="Sign Out"
-            >
-              <LogOut className="w-4 h-4" />
+        </header>
+
+        {/* Workspace Canvas */}
+        <main className="flex-1 p-4 sm:p-8 space-y-6 max-w-7xl w-full mx-auto">
+          {/* Top Metric Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="p-5 rounded-2xl bg-[#0D121F] border border-slate-800/80">
+              <div className="text-slate-400 text-xs font-medium">Settled Volume</div>
+              <div className="text-2xl font-bold text-white mt-1">₹{totalSettled.toLocaleString('en-IN')}</div>
+              <div className="text-[10px] text-emerald-400 mt-1 font-mono">Verified in creator account</div>
+            </div>
+
+            <div className="p-5 rounded-2xl bg-[#0D121F] border border-slate-800/80">
+              <div className="text-slate-400 text-xs font-medium">Pending Escrow</div>
+              <div className="text-2xl font-bold text-amber-400 mt-1">₹{pendingEscrow.toLocaleString('en-IN')}</div>
+              <div className="text-[10px] text-slate-500 mt-1 font-mono">Awaiting client release</div>
+            </div>
+
+            <div className="p-5 rounded-2xl bg-[#0D121F] border border-slate-800/80">
+              <div className="text-slate-400 text-xs font-medium">Live Portals</div>
+              <div className="text-2xl font-bold text-slate-100 mt-1">{deliveries.length}</div>
+              <div className="text-[10px] text-indigo-400 mt-1 font-mono">256-Bit Escrow Guarded</div>
+            </div>
+          </div>
+
+          {/* Portals Section */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-white tracking-tight">Active Deliverables</h2>
+              <span className="text-xs text-slate-500">{deliveries.length} Total</span>
+            </div>
+
+            {deliveries.length === 0 ? (
+              <div className="p-12 rounded-2xl bg-[#0D121F] border border-dashed border-slate-800 text-center space-y-3">
+                <Lock className="w-8 h-8 text-slate-600 mx-auto" />
+                <div className="text-sm font-semibold text-slate-300">No deliveries deployed yet</div>
+                <p className="text-xs text-slate-500 max-w-sm mx-auto">Upload any deliverable from your phone or PC, set the locked amount, and generate a client vault.</p>
+                <button onClick={() => setShowModal(true)} className="px-4 py-2 bg-indigo-600 text-white text-xs font-medium rounded-xl">
+                  Deploy First Vault
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {deliveries.map(item => (
+                  <div key={item.id} className="p-5 rounded-2xl bg-[#0D121F] border border-slate-800/80 hover:border-slate-700/80 transition space-y-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <span className="text-[10px] font-mono text-indigo-400 uppercase tracking-wider">{item.clientName}</span>
+                        <h3 className="text-sm font-bold text-white mt-0.5">{item.title}</h3>
+                        <p className="text-[11px] text-slate-500 font-mono mt-0.5">{item.fileName || 'Master Deliverable'} • {item.fileSize || ''}</p>
+                      </div>
+
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-medium ${
+                        item.status === 'Paid' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                      }`}>
+                        {item.status}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-800/60 text-xs">
+                      <div>
+                        <span className="text-[10px] text-slate-500 font-mono uppercase block">Settlement Due</span>
+                        <span className="font-bold text-white text-sm">₹{item.grossAmount?.toLocaleString('en-IN')}</span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <button 
+                          onClick={() => copyLink(item.id)}
+                          className="px-3 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium transition flex items-center gap-1"
+                        >
+                          {copiedId === item.id ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                          {copiedId === item.id ? 'Copied' : 'Copy Link'}
+                        </button>
+
+                        <Link 
+                          href={`/d/${item.id}`} 
+                          target="_blank" 
+                          className="p-2 bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg transition"
+                          title="Open Client View"
+                        >
+                          <ArrowUpRight className="w-3.5 h-3.5" />
+                        </Link>
+
+                        <button 
+                          onClick={() => handleDelete(item.id)} 
+                          className="p-2 bg-slate-800/80 hover:bg-red-500/10 text-slate-400 hover:text-red-400 rounded-lg transition"
+                          title="Delete Portal"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </main>
+      </div>
+
+      {/* Mobile Drawer */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex lg:hidden">
+          <div className="w-64 bg-[#0D121F] h-full p-5 flex flex-col justify-between">
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <span className="font-bold text-sm text-white">ReleaseDrop</span>
+                <button onClick={() => setMobileMenuOpen(false)} className="text-slate-400"><X className="w-5 h-5" /></button>
+              </div>
+              <nav className="space-y-1 text-xs">
+                <div className="px-3 py-2 bg-indigo-600/10 text-indigo-400 rounded-xl font-medium">Dashboard</div>
+              </nav>
+            </div>
+            <button onClick={() => signOut(auth)} className="text-xs text-red-400 flex items-center gap-2 py-2">
+              <LogOut className="w-4 h-4" /> Sign Out
             </button>
           </div>
         </div>
-      </header>
+      )}
 
-      {/* Main SaaS Workspace */}
-      <main className="max-w-6xl mx-auto px-6 py-8 flex-1 w-full space-y-8">
-        
-        {/* KPI & Revenue Matrix */}
-        <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="p-5 rounded-2xl bg-zinc-950/60 border border-zinc-800/80">
-            <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider block">Settled Net Volume</span>
-            <div className="text-2xl font-black mt-1 text-white">₹{totalSettled.toLocaleString('en-IN')}</div>
-            <span className="text-[10px] text-emerald-400 font-mono mt-1 block">100% Payout Verified</span>
-          </div>
-          <div className="p-5 rounded-2xl bg-zinc-950/60 border border-zinc-800/80">
-            <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider block">Locked in Escrow</span>
-            <div className="text-2xl font-black text-amber-400 mt-1">₹{pendingEscrow.toLocaleString('en-IN')}</div>
-            <span className="text-[10px] text-zinc-500 font-mono mt-1 block">Awaiting client payment</span>
-          </div>
-          <div className="p-5 rounded-2xl bg-zinc-950/60 border border-zinc-800/80">
-            <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider block">Active Portals</span>
-            <div className="text-2xl font-black mt-1 text-white">{deliveries.length}</div>
-            <span className="text-[10px] text-zinc-500 font-mono mt-1 block">
-              {deliveries.filter(d => d.status === 'Paid').length} Paid • {deliveries.filter(d => d.status === 'Awaiting Payment').length} Pending
-            </span>
-          </div>
-          <div className="p-5 rounded-2xl bg-zinc-950/60 border border-zinc-800/80">
-            <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider block">Platform Tier</span>
-            <div className="text-sm font-bold text-emerald-400 mt-2 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5" /> Direct Cloud Pro
-            </div>
-            <span className="text-[10px] text-zinc-500 font-mono mt-1 block">5% Transaction Fee</span>
-          </div>
-        </section>
-
-        {/* Deliveries Data Table */}
-        <section className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-base font-bold text-white tracking-tight">Active Delivery Portals</h2>
-              <p className="text-xs text-zinc-400">Manage client links and track unlock telemetry.</p>
-            </div>
-          </div>
-
-          {deliveries.length === 0 ? (
-            <div className="p-16 rounded-3xl border border-dashed border-zinc-800 text-center bg-zinc-950/40">
-              <Lock className="w-10 h-10 text-zinc-700 mx-auto mb-3" />
-              <h3 className="text-sm font-bold text-zinc-200">No active delivery portals</h3>
-              <p className="text-xs text-zinc-500 mt-1 max-w-sm mx-auto">
-                Upload a deliverable from your phone or device, set the amount, and send the payment-locked link to your client.
-              </p>
-              <button
-                onClick={() => setShowModal(true)}
-                className="mt-5 px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-black rounded-xl transition shadow-lg shadow-emerald-500/10"
-              >
-                + Lock New Deliverable
-              </button>
-            </div>
-          ) : (
-            <div className="border border-zinc-800/80 rounded-2xl overflow-hidden bg-zinc-950/40 backdrop-blur-sm">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-zinc-900/60 border-b border-zinc-800 text-zinc-400 font-mono text-[10px] uppercase">
-                    <tr>
-                      <th className="px-5 py-3.5 font-medium">Deliverable Asset</th>
-                      <th className="px-5 py-3.5 font-medium">Client</th>
-                      <th className="px-5 py-3.5 font-medium">Gross Amount</th>
-                      <th className="px-5 py-3.5 font-medium">Telemetry</th>
-                      <th className="px-5 py-3.5 font-medium">Status</th>
-                      <th className="px-5 py-3.5 font-medium text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-900">
-                    {deliveries.map(item => (
-                      <tr key={item.id} className="hover:bg-zinc-900/30 transition">
-                        <td className="px-5 py-4">
-                          <div className="font-bold text-zinc-100">{item.title}</div>
-                          <div className="text-[10px] font-mono text-zinc-500 mt-0.5 flex items-center gap-1.5">
-                            <Film className="w-3 h-3 text-emerald-400" />
-                            {item.fileName || 'Master Delivery'} • {item.fileSize || ''}
-                          </div>
-                        </td>
-                        <td className="px-5 py-4 text-zinc-300 font-medium">{item.clientName}</td>
-                        <td className="px-5 py-4 font-bold text-white">₹{item.grossAmount?.toLocaleString('en-IN')}</td>
-                        <td className="px-5 py-4">
-                          <span className="text-[11px] font-mono text-zinc-400 flex items-center gap-1.5">
-                            <Eye className="w-3.5 h-3.5 text-zinc-500" />
-                            {item.viewCount || 0} client views
-                          </span>
-                        </td>
-                        <td className="px-5 py-4">
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-mono font-medium ${
-                            item.status === 'Paid' 
-                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
-                              : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                          }`}>
-                            {item.status === 'Paid' ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
-                            {item.status}
-                          </span>
-                        </td>
-                        <td className="px-5 py-4 text-right space-x-2">
-                          <button 
-                            onClick={() => copyLink(item.id)} 
-                            className="px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-800 rounded-lg text-[11px] font-medium transition"
-                          >
-                            {copiedId === item.id ? 'Copied Link!' : 'Share Vault'}
-                          </button>
-                          <Link 
-                            href={`/d/${item.id}`} 
-                            target="_blank" 
-                            className="p-1.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white border border-zinc-800 rounded-lg inline-block text-[11px] transition"
-                            title="Open Client Portal"
-                          >
-                            <ArrowUpRight className="w-3.5 h-3.5 inline" />
-                          </Link>
-                          <button 
-                            onClick={() => handleDelete(item.id)} 
-                            className="p-1.5 bg-zinc-900 hover:bg-red-500/10 text-zinc-500 hover:text-red-400 border border-zinc-800 rounded-lg inline-block text-[11px] transition"
-                            title="Revoke Link"
-                          >
-                            <Trash2 className="w-3.5 h-3.5 inline" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </section>
-      </main>
-
-      {/* Creation Modal */}
+      {/* Deploy Vault Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-zinc-950 border border-zinc-800 rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl space-y-4">
-            <div className="flex justify-between items-center border-b border-zinc-800/80 pb-3">
-              <div>
-                <h3 className="text-sm font-bold text-white">Create Payment-Locked Vault</h3>
-                <span className="text-[10px] text-zinc-500 font-mono">Upload master files directly from device</span>
-              </div>
-              <button onClick={() => setShowModal(false)} className="text-zinc-500 text-xs hover:text-white">✕</button>
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#0D121F] border border-slate-800 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+              <h3 className="text-sm font-bold text-white">Create Payment-Locked Delivery</h3>
+              <button onClick={() => setShowModal(false)} className="text-slate-500 hover:text-white text-xs">✕</button>
             </div>
 
             <form onSubmit={handleCreateDelivery} className="space-y-3.5">
               <div>
-                <label className="text-[10px] uppercase font-mono text-zinc-400">Deliverable Title *</label>
+                <label className="text-[11px] font-medium text-slate-400 block mb-1">Deliverable Title *</label>
                 <input 
                   type="text" 
                   required 
-                  placeholder="e.g. Master Ad Edit 4K (Final ProRes)" 
+                  placeholder="e.g. Brand Commercial Video (Master 4K)"
                   value={title} 
                   onChange={e => setTitle(e.target.value)} 
-                  className="mt-1 w-full bg-zinc-900/80 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-100 focus:outline-none focus:border-emerald-500" 
+                  className="w-full bg-[#090D16] border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-indigo-500" 
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[10px] uppercase font-mono text-zinc-400">Client Name</label>
+                  <label className="text-[11px] font-medium text-slate-400 block mb-1">Client Name</label>
                   <input 
                     type="text" 
-                    placeholder="e.g. Rohan Mehta" 
+                    placeholder="e.g. Acme Media"
                     value={clientName} 
                     onChange={e => setClientName(e.target.value)} 
-                    className="mt-1 w-full bg-zinc-900/80 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-100 focus:outline-none focus:border-emerald-500" 
+                    className="w-full bg-[#090D16] border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-indigo-500" 
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] uppercase font-mono text-zinc-400">Amount (₹ INR) *</label>
+                  <label className="text-[11px] font-medium text-slate-400 block mb-1">Amount (₹) *</label>
                   <input 
                     type="number" 
                     required 
-                    placeholder="e.g. 7500" 
+                    placeholder="5000"
                     value={amount} 
                     onChange={e => setAmount(e.target.value)} 
-                    className="mt-1 w-full bg-zinc-900/80 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-100 focus:outline-none focus:border-emerald-500" 
+                    className="w-full bg-[#090D16] border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-indigo-500" 
                   />
                 </div>
               </div>
 
-              {numAmountPreview > 0 && (
-                <div className="p-3 bg-zinc-900/50 border border-zinc-800 rounded-xl text-[11px] font-mono space-y-1">
-                  <div className="flex justify-between text-zinc-400">
-                    <span>Client Charge:</span>
-                    <span className="text-white font-bold">₹{numAmountPreview.toLocaleString('en-IN')}</span>
-                  </div>
-                  <div className="flex justify-between text-zinc-500">
-                    <span>Platform Fee (5%):</span>
-                    <span>-₹{previewFee.toLocaleString('en-IN')}</span>
-                  </div>
-                  <div className="flex justify-between text-emerald-400 font-bold pt-1 border-t border-zinc-800">
-                    <span>Net Creator Escrow:</span>
-                    <span>₹{previewPayout.toLocaleString('en-IN')}</span>
-                  </div>
-                </div>
-              )}
-
               <div>
-                <label className="text-[10px] uppercase font-mono text-zinc-400 block mb-1">Pick Master File (Video / Photo / ZIP) *</label>
-                <label className="border-2 border-dashed border-zinc-800 hover:border-emerald-500/50 rounded-2xl p-5 flex flex-col items-center justify-center cursor-pointer bg-zinc-900/30 transition group">
-                  <UploadCloud className="w-7 h-7 text-emerald-400 mb-1.5 group-hover:scale-110 transition" />
-                  <span className="text-xs font-bold text-zinc-200">
-                    {selectedFile ? selectedFile.name : "Tap to pick from Device"}
-                  </span>
-                  <span className="text-[10px] text-zinc-500 mt-0.5">
-                    {selectedFile ? `${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB Selected` : "MP4, MOV, PNG, JPG, ZIP (Direct Upload)"}
-                  </span>
-                  <input 
-                    type="file" 
-                    required 
-                    onChange={handleFileSelect} 
-                    className="hidden" 
-                    accept="image/*,video/*,.zip"
-                  />
+                <label className="text-[11px] font-medium text-slate-400 block mb-1">Select File from Device *</label>
+                <label className="border border-dashed border-slate-800 hover:border-indigo-500/50 rounded-xl p-5 flex flex-col items-center justify-center cursor-pointer bg-[#090D16] transition">
+                  <UploadCloud className="w-6 h-6 text-indigo-400 mb-1" />
+                  <span className="text-xs font-medium text-slate-200">{selectedFile ? selectedFile.name : "Choose Video, Image, or ZIP"}</span>
+                  <span className="text-[10px] text-slate-500 mt-0.5">{selectedFile ? `${(selectedFile.size / (1024*1024)).toFixed(2)} MB Selected` : "Tap to browse phone files"}</span>
+                  <input type="file" required onChange={handleFileSelect} className="hidden" accept="image/*,video/*,.zip" />
                 </label>
               </div>
 
               {uploading && (
-                <div className="space-y-1.5 pt-1">
-                  <div className="flex justify-between text-[11px] font-mono text-zinc-400">
-                    <span>Uploading to Encrypted Vault...</span>
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[10px] text-slate-400 font-mono">
+                    <span>Uploading deliverable...</span>
                     <span>{uploadProgress}%</span>
                   </div>
-                  <div className="w-full h-1.5 bg-zinc-900 rounded-full overflow-hidden">
-                    <div className="h-full bg-emerald-500 transition-all duration-200" style={{ width: `${uploadProgress}%` }} />
+                  <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                    <div className="h-full bg-indigo-500 transition-all duration-200" style={{ width: `${uploadProgress}%` }} />
                   </div>
                 </div>
               )}
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-zinc-900">
-                <button 
-                  type="button" 
-                  onClick={() => setShowModal(false)} 
-                  className="px-4 py-2 text-xs text-zinc-400 hover:text-white transition"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit" 
-                  disabled={creating || uploading} 
-                  className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-xs rounded-xl disabled:opacity-50 transition shadow-lg shadow-emerald-500/20"
-                >
-                  {creating ? 'Encrypting & Locking...' : 'Upload & Lock'}
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 text-xs text-slate-400">Cancel</button>
+                <button type="submit" disabled={creating || uploading} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs rounded-xl disabled:opacity-50">
+                  {creating ? 'Locking File...' : 'Deploy Vault'}
                 </button>
               </div>
             </form>
