@@ -2,11 +2,11 @@
 
 import React, { useState, useEffect } from 'react'
 import { auth, db, googleProvider } from '../../lib/firebase'
-import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth'
+import { signInWithPopup, signInWithRedirect, signOut, onAuthStateChanged } from 'firebase/auth'
 import { collection, addDoc, query, where, getDocs, serverTimestamp } from 'firebase/firestore'
 import { 
   Lock, Plus, Copy, ExternalLink, 
-  Clock, CheckCircle2, LogOut
+  Clock, CheckCircle2, LogOut, ShieldCheck, FileArchive, IndianRupee, Sparkles
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -21,9 +21,10 @@ export default function Dashboard() {
   const [title, setTitle] = useState('')
   const [clientName, setClientName] = useState('')
   const [amount, setAmount] = useState('')
-  const [expiryDays, setExpiryDays] = useState('7')
-  const [watermark, setWatermark] = useState(true)
+  const [upiId, setUpiId] = useState('')
   const [fileUrl, setFileUrl] = useState('')
+  const [previewUrl, setPreviewUrl] = useState('')
+  const [expiryDays, setExpiryDays] = useState('7')
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -55,13 +56,20 @@ export default function Dashboard() {
     try {
       await signInWithPopup(auth, googleProvider)
     } catch (err) {
-      alert("Login failed: " + err.message)
+      if (err.code === 'auth/popup-blocked' || err.code === 'auth/cancelled-popup-request') {
+        await signInWithRedirect(auth, googleProvider)
+      } else {
+        alert("Login failed: " + err.message)
+      }
     }
   }
 
   const handleCreateDelivery = async (e) => {
     e.preventDefault()
-    if (!title || !amount || !user) return
+    if (!title || !amount || !fileUrl || !upiId || !user) {
+      alert("Please fill in Title, Amount, Delivery Link, and UPI ID")
+      return
+    }
 
     setCreating(true)
     try {
@@ -72,21 +80,25 @@ export default function Dashboard() {
         userId: user.uid,
         userEmail: user.email,
         title,
-        clientName: clientName || 'Unnamed Client',
+        clientName: clientName || 'Client',
         amount: Number(amount),
+        upiId: upiId.trim(),
         currency: 'INR',
         status: 'Awaiting Payment',
-        watermarkEnabled: watermark,
-        fileUrl: fileUrl || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1200',
+        watermarkEnabled: true,
+        previewUrl: previewUrl.trim() || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1200',
+        fileUrl: fileUrl.trim(),
         expiresAt: expiresAt.toISOString(),
-        createdAt: serverTimestamp(),
-        downloadCount: 0
+        createdAt: serverTimestamp()
       })
 
       setShowModal(false)
       setTitle('')
       setClientName('')
       setAmount('')
+      setUpiId('')
+      setFileUrl('')
+      setPreviewUrl('')
       fetchDeliveries(user.uid)
     } catch (err) {
       alert("Failed to create delivery: " + err.message)
@@ -112,49 +124,50 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#07090e] text-zinc-300 flex items-center justify-center text-sm">
-        Loading ReleaseDrop Workspace...
+      <div className="min-h-screen bg-[#06080e] text-zinc-400 flex items-center justify-center text-sm gap-2">
+        <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+        <span>Loading ReleaseDrop Workspace...</span>
       </div>
     )
   }
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-[#07090e] text-zinc-100 flex flex-col items-center justify-center p-6 text-center">
-        <div className="h-12 w-12 rounded-2xl bg-emerald-500 flex items-center justify-center font-black text-black text-xl mb-4 shadow-xl shadow-emerald-500/20">
+      <div className="min-h-screen bg-[#06080e] text-zinc-100 flex flex-col items-center justify-center p-6 text-center selection:bg-emerald-500 selection:text-black">
+        <div className="h-14 w-14 rounded-2xl bg-emerald-500 flex items-center justify-center font-black text-black text-2xl mb-5 shadow-2xl shadow-emerald-500/20">
           R
         </div>
         <h1 className="text-3xl font-extrabold tracking-tight">ReleaseDrop Workspace</h1>
-        <p className="text-zinc-400 text-sm mt-2 max-w-sm">Sign in to manage deliveries, lock high-res assets, and get paid securely.</p>
+        <p className="text-zinc-400 text-sm mt-2 max-w-sm">
+          Lock high-res deliverables, collect UPI payments directly to your account, and prevent ghosting.
+        </p>
         <button
           onClick={handleGoogleLogin}
-          className="mt-6 px-6 py-3 bg-zinc-100 hover:bg-white text-black font-bold text-sm rounded-xl transition flex items-center gap-2 shadow-lg active:scale-95"
+          className="mt-6 px-6 py-3.5 bg-white hover:bg-zinc-200 text-black font-extrabold text-sm rounded-xl transition flex items-center gap-2 shadow-xl active:scale-95"
         >
-          Sign In with Google
+          Continue with Google
         </button>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[#07090e] text-zinc-100 antialiased font-sans flex flex-col">
+    <div className="min-h-screen bg-[#06080e] text-zinc-100 antialiased font-sans flex flex-col selection:bg-emerald-500 selection:text-black">
       <header className="border-b border-zinc-800/80 bg-zinc-950/60 backdrop-blur-xl sticky top-0 z-30">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link href="/" className="flex items-center gap-2.5">
-              <div className="h-8 w-8 rounded-lg bg-emerald-500 flex items-center justify-center font-black text-black text-sm">
-                R
-              </div>
-              <span className="font-bold text-lg tracking-tight">ReleaseDrop</span>
-            </Link>
-          </div>
+          <Link href="/" className="flex items-center gap-2.5">
+            <div className="h-8 w-8 rounded-lg bg-emerald-500 flex items-center justify-center font-black text-black text-sm">
+              R
+            </div>
+            <span className="font-extrabold text-base tracking-tight text-white">ReleaseDrop</span>
+          </Link>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <button
               onClick={() => setShowModal(true)}
-              className="bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs px-4 py-2.5 rounded-xl transition flex items-center gap-1.5 shadow-md shadow-emerald-500/10 active:scale-95"
+              className="bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-xs px-4 py-2.5 rounded-xl transition flex items-center gap-1.5 shadow-md shadow-emerald-500/10 active:scale-95"
             >
-              <Plus className="w-4 h-4" /> New Delivery
+              <Plus className="w-4 h-4" /> Lock New Delivery
             </button>
             <div className="flex items-center gap-2 pl-3 border-l border-zinc-800">
               <span className="text-xs text-zinc-400 hidden sm:inline">{user.displayName || user.email}</span>
@@ -170,43 +183,48 @@ export default function Dashboard() {
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-6 py-10 flex-1 w-full space-y-8">
+      <main className="max-w-6xl mx-auto px-6 py-8 flex-1 w-full space-y-8">
         <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="p-5 rounded-2xl bg-zinc-900/50 border border-zinc-800/80">
-            <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Settled Revenue</span>
+          <div className="p-5 rounded-2xl bg-zinc-900/40 border border-zinc-800/80">
+            <span className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">Settled Direct</span>
             <div className="text-2xl font-black text-white mt-1">₹{totalRevenue.toLocaleString('en-IN')}</div>
           </div>
-          <div className="p-5 rounded-2xl bg-zinc-900/50 border border-zinc-800/80">
-            <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Pending Release</span>
+          <div className="p-5 rounded-2xl bg-zinc-900/40 border border-zinc-800/80">
+            <span className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">Locked in Escrow</span>
             <div className="text-2xl font-black text-amber-400 mt-1">₹{pendingAmount.toLocaleString('en-IN')}</div>
           </div>
-          <div className="p-5 rounded-2xl bg-zinc-900/50 border border-zinc-800/80">
-            <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Paid Deliveries</span>
+          <div className="p-5 rounded-2xl bg-zinc-900/40 border border-zinc-800/80">
+            <span className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">Unlocked Portals</span>
             <div className="text-2xl font-black text-white mt-1">
               {deliveries.filter(d => d.status === 'Paid').length}
             </div>
           </div>
-          <div className="p-5 rounded-2xl bg-zinc-900/50 border border-zinc-800/80">
-            <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Active Deliveries</span>
+          <div className="p-5 rounded-2xl bg-zinc-900/40 border border-zinc-800/80">
+            <span className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">Total Portals</span>
             <div className="text-2xl font-black text-white mt-1">{deliveries.length}</div>
           </div>
         </section>
 
         <section className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold">Recent Deliveries</h2>
+            <div>
+              <h2 className="text-base font-bold text-white">Active Delivery Lockers</h2>
+              <p className="text-xs text-zinc-400">Manage client links and track unlock settlements in real-time.</p>
+            </div>
           </div>
 
           {deliveries.length === 0 ? (
             <div className="p-12 rounded-2xl border border-dashed border-zinc-800 text-center bg-zinc-900/20">
               <Lock className="w-10 h-10 text-zinc-600 mx-auto mb-3" />
-              <h3 className="text-base font-semibold text-zinc-200">No deliveries yet</h3>
-              <p className="text-xs text-zinc-500 mt-1">Create your first delivery to lock files.</p>
+              <h3 className="text-sm font-semibold text-zinc-200">No locked deliverables yet</h3>
+              <p className="text-xs text-zinc-500 mt-1 max-w-sm mx-auto">
+                Create a payment-locked portal. Enter your deliverable download link and your UPI ID to receive payouts.
+              </p>
               <button
                 onClick={() => setShowModal(true)}
                 className="mt-4 px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold rounded-xl transition"
               >
-                + Create Delivery
+                + Create Protected Delivery
               </button>
             </div>
           ) : (
@@ -215,9 +233,9 @@ export default function Dashboard() {
                 <table className="w-full text-left text-xs">
                   <thead className="bg-zinc-900/80 border-b border-zinc-800 text-zinc-400 uppercase font-semibold">
                     <tr>
-                      <th className="px-5 py-3.5">Title</th>
+                      <th className="px-5 py-3.5">Deliverable</th>
                       <th className="px-5 py-3.5">Client</th>
-                      <th className="px-5 py-3.5">Amount</th>
+                      <th className="px-5 py-3.5">Payout Due</th>
                       <th className="px-5 py-3.5">Status</th>
                       <th className="px-5 py-3.5 text-right">Actions</th>
                     </tr>
@@ -225,7 +243,12 @@ export default function Dashboard() {
                   <tbody className="divide-y divide-zinc-800/60">
                     {deliveries.map((item) => (
                       <tr key={item.id} className="hover:bg-zinc-900/30 transition">
-                        <td className="px-5 py-4 font-semibold text-zinc-200">{item.title}</td>
+                        <td className="px-5 py-4 font-semibold text-zinc-200">
+                          <div className="flex items-center gap-2">
+                            <FileArchive className="w-4 h-4 text-emerald-400" />
+                            <span>{item.title}</span>
+                          </div>
+                        </td>
                         <td className="px-5 py-4 text-zinc-400">{item.clientName}</td>
                         <td className="px-5 py-4 font-bold text-white">₹{item.amount?.toLocaleString('en-IN')}</td>
                         <td className="px-5 py-4">
@@ -241,14 +264,15 @@ export default function Dashboard() {
                         <td className="px-5 py-4 text-right space-x-2">
                           <button
                             onClick={() => copyLink(item.id)}
-                            className="p-1.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 rounded-lg border border-zinc-800 transition text-[11px]"
+                            className="px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 rounded-lg border border-zinc-800 transition text-[11px] font-medium"
                           >
-                            {copiedId === item.id ? 'Copied!' : 'Copy Link'}
+                            {copiedId === item.id ? 'Copied Link!' : 'Copy Portal Link'}
                           </button>
                           <Link
                             href={`/d/${item.id}`}
                             target="_blank"
                             className="p-1.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 rounded-lg border border-zinc-800 transition inline-block text-[11px]"
+                            title="Open Delivery Page"
                           >
                             <ExternalLink className="w-3.5 h-3.5 inline" />
                           </Link>
@@ -267,17 +291,20 @@ export default function Dashboard() {
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-zinc-950 border border-zinc-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
-              <h3 className="text-base font-bold text-white">Create New Delivery</h3>
+              <div>
+                <h3 className="text-base font-bold text-white">New Payment-Locked Delivery</h3>
+                <p className="text-[11px] text-zinc-400">Lock high-res work until your UPI payment is confirmed.</p>
+              </div>
               <button onClick={() => setShowModal(false)} className="text-zinc-500 hover:text-zinc-200">✕</button>
             </div>
 
             <form onSubmit={handleCreateDelivery} className="space-y-3">
               <div>
-                <label className="text-[11px] font-semibold text-zinc-400 uppercase">Project Title *</label>
+                <label className="text-[11px] font-semibold text-zinc-400 uppercase">Deliverable Title *</label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Brand Commercial Reel"
+                  placeholder="e.g. 4K Commercial Cut & Master Audio"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   className="mt-1 w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-100 focus:outline-none focus:border-emerald-500"
@@ -289,18 +316,18 @@ export default function Dashboard() {
                   <label className="text-[11px] font-semibold text-zinc-400 uppercase">Client Name</label>
                   <input
                     type="text"
-                    placeholder="e.g. Acme Studio"
+                    placeholder="e.g. Rahul Sharma"
                     value={clientName}
                     onChange={(e) => setClientName(e.target.value)}
                     className="mt-1 w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-100 focus:outline-none focus:border-emerald-500"
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] font-semibold text-zinc-400 uppercase">Amount (INR ₹) *</label>
+                  <label className="text-[11px] font-semibold text-zinc-400 uppercase">Amount (₹ INR) *</label>
                   <input
                     type="number"
                     required
-                    placeholder="e.g. 5000"
+                    placeholder="e.g. 7500"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     className="mt-1 w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-100 focus:outline-none focus:border-emerald-500"
@@ -308,7 +335,43 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-800">
+              <div>
+                <label className="text-[11px] font-semibold text-zinc-400 uppercase">Your UPI ID (For Direct Payouts) *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. yourname@okaxis / mobile@upi"
+                  value={upiId}
+                  onChange={(e) => setUpiId(e.target.value)}
+                  className="mt-1 w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-100 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-semibold text-zinc-400 uppercase">Secret Delivery File / Drive / WeTransfer URL *</label>
+                <input
+                  type="url"
+                  required
+                  placeholder="https://drive.google.com/... or dropbox link"
+                  value={fileUrl}
+                  onChange={(e) => setFileUrl(e.target.value)}
+                  className="mt-1 w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-100 focus:outline-none focus:border-emerald-500"
+                />
+                <span className="text-[10px] text-zinc-500">This URL is strictly hidden and decrypted only after payment.</span>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-semibold text-zinc-400 uppercase">Preview Image / Thumbnail URL (Optional)</label>
+                <input
+                  type="url"
+                  placeholder="https://... (image url for inspection preview)"
+                  value={previewUrl}
+                  onChange={(e) => setPreviewUrl(e.target.value)}
+                  className="mt-1 w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-100 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-zinc-800">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
@@ -319,9 +382,9 @@ export default function Dashboard() {
                 <button
                   type="submit"
                   disabled={creating}
-                  className="px-5 py-2 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black font-bold text-xs rounded-xl"
+                  className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black font-extrabold text-xs rounded-xl transition shadow-md shadow-emerald-500/20"
                 >
-                  {creating ? 'Locking...' : 'Create Protected Link'}
+                  {creating ? 'Locking Deliverable...' : 'Generate Locked Portal'}
                 </button>
               </div>
             </form>
@@ -330,5 +393,5 @@ export default function Dashboard() {
       )}
     </div>
   )
-    }
-      
+  }
+        
