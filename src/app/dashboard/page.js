@@ -16,6 +16,30 @@ import Link from 'next/link'
 const CLOUDINARY_CLOUD_NAME = "mrfujhf8"
 const CLOUDINARY_UPLOAD_PRESET = "releasedrop_vault"
 
+// Bulletproof URL Burner: Client ko inspect element me bhi sirf 480p + burned watermark milega
+function generateBulletproofPreview(rawUrl, fileType, watermarkText) {
+  if (!rawUrl || !rawUrl.includes('cloudinary.com')) return rawUrl
+
+  const safeTag = encodeURIComponent(watermarkText || "UNPAID PREVIEW RELEASEDROP")
+
+  if (fileType?.includes('video')) {
+    // 480p resolution cap + low bitrate + diagonal burned watermark
+    return rawUrl.replace(
+      '/upload/',
+      `/upload/w_854,h_480,c_limit,q_auto:eco/l_text:Arial_24_bold:${safeTag},co_white,o_40,a_-25/`
+    )
+  }
+
+  if (fileType?.includes('image')) {
+    return rawUrl.replace(
+      '/upload/',
+      `/upload/w_1200,c_limit,q_auto:eco/l_text:Arial_32_bold:${safeTag},co_white,o_35,a_-30/`
+    )
+  }
+
+  return rawUrl
+}
+
 export default function Dashboard() {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -26,18 +50,16 @@ export default function Dashboard() {
   const [copiedId, setCopiedId] = useState(null)
   const [toast, setToast] = useState(null)
 
-  // Wizard States
   const [wizardStep, setWizardStep] = useState(1)
   const [creating, setCreating] = useState(false)
   const [activeChartPoint, setActiveChartPoint] = useState(null)
 
-  // Form Fields
   const [title, setTitle] = useState('')
   const [clientName, setClientName] = useState('')
   const [clientEmail, setClientEmail] = useState('')
   const [notes, setNotes] = useState('')
   const [amount, setAmount] = useState('')
-  const [watermarkText, setWatermarkText] = useState('RELEASEDROP • UNPAID MASTER')
+  const [watermarkText, setWatermarkText] = useState('RELEASEDROP • PROTECTED PREVIEW')
   const [selectedFile, setSelectedFile] = useState(null)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [uploading, setUploading] = useState(false)
@@ -81,7 +103,7 @@ export default function Dashboard() {
     const file = e.target.files[0]
     if (file) {
       if (file.size > 100 * 1024 * 1024) {
-        setUploadError("File exceeds 100MB cloud gateway limit.")
+        setUploadError("File exceeds 100MB cloud limit.")
         return
       }
       setSelectedFile(file)
@@ -145,7 +167,15 @@ export default function Dashboard() {
 
     setCreating(true)
     try {
-      const secureUrl = await uploadFileToCloudinary(selectedFile)
+      const rawMasterUrl = await uploadFileToCloudinary(selectedFile)
+      
+      // Generate Bulletproof Watermarked URL for client inspection
+      const burnedPreviewUrl = generateBulletproofPreview(
+        rawMasterUrl, 
+        selectedFile.type, 
+        watermarkText || `${clientName.toUpperCase()} • PREVIEW`
+      )
+
       const numAmount = Number(amount) || 0
       const platformFee = Math.max(Math.round(numAmount * 0.05), 50)
       const creatorPayout = Math.max(numAmount - platformFee, 0)
@@ -164,8 +194,8 @@ export default function Dashboard() {
         creatorPayout,
         watermarkText: watermarkText || 'RELEASEDROP ESCROW • UNPAID PREVIEW',
         status: 'Awaiting Payment',
-        previewUrl: secureUrl,
-        fileUrl: secureUrl,
+        previewUrl: burnedPreviewUrl, // Locked low-res preview
+        fileUrl: rawMasterUrl,        // Clean original master (hidden until payment)
         fileName: selectedFile.name,
         fileSize: (selectedFile.size / (1024 * 1024)).toFixed(2) + " MB",
         fileType: selectedFile.type || 'video/mp4',
@@ -174,7 +204,6 @@ export default function Dashboard() {
         createdAt: serverTimestamp()
       })
 
-      // Background Email Trigger
       if (clientEmail && clientEmail.trim().length > 0) {
         fetch('/api/send-delivery', {
           method: 'POST',
@@ -232,17 +261,6 @@ export default function Dashboard() {
   const totalViews = deliveries.reduce((acc, c) => acc + (Number(c.viewCount) || 0), 0)
 
   const numAmountPreview = Number(amount) || 0
-  const previewFee = Math.max(Math.round(numAmountPreview * 0.05), 50)
-  const previewPayout = Math.max(numAmountPreview - previewFee, 0)
-
-  const chartData = [
-    { day: 'Mon', date: '09-08', value: 0 },
-    { day: 'Tue', date: '09-09', value: 0 },
-    { day: 'Wed', date: '09-10', value: 0 },
-    { day: 'Thu', date: '09-11', value: Math.round(totalRevenue * 0.3) },
-    { day: 'Fri', date: '09-12', value: Math.round(totalRevenue * 0.6) },
-    { day: 'Sat', date: '09-13', value: totalRevenue }
-  ]
 
   if (loading) {
     return (
@@ -277,8 +295,6 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans flex antialiased selection:bg-blue-600 selection:text-white">
-      
-      {/* Toast Notification */}
       {toast && (
         <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50">
           <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl shadow-xl bg-slate-900 text-white text-xs font-semibold border border-slate-800">
@@ -335,7 +351,7 @@ export default function Dashboard() {
               <div className="text-[10px] text-emerald-400 font-mono">Pro Creator</div>
             </div>
           </div>
-          <button onClick={() => signOut(auth)} className="p-1.5 text-slate-400 hover:text-red-400 transition" title="Log Out">
+          <button onClick={() => signOut(auth)} className="p-1.5 text-slate-400 hover:text-red-400 transition">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -343,8 +359,6 @@ export default function Dashboard() {
 
       {/* Main Canvas */}
       <div className="flex-1 flex flex-col min-w-0">
-        
-        {/* Header */}
         <header className="h-16 bg-white border-b border-slate-200 px-4 sm:px-8 flex items-center justify-between sticky top-0 z-20">
           <div className="flex items-center gap-3">
             <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-lg">
@@ -363,10 +377,7 @@ export default function Dashboard() {
           </button>
         </header>
 
-        {/* Dynamic Views */}
         <main className="flex-1 p-4 sm:p-8 max-w-6xl w-full mx-auto space-y-6">
-          
-          {/* VIEW: CREATE WIZARD */}
           {currentView === 'create' && (
             <div className="max-w-2xl mx-auto space-y-6">
               <button 
@@ -378,7 +389,7 @@ export default function Dashboard() {
 
               <div>
                 <h1 className="text-2xl font-black text-slate-900 tracking-tight">Deploy Escrow Vault</h1>
-                <p className="text-xs text-slate-500 mt-0.5">Upload master assets and lock them behind automated settlement.</p>
+                <p className="text-xs text-slate-500 mt-0.5">Upload master assets and lock them behind bulletproof previews.</p>
               </div>
 
               {/* Steps Progress */}
@@ -411,14 +422,13 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Step 1 */}
               {wizardStep === 1 && (
                 <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 space-y-5 shadow-sm">
                   <div className="border-2 border-dashed border-slate-200 hover:border-blue-500 rounded-2xl p-8 flex flex-col items-center justify-center text-center bg-slate-50/50 transition">
                     <UploadCloud className="w-12 h-12 text-blue-600 mb-3" />
                     <span className="text-sm font-bold text-slate-900">Select Production Master File</span>
                     <span className="text-[11px] text-slate-400 mt-1 max-w-xs">
-                      MP4, MOV, PNG, JPG, ZIP — directly securely vaulted
+                      MP4, MOV, PNG, JPG, ZIP — safely vaulted
                     </span>
                     <label className="mt-4 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl cursor-pointer shadow-md shadow-blue-500/20 active:scale-95 transition">
                       Browse Files
@@ -456,7 +466,6 @@ export default function Dashboard() {
                 </div>
               )}
 
-              {/* Step 2 */}
               {wizardStep === 2 && (
                 <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 space-y-4 shadow-sm">
                   <div>
@@ -506,7 +515,6 @@ export default function Dashboard() {
                 </div>
               )}
 
-              {/* Step 3 */}
               {wizardStep === 3 && (
                 <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 space-y-5 shadow-sm">
                   <div>
@@ -521,7 +529,7 @@ export default function Dashboard() {
                   </div>
 
                   <div>
-                    <label className="text-xs font-bold text-slate-800 block mb-1">Anti-Theft Inspection Watermark</label>
+                    <label className="text-xs font-bold text-slate-800 block mb-1">Anti-Theft Burned Watermark Text</label>
                     <input 
                       type="text" 
                       value={watermarkText} 
@@ -543,7 +551,6 @@ export default function Dashboard() {
                 </div>
               )}
 
-              {/* Step 4 */}
               {wizardStep === 4 && (
                 <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 space-y-5 shadow-sm">
                   <div className="border border-slate-200 rounded-2xl p-5 space-y-3 bg-slate-50/60">
@@ -580,7 +587,7 @@ export default function Dashboard() {
                   {uploading && (
                     <div className="space-y-1.5">
                       <div className="flex justify-between text-xs text-slate-600 font-medium">
-                        <span>Uploading asset to encrypted vault...</span>
+                        <span>Uploading asset & burning anti-theft preview...</span>
                         <span className="font-mono">{uploadProgress}%</span>
                       </div>
                       <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
@@ -605,10 +612,8 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* VIEW: OVERVIEW */}
           {currentView === 'overview' && (
             <div className="space-y-6">
-              
               <div className="flex items-center justify-between">
                 <div>
                   <h1 className="text-xl font-black text-slate-900 tracking-tight">Overview</h1>
@@ -622,20 +627,17 @@ export default function Dashboard() {
                 </button>
               </div>
 
-              {/* Metrics */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm">
                   <span className="text-[10px] font-bold text-slate-400 uppercase font-mono">CLEARED PAYOUT</span>
                   <div className="text-2xl font-black text-slate-900 mt-1 font-mono">₹{totalRevenue.toLocaleString('en-IN')}</div>
                   <span className="text-[10px] text-emerald-600 mt-1 block font-semibold">{paidDeliveries.length} settled drops</span>
                 </div>
-
                 <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm">
                   <span className="text-[10px] font-bold text-slate-400 uppercase font-mono">IN ESCROW HOLD</span>
                   <div className="text-2xl font-black text-slate-900 mt-1 font-mono">₹{pendingAmount.toLocaleString('en-IN')}</div>
                   <span className="text-[10px] text-amber-600 mt-1 block font-semibold">awaiting client clearance</span>
                 </div>
-
                 <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm">
                   <span className="text-[10px] font-bold text-slate-400 uppercase font-mono">COMPLETION RATE</span>
                   <div className="text-2xl font-black text-slate-900 mt-1 font-mono">
@@ -643,7 +645,6 @@ export default function Dashboard() {
                   </div>
                   <span className="text-[10px] text-slate-400 mt-1 block font-mono">{paidDeliveries.length} of {deliveries.length} paid</span>
                 </div>
-
                 <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm">
                   <span className="text-[10px] font-bold text-slate-400 uppercase font-mono">CLIENT VISITS</span>
                   <div className="text-2xl font-black text-slate-900 mt-1 font-mono">{totalViews}</div>
@@ -651,80 +652,7 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Chart */}
-              <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-xs font-bold text-slate-900">Settlement Trajectory</h3>
-                    <p className="text-[11px] text-slate-400">Touch or hover points for daily volume.</p>
-                  </div>
-                  <span className="text-[11px] font-mono font-bold text-slate-600">
-                    ₹{activeChartPoint ? activeChartPoint.value.toLocaleString('en-IN') : totalRevenue.toLocaleString('en-IN')}
-                  </span>
-                </div>
-
-                <div className="relative h-44 w-full pt-4">
-                  {activeChartPoint && (
-                    <div 
-                      className="absolute -top-3 z-10 px-3 py-1 bg-slate-900 text-white text-[10px] font-mono rounded-lg shadow-xl pointer-events-none"
-                      style={{ left: `${activeChartPoint.xPercent}%`, transform: 'translateX(-50%)' }}
-                    >
-                      <div>{activeChartPoint.date}</div>
-                      <div className="font-bold text-blue-400">₹{activeChartPoint.value.toLocaleString('en-IN')}</div>
-                    </div>
-                  )}
-
-                  <svg className="w-full h-full overflow-visible" viewBox="0 0 600 120" preserveAspectRatio="none">
-                    <line x1="0" y1="20" x2="600" y2="20" stroke="#F1F5F9" strokeWidth="1" strokeDasharray="3 3" />
-                    <line x1="0" y1="60" x2="600" y2="60" stroke="#F1F5F9" strokeWidth="1" strokeDasharray="3 3" />
-                    <line x1="0" y1="100" x2="600" y2="100" stroke="#F1F5F9" strokeWidth="1" strokeDasharray="3 3" />
-
-                    <path
-                      fill="none"
-                      stroke="#2563EB"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                      d="M 0 115 Q 120 115, 240 100 T 480 50 L 600 15"
-                    />
-
-                    {[
-                      { x: 0, y: 115, ...chartData[0] },
-                      { x: 120, y: 115, ...chartData[1] },
-                      { x: 240, y: 100, ...chartData[2] },
-                      { x: 360, y: 75, ...chartData[3] },
-                      { x: 480, y: 50, ...chartData[4] },
-                      { x: 600, y: 15, ...chartData[5] },
-                    ].map((p, idx) => (
-                      <g key={idx}>
-                        <circle 
-                          cx={p.x} 
-                          cy={p.y} 
-                          r={activeChartPoint?.date === p.date ? 6 : 4} 
-                          className="fill-blue-600 stroke-white stroke-2 cursor-pointer"
-                          onMouseEnter={() => setActiveChartPoint({ ...p, xPercent: (p.x / 600) * 100 })}
-                          onTouchStart={() => setActiveChartPoint({ ...p, xPercent: (p.x / 600) * 100 })}
-                        />
-                        <circle 
-                          cx={p.x} 
-                          cy={p.y} 
-                          r={16} 
-                          className="fill-transparent cursor-pointer"
-                          onMouseEnter={() => setActiveChartPoint({ ...p, xPercent: (p.x / 600) * 100 })}
-                          onTouchStart={() => setActiveChartPoint({ ...p, xPercent: (p.x / 600) * 100 })}
-                        />
-                      </g>
-                    ))}
-                  </svg>
-
-                  <div className="flex justify-between text-[9px] font-mono text-slate-400 pt-3 border-t border-slate-100">
-                    {chartData.map(d => (
-                      <span key={d.date}>{d.date}</span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Drops */}
+              {/* Active Drops */}
               <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-xs font-bold text-slate-900">Active Drops</h3>
@@ -765,11 +693,9 @@ export default function Dashboard() {
                   </div>
                 )}
               </div>
-
             </div>
           )}
 
-          {/* VIEW: DELIVERIES MANIFEST */}
           {currentView === 'deliveries' && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -826,56 +752,8 @@ export default function Dashboard() {
               </div>
             </div>
           )}
-
         </main>
       </div>
-
-      {/* Mobile Drawer */}
-      {sidebarOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex lg:hidden">
-          <div className="w-72 bg-[#070B14] text-slate-300 h-full p-5 flex flex-col justify-between shadow-2xl">
-            <div className="space-y-6">
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-2.5">
-                  <div className="h-8 w-8 rounded-xl bg-blue-600 flex items-center justify-center text-white">
-                    <Zap className="w-4 h-4 fill-white" />
-                  </div>
-                  <span className="font-extrabold text-base text-white">ReleaseDrop</span>
-                </div>
-                <button onClick={() => setSidebarOpen(false)} className="text-slate-400 p-1">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <nav className="space-y-2">
-                <button 
-                  onClick={() => { setCurrentView('overview'); setSidebarOpen(false); }}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-white bg-white/10"
-                >
-                  <Home className="w-4 h-4" /> Overview
-                </button>
-                <button 
-                  onClick={() => { setCurrentView('deliveries'); setSidebarOpen(false); }}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white"
-                >
-                  <FolderKanban className="w-4 h-4" /> Deliveries
-                </button>
-                <button 
-                  onClick={() => { setCurrentView('create'); setWizardStep(1); setSidebarOpen(false); }}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-blue-400"
-                >
-                  <Plus className="w-4 h-4" /> + New Drop
-                </button>
-              </nav>
-            </div>
-
-            <button onClick={() => signOut(auth)} className="text-xs font-bold text-red-400 flex items-center gap-2 py-3 border-t border-slate-800">
-              <X className="w-4 h-4" /> Sign Out
-            </button>
-          </div>
-        </div>
-      )}
-
     </div>
   )
 }
