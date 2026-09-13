@@ -1,14 +1,13 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { auth, db, googleProvider } from '../../lib/firebase'
+import { auth, db, googleProvider } from '@/lib/firebase'
 import { signInWithPopup, signInWithRedirect, signOut, onAuthStateChanged } from 'firebase/auth'
 import { collection, addDoc, query, where, getDocs, deleteDoc, doc, serverTimestamp } from 'firebase/firestore'
-import { calculateFinancials } from '../../lib/saas'
 import { 
   ShieldCheck, Lock, Unlock, Plus, Copy, ExternalLink, 
   Clock, CheckCircle2, LogOut, Eye, Trash2, ArrowUpRight, 
-  Coins, Layers, Sparkles, Building2, User
+  Coins, Layers, Building2, User
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -20,7 +19,6 @@ export default function Dashboard() {
   const [creating, setCreating] = useState(false)
   const [copiedId, setCopiedId] = useState(null)
 
-  // Form Fields
   const [title, setTitle] = useState('')
   const [clientName, setClientName] = useState('')
   const [clientEmail, setClientEmail] = useState('')
@@ -74,7 +72,9 @@ export default function Dashboard() {
 
     setCreating(true)
     try {
-      const financials = calculateFinancials(amount, 'starter')
+      const numAmount = Number(amount) || 0
+      const platformFee = Math.max(Math.round(numAmount * 0.05), 50)
+      const creatorPayout = Math.max(numAmount - platformFee, 0)
       const expiresAt = new Date()
       expiresAt.setDate(expiresAt.getDate() + parseInt(expiryDays))
 
@@ -84,9 +84,9 @@ export default function Dashboard() {
         title,
         clientName: clientName || 'Private Client',
         clientEmail: clientEmail || '',
-        grossAmount: financials.grossAmount,
-        platformFee: financials.platformFee,
-        creatorPayout: financials.creatorPayout,
+        grossAmount: numAmount,
+        platformFee,
+        creatorPayout,
         upiId: upiId.trim() || 'default@upi',
         status: 'Awaiting Payment',
         watermarkEnabled: true,
@@ -130,7 +130,6 @@ export default function Dashboard() {
     setTimeout(() => setCopiedId(null), 2500)
   }
 
-  // Financial calculations
   const totalSettled = deliveries
     .filter(d => d.status === 'Paid')
     .reduce((acc, curr) => acc + (curr.creatorPayout || curr.grossAmount || 0), 0)
@@ -143,7 +142,9 @@ export default function Dashboard() {
     .filter(d => d.status === 'Paid')
     .reduce((acc, curr) => acc + (curr.platformFee || 0), 0)
 
-  const estimatedFinancials = calculateFinancials(amount || 0, 'starter')
+  const previewNumAmount = Number(amount) || 0
+  const previewFee = Math.max(Math.round(previewNumAmount * 0.05), 50)
+  const previewPayout = Math.max(previewNumAmount - previewFee, 0)
 
   if (loading) {
     return (
@@ -179,7 +180,6 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-[#06080e] text-zinc-100 font-sans flex flex-col selection:bg-emerald-500 selection:text-black">
-      {/* SaaS App Header */}
       <header className="border-b border-zinc-900 bg-zinc-950/80 backdrop-blur-xl sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-6">
@@ -221,9 +221,7 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {/* Main SaaS Workspace */}
       <main className="max-w-7xl mx-auto px-6 py-8 flex-1 w-full space-y-8">
-        {/* KPI & Revenue Matrix */}
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="p-5 rounded-2xl bg-zinc-950/60 border border-zinc-900 shadow-sm relative overflow-hidden">
             <div className="flex items-center justify-between text-zinc-500">
@@ -231,7 +229,7 @@ export default function Dashboard() {
               <Coins className="w-4 h-4 text-emerald-400" />
             </div>
             <div className="text-2xl font-black text-white mt-2">₹{totalSettled.toLocaleString('en-IN')}</div>
-            <div className="text-[10px] text-zinc-500 mt-1 flex items-center gap-1">
+            <div className="text-[10px] text-zinc-500 mt-1">
               <span className="text-emerald-400 font-medium">100% Payout Verified</span>
             </div>
           </div>
@@ -270,7 +268,6 @@ export default function Dashboard() {
           </div>
         </section>
 
-        {/* Deliveries Data Table */}
         <section className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
@@ -373,7 +370,6 @@ export default function Dashboard() {
         </section>
       </main>
 
-      {/* Creation Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-zinc-950 border border-zinc-800 rounded-3xl max-w-xl w-full p-7 shadow-2xl space-y-5">
@@ -409,4 +405,5 @@ export default function Dashboard() {
                     className="mt-1 w-full bg-zinc-900/80 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-zinc-100 focus:outline-none focus:border-emerald-500"
                   />
                 </div>
-    
+                <div>
+                  <label className="text-[10px] font-mono uppercase text-zinc-400 tracking-wider">Total Due (₹ INR) *</l
