@@ -75,8 +75,7 @@ export default function Dashboard() {
 
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest()
-      const resourceType = file.type.startsWith('video') ? 'video' : 'auto'
-      xhr.open('POST', `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/${resourceType}/upload`)
+      xhr.open('POST', `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`)
 
       xhr.upload.onprogress = (event) => {
         if (event.lengthComputable) {
@@ -87,11 +86,16 @@ export default function Dashboard() {
 
       xhr.onload = () => {
         setUploading(false)
-        if (xhr.status === 200) {
-          const data = JSON.parse(xhr.responseText)
-          resolve(data.secure_url)
-        } else {
-          reject(new Error("Cloudinary upload failed. Check if preset 'releasedrop_vault' is set to Unsigned."))
+        try {
+          const res = JSON.parse(xhr.responseText)
+          if (xhr.status === 200 && res.secure_url) {
+            resolve(res.secure_url)
+          } else {
+            const serverMsg = res?.error?.message || xhr.responseText
+            reject(new Error("Cloudinary error: " + serverMsg))
+          }
+        } catch (e) {
+          reject(new Error("Upload failed with status: " + xhr.status))
         }
       }
 
