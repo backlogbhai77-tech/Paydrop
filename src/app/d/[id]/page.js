@@ -2,13 +2,12 @@
 
 import React, { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
-import { db } from '../../../lib/firebase'
+import { db } from '@/lib/firebase'
 import { doc, getDoc, updateDoc, increment } from 'firebase/firestore'
-import { generateInvoiceNumber } from '../../../lib/saas'
 import { 
   Lock, Unlock, ShieldCheck, Download, CheckCircle2, 
   AlertTriangle, Clock, QrCode, CreditCard, Receipt, 
-  Sparkles, ExternalLink, ShieldAlert
+  ExternalLink
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -20,9 +19,8 @@ export default function ClientDeliveryVault() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   
-  // Checkout & Gateway simulation state
   const [showCheckout, setShowCheckout] = useState(false)
-  const [paymentStep, setPaymentStep] = useState('select') // select | processing | success
+  const [paymentStep, setPaymentStep] = useState('select')
   const [selectedMethod, setSelectedMethod] = useState('upi')
 
   useEffect(() => {
@@ -48,7 +46,6 @@ export default function ClientDeliveryVault() {
 
       setDelivery(data)
 
-      // Telemetry: increment client view count
       await updateDoc(docRef, {
         viewCount: increment(1),
         lastViewedAt: new Date().toISOString()
@@ -61,25 +58,24 @@ export default function ClientDeliveryVault() {
     }
   }
 
-  // Simulated Pluggable Payment Engine (Later connects to Razorpay/Cashfree Webhooks)
   const executePayment = async () => {
     setPaymentStep('processing')
     try {
-      // Simulate gateway verification handshake
-      await new Promise(res => setTimeout(res, 2200))
+      await new Promise(res => setTimeout(res, 2000))
 
+      const invoiceNum = `INV-${new Date().getFullYear()}-${deliveryId ? deliveryId.slice(0, 6).toUpperCase() : '000000'}`
       const docRef = doc(db, 'deliveries', deliveryId)
       await updateDoc(docRef, {
         status: 'Paid',
         settledAt: new Date().toISOString(),
         paymentMethod: selectedMethod,
-        invoiceNumber: generateInvoiceNumber(deliveryId)
+        invoiceNumber: invoiceNum
       })
 
       setDelivery(prev => ({
         ...prev,
         status: 'Paid',
-        invoiceNumber: generateInvoiceNumber(deliveryId)
+        invoiceNumber: invoiceNum
       }))
       setPaymentStep('success')
     } catch (err) {
@@ -113,11 +109,10 @@ export default function ClientDeliveryVault() {
   }
 
   const isUnlocked = delivery?.status === 'Paid'
-  const invoiceId = delivery?.invoiceNumber || generateInvoiceNumber(deliveryId)
+  const invoiceId = delivery?.invoiceNumber || `INV-${new Date().getFullYear()}-${deliveryId ? deliveryId.slice(0, 6).toUpperCase() : '000000'}`
 
   return (
     <div className="min-h-screen bg-[#06080e] text-zinc-100 antialiased font-sans flex flex-col selection:bg-emerald-500 selection:text-black">
-      {/* Top Security Header */}
       <header className="border-b border-zinc-900 bg-zinc-950/80 backdrop-blur-xl px-6 h-16 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="h-8 w-8 rounded-lg bg-emerald-500 flex items-center justify-center font-black text-black text-sm shadow-md shadow-emerald-500/20">
@@ -139,9 +134,7 @@ export default function ClientDeliveryVault() {
         </span>
       </header>
 
-      {/* Main Delivery Showcase */}
       <main className="flex-1 max-w-3xl mx-auto w-full px-6 py-8 space-y-6">
-        {/* Deliverable Header Card */}
         <div className="bg-zinc-950/70 border border-zinc-800/80 rounded-3xl p-7 backdrop-blur-xl flex flex-col sm:flex-row sm:items-center justify-between gap-5 shadow-2xl">
           <div>
             <span className="text-[10px] font-mono font-bold text-emerald-400 uppercase tracking-widest block">
@@ -164,7 +157,6 @@ export default function ClientDeliveryVault() {
           </div>
         </div>
 
-        {/* Dynamic Watermark Inspection Viewport */}
         <div className="bg-zinc-950/70 border border-zinc-800/80 rounded-3xl p-5 space-y-3 shadow-xl">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
@@ -182,7 +174,6 @@ export default function ClientDeliveryVault() {
               className={`w-full h-full object-cover transition duration-700 ${isUnlocked ? '' : 'filter brightness-60 contrast-125'}`}
             />
 
-            {/* Anti-Piracy Watermark Diagonal Grid */}
             {!isUnlocked && (
               <div className="absolute inset-0 pointer-events-none select-none flex flex-wrap items-center justify-around opacity-25 text-white font-mono text-[11px] rotate-[-20deg] gap-12 p-8">
                 <span>PREVIEW ONLY • CONFIDENTIAL</span>
@@ -199,14 +190,13 @@ export default function ClientDeliveryVault() {
                 </div>
                 <h3 className="text-sm font-black text-white tracking-wide">Production Master Locked</h3>
                 <p className="text-[11px] text-zinc-400 mt-1 max-w-xs leading-relaxed">
-                  Final uncompressed master assets, source code, and raw project files decrypt immediately upon payment confirmation.
+                  Final uncompressed master assets decrypt immediately upon payment confirmation.
                 </p>
               </div>
             )}
           </div>
         </div>
 
-        {/* Action Panel: Checkout or Decrypted Download */}
         {!isUnlocked ? (
           <div className="bg-zinc-950 border border-zinc-800 rounded-3xl p-7 shadow-2xl text-center space-y-4">
             <div>
@@ -235,7 +225,7 @@ export default function ClientDeliveryVault() {
               </span>
               <h3 className="text-xl font-black text-white mt-1">Master Files Decrypted</h3>
               <p className="text-xs text-zinc-400 mt-1 max-w-sm mx-auto">
-                Invoice <span className="font-mono text-zinc-200">{invoiceId}</span> settled. Your full-resolution files are ready for immediate download.
+                Invoice <span className="font-mono text-zinc-200">{invoiceId}</span> settled. Your master files are ready for download.
               </p>
             </div>
 
@@ -257,7 +247,6 @@ export default function ClientDeliveryVault() {
         )}
       </main>
 
-      {/* Simulated Production Checkout Modal (Plug-and-play Gateway Engine) */}
       {showCheckout && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-zinc-950 border border-zinc-800 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-5">
@@ -363,5 +352,5 @@ export default function ClientDeliveryVault() {
       </footer>
     </div>
   )
-      }
-  
+              }
+              
