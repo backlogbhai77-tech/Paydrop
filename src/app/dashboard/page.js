@@ -13,7 +13,8 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 
-const CLOUDINARY_CLOUD_NAME = "nrfujht8"
+// EXACT CLOUDINARY CREDENTIALS FIXED
+const CLOUDINARY_CLOUD_NAME = "mrfujhf8"
 const CLOUDINARY_UPLOAD_PRESET = "releasedrop_vault"
 
 export default function Dashboard() {
@@ -79,7 +80,7 @@ export default function Dashboard() {
     }
   }
 
-  // Bulletproof Cloudinary Upload with direct resource typing
+  // Robust Unsigned Direct Upload
   const uploadFileToCloudinary = (file) => {
     setUploading(true)
     setUploadProgress(5)
@@ -89,14 +90,9 @@ export default function Dashboard() {
     formData.append('file', file)
     formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET)
 
-    const isVideo = file.type.startsWith('video') || file.name.match(/\.(mp4|mov|webm|mkv)$/i)
-    const endpoint = isVideo 
-      ? `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/video/upload`
-      : `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`
-
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest()
-      xhr.open('POST', endpoint)
+      xhr.open('POST', `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`)
 
       xhr.upload.onprogress = (event) => {
         if (event.lengthComputable) {
@@ -113,20 +109,20 @@ export default function Dashboard() {
             setUploadProgress(100)
             resolve(res.secure_url || res.url)
           } else {
-            const errDetail = res?.error?.message || `Server responded with status ${xhr.status}`
+            const errDetail = res?.error?.message || `Upload failed with status: ${xhr.status}`
             setUploadError(errDetail)
             reject(new Error(errDetail))
           }
         } catch (e) {
-          setUploadError("Invalid response from storage engine")
+          setUploadError("Response parse error from Cloudinary")
           reject(new Error("Parse error"))
         }
       }
 
       xhr.onerror = () => {
         setUploading(false)
-        setUploadError("Network connection interrupted. Check your internet.")
-        reject(new Error("Network failed"))
+        setUploadError("Network error. Please check your internet connection.")
+        reject(new Error("Network connection failed"))
       }
 
       xhr.send(formData)
@@ -167,7 +163,7 @@ export default function Dashboard() {
         createdAt: serverTimestamp()
       })
 
-      // Reset Wizard
+      // Reset Wizard & Return to Overview
       setTitle('')
       setClientName('')
       setClientEmail('')
@@ -604,7 +600,7 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* VIEW B: OVERVIEW DASHBOARD (EMERGENT 1:1 REVENUE GRAPH + FUNNEL) */}
+          {/* VIEW B: OVERVIEW DASHBOARD */}
           {currentView === 'overview' && (
             <div className="space-y-6">
               
@@ -658,7 +654,7 @@ export default function Dashboard() {
                   <span className="text-[11px] font-bold text-slate-500 font-mono">₹{totalRevenue} TOTAL</span>
                 </div>
 
-                {/* Styled Professional SVG Chart with Gradients */}
+                {/* SVG Chart with Gradients */}
                 <div className="h-44 w-full pt-4 relative">
                   <svg className="w-full h-full overflow-visible" viewBox="0 0 600 120" preserveAspectRatio="none">
                     <defs>
@@ -668,12 +664,10 @@ export default function Dashboard() {
                       </linearGradient>
                     </defs>
 
-                    {/* Grid lines */}
                     <line x1="0" y1="20" x2="600" y2="20" stroke="#F1F5F9" strokeWidth="1" strokeDasharray="3 3" />
                     <line x1="0" y1="60" x2="600" y2="60" stroke="#F1F5F9" strokeWidth="1" strokeDasharray="3 3" />
                     <line x1="0" y1="100" x2="600" y2="100" stroke="#F1F5F9" strokeWidth="1" strokeDasharray="3 3" />
 
-                    {/* Area fill */}
                     <path
                       fill="url(#revenueGrad)"
                       d={paidDeliveries.length > 0 
@@ -682,7 +676,6 @@ export default function Dashboard() {
                       }
                     />
 
-                    {/* Main stroke line */}
                     <path
                       fill="none"
                       stroke="#2563EB"
@@ -708,7 +701,7 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Delivery Funnel Tracker (Exact Emergent Metrics) */}
+              {/* Delivery Funnel Tracker */}
               <div className="p-6 rounded-2xl bg-white border border-slate-200/80 shadow-sm space-y-4">
                 <div>
                   <h3 className="text-xs font-bold text-slate-900">Delivery funnel</h3>
