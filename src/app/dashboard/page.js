@@ -3,17 +3,16 @@
 import React, { useState, useEffect } from 'react'
 import { auth, db, googleProvider } from '../../lib/firebase'
 import { signInWithPopup, signInWithRedirect, signOut, onAuthStateChanged } from 'firebase/auth'
-import { collection, addDoc, query, where, getDocs, deleteDoc, doc, serverTimestamp } from 'firebase/firestore'
+import { collection, addDoc, query, where, getDocs, deleteDoc, updateDoc, doc, serverTimestamp } from 'firebase/firestore'
 import { 
   Zap, Bell, Menu, X, Plus, Home, FolderKanban, CreditCard, 
   BarChart3, Users, Settings, UploadCloud, CheckCircle2, 
   Lock, ArrowRight, ArrowLeft, Shield, Eye, Copy, Check, 
   Trash2, ExternalLink, Sparkles, FileText, ChevronRight,
-  TrendingUp, AlertCircle, RefreshCw, FileCheck
+  TrendingUp, AlertCircle, RefreshCw, FileCheck, Share2, Edit3
 } from 'lucide-react'
 import Link from 'next/link'
 
-// EXACT CLOUDINARY CREDENTIALS FIXED
 const CLOUDINARY_CLOUD_NAME = "mrfujhf8"
 const CLOUDINARY_UPLOAD_PRESET = "releasedrop_vault"
 
@@ -31,7 +30,7 @@ export default function Dashboard() {
   const [wizardStep, setWizardStep] = useState(1)
   const [creating, setCreating] = useState(false)
   
-  // Form State
+  // Create Form State
   const [title, setTitle] = useState('')
   const [clientName, setClientName] = useState('')
   const [clientEmail, setClientEmail] = useState('')
@@ -42,6 +41,15 @@ export default function Dashboard() {
   const [uploadProgress, setUploadProgress] = useState(0)
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState(null)
+
+  // Edit State (Unpaid Only)
+  const [editingItem, setEditingItem] = useState(null)
+  const [editTitle, setEditTitle] = useState('')
+  const [editClientName, setEditClientName] = useState('')
+  const [editClientEmail, setEditClientEmail] = useState('')
+  const [editAmount, setEditAmount] = useState('')
+  const [editNotes, setEditNotes] = useState('')
+  const [savingEdit, setSavingEdit] = useState(false)
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (currentUser) => {
@@ -80,7 +88,6 @@ export default function Dashboard() {
     }
   }
 
-  // Robust Unsigned Direct Upload
   const uploadFileToCloudinary = (file) => {
     setUploading(true)
     setUploadProgress(5)
@@ -114,14 +121,14 @@ export default function Dashboard() {
             reject(new Error(errDetail))
           }
         } catch (e) {
-          setUploadError("Response parse error from Cloudinary")
+          setUploadError("Response parse error from storage engine")
           reject(new Error("Parse error"))
         }
       }
 
       xhr.onerror = () => {
         setUploading(false)
-        setUploadError("Network error. Please check your internet connection.")
+        setUploadError("Network connection interrupted.")
         reject(new Error("Network connection failed"))
       }
 
@@ -163,7 +170,6 @@ export default function Dashboard() {
         createdAt: serverTimestamp()
       })
 
-      // Reset Wizard & Return to Overview
       setTitle('')
       setClientName('')
       setClientEmail('')
@@ -174,22 +180,99 @@ export default function Dashboard() {
       setCurrentView('overview')
       fetchDeliveries(user.uid)
     } catch (err) {
-      alert("Deployment halted: " + err.message)
+      alert("Deployment failed: " + err.message)
     } finally {
       setCreating(false)
     }
   }
 
   const handleDelete = async (id) => {
-    if (!confirm("Revoke this delivery link? Client access will be permanently revoked.")) return
+    if (!confirm("Revoke this delivery link? Client access will be permanently terminated.")) return
     await deleteDoc(doc(db, 'deliveries', id))
     setDeliveries(prev => prev.filter(d => d.id !== id))
   }
 
-  const copyLink = (id) => {
-    navigator.clipboard.writeText(`${window.location.origin}/d/${id}`)
+  // Native Mobile Share with Clipboard Fallback
+  const handleNativeShare = async (item) => {
+    const shareUrl = `${window.location.origin}/d/${item.id}`
+    const shareData = {
+      title: `ReleaseDrop: ${item.title}`,
+      text: `Hi ${item.clientName}, your deliverables for "${item.title}" are ready for inspection and payout authorization:`,
+      url: shareUrl
+    }
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData)
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          copyLinkFallback(item.id, shareUrl)
+        }
+      }
+    } else {
+      copyLinkFallback(item.id, shareUrl)
+    }
+  }
+
+  const copyLinkFallback = (id, url) => {
+    navigator.clipboard.writeText(url)
     setCopiedId(id)
     setTimeout(() => setCopiedId(null), 2500)
+  }
+
+  // Open Edit Modal (Unpaid deliveries only)
+  const openEditModal = (item) => {
+    if (item.status === 'Paid') {
+      alert("Paid deliveries are legally locked and cannot be modified.")
+      return
+    }
+    setEditingItem(item)
+    setEditTitle(item.title || '')
+    setEditClientName(item.clientName || '')
+    setEditClientEmail(item.clientEmail || '')
+    setEditAmount(item.grossAmount || '')
+    setEditNotes(item.notes || '')
+  }
+
+  const handleSaveEdit = async (e) => {
+    e.preventDefault()
+    if (!editingItem) return
+    setSavingEdit(true)
+
+    try {
+      const numAmount = Number(editAmount) || 0
+      const platformFee = Math.max(Math.round(numAmount * 0.05), 50)
+      const creatorPayout = Math.max(numAmount - platformFee, 0)
+
+      const docRef = doc(db, 'deliveries', editingItem.id)
+      await updateDoc(docRef, {
+        title: editTitle,
+        clientName: editClientName,
+        clientEmail: editClientEmail,
+        grossAmount: numAmount,
+        platformFee,
+        creatorPayout,
+        notes: editNotes,
+        updatedAt: serverTimestamp()
+      })
+
+      setDeliveries(prev => prev.map(d => d.id === editingItem.id ? {
+        ...d,
+        title: editTitle,
+        clientName: editClientName,
+        clientEmail: editClientEmail,
+        grossAmount: numAmount,
+        platformFee,
+        creatorPayout,
+        notes: editNotes
+      } : d))
+
+      setEditingItem(null)
+    } catch (err) {
+      alert("Failed to update delivery: " + err.message)
+    } finally {
+      setSavingEdit(false)
+    }
   }
 
   // Metrics
@@ -282,7 +365,6 @@ export default function Dashboard() {
           </nav>
         </div>
 
-        {/* User Card */}
         <div className="border-t border-slate-800/80 pt-4 flex items-center justify-between px-2">
           <div className="flex items-center gap-2.5">
             <div className="h-8 w-8 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center">
@@ -335,7 +417,6 @@ export default function Dashboard() {
           {/* VIEW A: CREATE NEW DELIVERY WIZARD */}
           {currentView === 'create' && (
             <div className="max-w-3xl mx-auto space-y-6">
-              
               <button 
                 onClick={() => setCurrentView('overview')} 
                 className="text-xs font-semibold text-slate-500 hover:text-slate-800 flex items-center gap-1"
@@ -617,7 +698,7 @@ export default function Dashboard() {
                 </button>
               </div>
 
-              {/* 4 Metric Cards Matrix */}
+              {/* 4 Metric Cards */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block font-mono">REVENUE</span>
@@ -654,7 +735,6 @@ export default function Dashboard() {
                   <span className="text-[11px] font-bold text-slate-500 font-mono">₹{totalRevenue} TOTAL</span>
                 </div>
 
-                {/* SVG Chart with Gradients */}
                 <div className="h-44 w-full pt-4 relative">
                   <svg className="w-full h-full overflow-visible" viewBox="0 0 600 120" preserveAspectRatio="none">
                     <defs>
@@ -701,7 +781,7 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Delivery Funnel Tracker */}
+              {/* Delivery Funnel */}
               <div className="p-6 rounded-2xl bg-white border border-slate-200/80 shadow-sm space-y-4">
                 <div>
                   <h3 className="text-xs font-bold text-slate-900">Delivery funnel</h3>
@@ -780,17 +860,35 @@ export default function Dashboard() {
                   <div className="divide-y divide-slate-100">
                     {deliveries.slice(0, 5).map(item => (
                       <div key={item.id} className="py-3.5 flex items-center justify-between text-xs gap-3">
-                        <div className="truncate max-w-[200px] sm:max-w-xs">
+                        <div className="truncate max-w-[170px] sm:max-w-xs">
                           <span className="font-bold text-slate-900 truncate block">{item.title}</span>
                           <span className="text-[10px] text-slate-400">{item.clientName} • {item.fileSize || ''}</span>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <span className="font-bold text-slate-900 font-mono">₹{item.grossAmount?.toLocaleString('en-IN')}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-slate-900 font-mono mr-1">₹{item.grossAmount?.toLocaleString('en-IN')}</span>
+                          
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${item.status === 'Paid' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
                             {item.status}
                           </span>
-                          <button onClick={() => copyLink(item.id)} className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg">
-                            {copiedId === item.id ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+
+                          {/* Edit Button (Unpaid Only) */}
+                          {item.status !== 'Paid' && (
+                            <button 
+                              onClick={() => openEditModal(item)} 
+                              className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition" 
+                              title="Edit Details"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+
+                          {/* Native Direct Share */}
+                          <button 
+                            onClick={() => handleNativeShare(item)} 
+                            className="p-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg transition flex items-center gap-1"
+                            title="Share Link"
+                          >
+                            <Share2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </div>
@@ -842,23 +940,42 @@ export default function Dashboard() {
                         <span className="font-extrabold text-slate-900 text-sm font-mono">₹{item.grossAmount?.toLocaleString('en-IN')}</span>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5">
+                        {/* Edit Button (Unpaid Only) */}
+                        {item.status !== 'Paid' && (
+                          <button 
+                            onClick={() => openEditModal(item)}
+                            className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs transition flex items-center gap-1"
+                            title="Edit Delivery"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                            <span>Edit</span>
+                          </button>
+                        )}
+
+                        {/* Native Share Button */}
                         <button 
-                          onClick={() => copyLink(item.id)}
-                          className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs transition flex items-center gap-1"
+                          onClick={() => handleNativeShare(item)}
+                          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-xs transition flex items-center gap-1.5 shadow-sm shadow-blue-600/20 active:scale-95"
+                          title="Share to Apps"
                         >
-                          {copiedId === item.id ? 'Copied' : 'Share'}
+                          <Share2 className="w-3.5 h-3.5" />
+                          <span>Share</span>
                         </button>
+
                         <Link 
                           href={`/d/${item.id}`} 
                           target="_blank" 
                           className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition"
+                          title="Open Client Vault"
                         >
                           <ExternalLink className="w-3.5 h-3.5" />
                         </Link>
+
                         <button 
                           onClick={() => handleDelete(item.id)} 
-                          className="p-2 bg-slate-100 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-xl transition"
+                          className="p-2 bg-slate-100 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg transition"
+                          title="Revoke Delivery"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -873,7 +990,85 @@ export default function Dashboard() {
         </main>
       </div>
 
-      {/* 3. Mobile Slide-out Drawer */}
+      {/* 3. EDIT MODAL (FOR UNPAID DELIVERIES ONLY) */}
+      {editingItem && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl space-y-4">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-sm font-extrabold text-slate-900">Edit Delivery Details</h3>
+                <span className="text-[10px] text-slate-400">Available while awaiting payment</span>
+              </div>
+              <button onClick={() => setEditingItem(null)} className="text-slate-400 hover:text-slate-600 text-xs p-1">✕</button>
+            </div>
+
+            <form onSubmit={handleSaveEdit} className="space-y-3.5">
+              <div>
+                <label className="text-[11px] font-bold text-slate-700 block mb-1">Title</label>
+                <input 
+                  type="text" 
+                  required 
+                  value={editTitle} 
+                  onChange={e => setEditTitle(e.target.value)} 
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-600 focus:bg-white" 
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-bold text-slate-700 block mb-1">Client Name</label>
+                  <input 
+                    type="text" 
+                    required 
+                    value={editClientName} 
+                    onChange={e => setEditClientName(e.target.value)} 
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-600 focus:bg-white" 
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-slate-700 block mb-1">Settlement (₹)</label>
+                  <input 
+                    type="number" 
+                    required 
+                    value={editAmount} 
+                    onChange={e => setEditAmount(e.target.value)} 
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 font-bold focus:outline-none focus:border-blue-600 focus:bg-white" 
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-700 block mb-1">Client Email</label>
+                <input 
+                  type="email" 
+                  value={editClientEmail} 
+                  onChange={e => setEditClientEmail(e.target.value)} 
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-600 focus:bg-white" 
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-700 block mb-1">Notes to Client</label>
+                <textarea 
+                  rows={2}
+                  value={editNotes} 
+                  onChange={e => setEditNotes(e.target.value)} 
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-blue-600 focus:bg-white" 
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <button type="button" onClick={() => setEditingItem(null)} className="px-3.5 py-2 text-xs font-semibold text-slate-500">Cancel</button>
+                <button type="submit" disabled={savingEdit} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md disabled:opacity-50">
+                  {savingEdit ? 'Saving...' : 'Save Updates'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 4. Mobile Slide-out Drawer */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex lg:hidden">
           <div className="w-72 bg-[#091124] text-slate-300 h-full p-5 flex flex-col justify-between shadow-2xl">
