@@ -7,7 +7,8 @@ import { doc, getDoc, updateDoc, increment } from 'firebase/firestore'
 import { 
   Lock, Unlock, ShieldCheck, Download, CheckCircle2, 
   AlertTriangle, Clock, QrCode, CreditCard, Receipt, 
-  Play, FileText, ChevronRight, Sparkles, Shield, Eye
+  Shield, Film, Sparkles, ExternalLink, ArrowRight,
+  FileCheck2, ChevronRight, Layers, Eye
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -30,7 +31,7 @@ export default function ClientDeliveryVault() {
         const docSnap = await getDoc(docRef)
 
         if (!docSnap.exists()) {
-          setError("This delivery portal is invalid, expired, or has been revoked by the sender.")
+          setError("Vault Manifest Not Found. This portal link is invalid, expired, or has been revoked by the sender.")
           setLoading(false)
           return
         }
@@ -42,7 +43,7 @@ export default function ClientDeliveryVault() {
           lastViewedAt: new Date().toISOString()
         })
       } catch (err) {
-        setError("Secure handshake with vault failed. Please reload.")
+        setError("Secure cryptographic handshake failed. Please refresh the portal.")
       } finally {
         setLoading(false)
       }
@@ -53,8 +54,8 @@ export default function ClientDeliveryVault() {
   const executePayment = async () => {
     setPaymentStep('processing')
     try {
-      await new Promise(r => setTimeout(r, 2000))
-      const invoiceNum = `INV-${new Date().getFullYear()}-${deliveryId ? deliveryId.slice(0, 6).toUpperCase() : '000000'}`
+      await new Promise(r => setTimeout(r, 2200))
+      const invoiceNum = `RD-INV-${new Date().getFullYear()}-${deliveryId ? deliveryId.slice(0, 6).toUpperCase() : '000000'}`
       const docRef = doc(db, 'deliveries', deliveryId)
       await updateDoc(docRef, {
         status: 'Paid',
@@ -65,207 +66,212 @@ export default function ClientDeliveryVault() {
       setDelivery(prev => ({ ...prev, status: 'Paid', invoiceNumber: invoiceNum }))
       setPaymentStep('success')
     } catch (err) {
-      alert("Payment error: " + err.message)
+      alert("Escrow settlement failed: " + err.message)
       setPaymentStep('select')
     }
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#050608] text-zinc-400 flex flex-col items-center justify-center text-xs gap-3">
-        <div className="w-7 h-7 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-        <span className="font-mono uppercase tracking-widest text-[11px] text-zinc-500">Decrypting Secure Vault Manifest...</span>
+      <div className="min-h-screen bg-[#030712] text-zinc-400 flex flex-col items-center justify-center text-xs gap-3">
+        <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+        <span className="font-mono uppercase tracking-widest text-[11px] text-zinc-500">Decrypting ReleaseDrop Escrow Manifest...</span>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[#050608] text-zinc-100 flex flex-col items-center justify-center p-6 text-center">
+      <div className="min-h-screen bg-[#030712] text-zinc-100 flex flex-col items-center justify-center p-6 text-center">
         <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl mb-4 text-red-400">
           <AlertTriangle className="w-8 h-8" />
         </div>
         <h1 className="text-xl font-bold tracking-tight">Portal Inactive</h1>
         <p className="text-zinc-400 text-xs mt-2 max-w-sm leading-relaxed">{error}</p>
         <Link href="/" className="mt-6 px-5 py-2.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs rounded-xl text-zinc-300 transition">
-          Return to ReleaseDrop
+          Return to ReleaseDrop Network
         </Link>
       </div>
     )
   }
 
   const isUnlocked = delivery?.status === 'Paid'
-  const invoiceId = delivery?.invoiceNumber || `INV-${new Date().getFullYear()}-${deliveryId ? deliveryId.slice(0, 6).toUpperCase() : '000000'}`
+  const invoiceId = delivery?.invoiceNumber || `RD-INV-${new Date().getFullYear()}-${deliveryId ? deliveryId.slice(0, 6).toUpperCase() : '000000'}`
   const isVideo = delivery?.previewUrl?.includes('/video/') || delivery?.fileName?.match(/\.(mp4|mov|webm|mkv)$/i)
 
   return (
-    <div className="min-h-screen bg-[#050608] text-zinc-100 antialiased font-sans flex flex-col selection:bg-emerald-500 selection:text-black">
-      {/* Top Protocol Bar */}
-      <header className="border-b border-zinc-800/60 bg-zinc-950/60 backdrop-blur-2xl px-6 h-16 flex items-center justify-between sticky top-0 z-40">
+    <div className="min-h-screen bg-[#030712] text-zinc-100 antialiased font-sans flex flex-col selection:bg-emerald-500 selection:text-black relative overflow-x-hidden">
+      
+      {/* Background Subtle Mesh */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[350px] bg-emerald-500/5 blur-[120px] rounded-full" />
+      </div>
+
+      {/* Institutional Protocol Header */}
+      <header className="border-b border-white/[0.08] bg-[#030712]/80 backdrop-blur-2xl px-6 h-16 flex items-center justify-between sticky top-0 z-40">
         <div className="flex items-center gap-3">
           <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-emerald-400 flex items-center justify-center font-black text-black text-base shadow-lg shadow-emerald-500/20">
             R
           </div>
           <div>
-            <div className="font-extrabold text-sm tracking-tight text-zinc-100 flex items-center gap-1.5">
-              ReleaseDrop <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 font-normal">VAULT</span>
+            <div className="font-extrabold text-xs tracking-tight text-white flex items-center gap-2">
+              ReleaseDrop <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-zinc-900 border border-white/[0.08] text-zinc-400 font-normal">SECURE VAULT</span>
             </div>
-            <div className="text-[10px] font-mono text-zinc-500 flex items-center gap-1">
-              <Shield className="w-2.5 h-2.5 text-emerald-400" /> End-to-End Payment Escrow
+            <div className="text-[10px] font-mono text-zinc-500 flex items-center gap-1 mt-0.5">
+              <Shield className="w-3 h-3 text-emerald-400" /> 256-Bit Escrow Protocol Active
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className={`text-[10px] font-mono px-3 py-1 rounded-full border flex items-center gap-1.5 transition ${
+        <div className="flex items-center gap-3">
+          <span className={`text-[10px] font-mono px-3 py-1 rounded-full border flex items-center gap-1.5 tracking-wider uppercase font-semibold ${
             isUnlocked 
               ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-sm shadow-emerald-500/20' 
               : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
           }`}>
             {isUnlocked ? <Unlock className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
-            {isUnlocked ? 'MASTER UNLOCKED' : 'PAYMENT REQUIRED'}
+            {isUnlocked ? 'MASTER DECRYPTED' : 'ESCROW LOCKED'}
           </span>
         </div>
       </header>
 
-      {/* Main Showcase Layout */}
-      <main className="flex-1 max-w-4xl mx-auto w-full px-4 sm:px-6 py-8 space-y-6">
+      {/* Main Deliverable Showroom */}
+      <main className="flex-1 max-w-4xl mx-auto w-full px-4 sm:px-6 py-8 space-y-6 z-10">
         
-        {/* Deliverable Meta Card */}
-        <div className="bg-gradient-to-b from-zinc-900/60 to-zinc-950/60 border border-zinc-800/80 rounded-3xl p-6 sm:p-8 backdrop-blur-xl flex flex-col sm:flex-row sm:items-center justify-between gap-6 shadow-2xl relative overflow-hidden">
-          <div className="space-y-1.5 z-10">
+        {/* Deal Overview Card */}
+        <div className="bg-zinc-950/70 border border-white/[0.08] rounded-3xl p-6 sm:p-8 backdrop-blur-xl flex flex-col sm:flex-row sm:items-center justify-between gap-6 shadow-2xl relative overflow-hidden">
+          <div className="space-y-2">
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-mono uppercase tracking-widest text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
-                Official Production Master
+                Official Deliverable
               </span>
               <span className="text-[10px] font-mono text-zinc-500">
-                {delivery?.fileSize || 'High-Res Asset'}
+                ID: {deliveryId ? deliveryId.slice(0, 8) : ''}
               </span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">{delivery?.title}</h1>
             <p className="text-xs text-zinc-400">
-              Prepared exclusively for <span className="text-zinc-200 font-semibold">{delivery?.clientName}</span>
+              Authorized Recipient: <span className="text-zinc-200 font-semibold">{delivery?.clientName}</span>
             </p>
           </div>
 
-          <div className="sm:text-right border-t sm:border-0 pt-4 sm:pt-0 border-zinc-800/80 z-10 flex flex-col sm:items-end">
-            <span className="text-[10px] font-mono uppercase text-zinc-500 tracking-wider">Settlement Amount</span>
+          <div className="sm:text-right border-t sm:border-0 pt-4 sm:pt-0 border-white/[0.08] flex flex-col sm:items-end">
+            <span className="text-[10px] font-mono uppercase text-zinc-500 tracking-wider">Settlement Due</span>
             <div className="text-3xl font-black text-white tracking-tight mt-0.5">
               ₹{delivery?.grossAmount?.toLocaleString('en-IN')}
             </div>
-            <span className="text-[11px] text-zinc-400 flex items-center gap-1 mt-1">
-              <Clock className="w-3 h-3 text-zinc-500" /> Escrow holds until release
+            <span className="text-[11px] text-zinc-400 flex items-center gap-1 mt-1 font-mono">
+              <Clock className="w-3 h-3 text-zinc-500" /> Auto-expires: {new Date(delivery?.expiresAt).toLocaleDateString()}
             </span>
           </div>
-
-          {/* Background subtle glow */}
-          <div className="absolute right-0 top-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
         </div>
 
-        {/* Dynamic Media Inspector (Video or High-Res Image) */}
-        <div className="bg-zinc-950/80 border border-zinc-800/80 rounded-3xl p-4 sm:p-6 space-y-4 shadow-xl">
+        {/* Cinema-Grade Asset Inspector */}
+        <div className="bg-zinc-950/70 border border-white/[0.08] rounded-3xl p-5 sm:p-6 space-y-4 shadow-xl">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
               <span className="text-xs font-bold uppercase tracking-wider text-zinc-300">
-                Inspection Viewport
+                Deliverable Inspection Viewport
               </span>
             </div>
-            <span className="text-[10px] font-mono text-zinc-500">
-              {isUnlocked ? 'CLEAN MASTER STREAM' : 'FORENSIC GRID ACTIVE'}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-mono bg-zinc-900 border border-white/[0.08] text-zinc-400 px-2 py-0.5 rounded">
+                4K INSPECTION
+              </span>
+              <span className="text-[10px] font-mono text-zinc-500">
+                {isUnlocked ? 'MASTER STREAM' : 'FORENSIC GRID ACTIVE'}
+              </span>
+            </div>
           </div>
 
-          {/* Player / Viewport Container */}
-          <div className="relative rounded-2xl overflow-hidden border border-zinc-800/80 bg-black aspect-video flex items-center justify-center group">
-            
-            {/* If video */}
+          {/* Media Player / Viewport */}
+          <div className="relative rounded-2xl overflow-hidden border border-white/[0.08] bg-black aspect-video flex items-center justify-center">
             {isVideo ? (
               <video 
                 src={delivery?.previewUrl} 
                 controls={isUnlocked}
                 controlsList="nodownload"
                 playsInline
-                className={`w-full h-full object-contain ${isUnlocked ? '' : 'filter brightness-75 contrast-110'}`}
+                className={`w-full h-full object-contain ${isUnlocked ? '' : 'brightness-75'}`}
               />
             ) : (
-              /* If image / document thumbnail */
               <img 
                 src={delivery?.previewUrl} 
-                alt="Deliverable Inspection" 
-                className={`w-full h-full object-contain transition duration-700 ${isUnlocked ? '' : 'filter brightness-75 contrast-110'}`}
+                alt="Deliverable" 
+                className={`w-full h-full object-contain transition duration-700 ${isUnlocked ? '' : 'brightness-75'}`}
               />
             )}
 
-            {/* Forensic Watermark Grid (Shows only when locked) */}
+            {/* Anti-Theft Dynamic Forensic Lattice */}
             {!isUnlocked && (
-              <div className="absolute inset-0 pointer-events-none select-none overflow-hidden flex flex-col justify-around opacity-30 text-white font-mono text-[11px] font-bold rotate-[-15deg] p-4 scale-125">
-                <div className="flex justify-around gap-10">
+              <div className="absolute inset-0 pointer-events-none select-none overflow-hidden flex flex-col justify-around opacity-30 text-white font-mono text-[11px] font-black rotate-[-15deg] scale-125">
+                <div className="flex justify-around gap-8">
                   <span>PREVIEW ONLY • CONFIDENTIAL</span>
                   <span>{delivery?.clientName?.toUpperCase()}</span>
                 </div>
-                <div className="flex justify-around gap-10">
+                <div className="flex justify-around gap-8">
                   <span>UNAUTHORIZED USE PROHIBITED</span>
-                  <span>PAYMENT REQUIRED TO DECRYPT</span>
+                  <span>ESCROW HOLD ACTIVE</span>
                 </div>
-                <div className="flex justify-around gap-10">
-                  <span>RELEASEDROP SECURE ESCROW</span>
-                  <span>PROPERTY OF SENDER</span>
+                <div className="flex justify-around gap-8">
+                  <span>RELEASEDROP CRYPTOGRAPHIC VAULT</span>
+                  <span>PROPERTY OF CREATOR</span>
                 </div>
               </div>
             )}
 
-            {/* Floating Lock Badge when locked */}
+            {/* Locked Badge Overlay */}
             {!isUnlocked && (
-              <div className="absolute top-4 right-4 bg-black/80 backdrop-blur-md border border-zinc-800 px-3 py-1.5 rounded-full flex items-center gap-2 text-[10px] font-mono text-zinc-300 pointer-events-none">
+              <div className="absolute top-4 right-4 bg-black/85 backdrop-blur-md border border-white/[0.08] px-3.5 py-1.5 rounded-full flex items-center gap-2 text-[10px] font-mono text-zinc-300 pointer-events-none">
                 <Lock className="w-3 h-3 text-amber-400" />
-                <span>Inspection Mode • Master Locked</span>
+                <span>Forensic Preview Mode</span>
               </div>
             )}
           </div>
 
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between text-[11px] text-zinc-500 px-1 pt-1 gap-2">
-            <span>Asset: <strong className="text-zinc-400">{delivery?.fileName || 'Master Delivery'}</strong></span>
-            <span>Inspection view is compressed. Full uncompressed bit-rate available post-unlock.</span>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between text-[11px] text-zinc-500 px-1 pt-1 gap-2 font-mono">
+            <span>Asset: <strong className="text-zinc-300 font-sans">{delivery?.fileName || 'Production Master File'}</strong> ({delivery?.fileSize || 'High-Res'})</span>
+            <span>Master uncompressed bit-stream unlocks post-settlement</span>
           </div>
         </div>
 
-        {/* Action Bottom Section */}
+        {/* Settlement Panel / Action */}
         {!isUnlocked ? (
-          <div className="bg-gradient-to-b from-zinc-900/40 to-zinc-950 border border-zinc-800/80 rounded-3xl p-6 sm:p-8 text-center space-y-5 shadow-2xl">
+          <div className="bg-zinc-950/70 border border-white/[0.08] rounded-3xl p-6 sm:p-8 text-center space-y-5 shadow-2xl">
             <div className="max-w-md mx-auto space-y-1.5">
               <h3 className="text-lg font-black text-white tracking-tight">Authorize Settlement & Unlock Files</h3>
               <p className="text-xs text-zinc-400 leading-relaxed">
-                Unlock full production masters instantly. Your payment is protected by ReleaseDrop escrow protocol.
+                Funds are held in release-drop escrow. Original master deliverables decrypt instantly upon authorization with perpetual commercial license.
               </p>
             </div>
 
             <button
               onClick={() => setShowCheckout(true)}
-              className="px-8 py-4 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-sm rounded-2xl transition shadow-xl shadow-emerald-500/20 active:scale-95 inline-flex items-center gap-2.5"
+              className="px-8 py-4 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-xs rounded-xl transition shadow-xl shadow-emerald-500/20 active:scale-95 inline-flex items-center gap-2"
             >
               <CreditCard className="w-4 h-4" /> 
               <span>Authorize ₹{delivery?.grossAmount?.toLocaleString('en-IN')} & Unlock Master</span>
             </button>
 
             <div className="flex items-center justify-center gap-6 text-[11px] text-zinc-500 pt-2 font-mono">
-              <span className="flex items-center gap-1.5"><ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> Instant Decryption</span>
-              <span className="flex items-center gap-1.5"><Receipt className="w-3.5 h-3.5 text-emerald-400" /> Tax Invoice Included</span>
+              <span className="flex items-center gap-1.5"><ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> 256-Bit Escrow Hold</span>
+              <span className="flex items-center gap-1.5"><Receipt className="w-3.5 h-3.5 text-emerald-400" /> GST Tax Invoice Included</span>
             </div>
           </div>
         ) : (
-          <div className="bg-gradient-to-b from-emerald-950/30 to-zinc-950 border border-emerald-500/30 rounded-3xl p-8 sm:p-10 shadow-2xl text-center space-y-6">
-            <div className="inline-flex p-3.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-2xl shadow-lg shadow-emerald-500/10">
+          <div className="bg-gradient-to-b from-emerald-950/20 to-zinc-950 border border-emerald-500/30 rounded-3xl p-8 sm:p-10 shadow-2xl text-center space-y-6">
+            <div className="inline-flex p-3.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-2xl">
               <CheckCircle2 className="w-9 h-9" />
             </div>
 
             <div className="space-y-2">
-              <span className="text-[11px] font-mono uppercase tracking-widest text-emerald-400 font-semibold block">
-                Escrow Settled & Verified
+              <span className="text-[11px] font-mono uppercase tracking-widest text-emerald-400 font-bold block">
+                Settlement Completed & Verified
               </span>
               <h2 className="text-2xl font-black text-white">Full Production Master Decrypted</h2>
               <p className="text-xs text-zinc-400 max-w-md mx-auto leading-relaxed">
-                Settlement of <strong className="text-white">₹{delivery?.grossAmount?.toLocaleString('en-IN')}</strong> complete. You have full commercial license and direct download rights.
+                Invoice <span className="font-mono text-zinc-200">{invoiceId}</span> settled for ₹{delivery?.grossAmount?.toLocaleString('en-IN')}. Clean master assets are ready for permanent download.
               </p>
             </div>
 
@@ -278,31 +284,30 @@ export default function ClientDeliveryVault() {
               </button>
               <button
                 onClick={() => window.print()}
-                className="w-full sm:w-auto px-6 py-4 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 font-bold text-xs rounded-xl transition flex items-center justify-center gap-2"
+                className="w-full sm:w-auto px-6 py-4 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-white/[0.08] font-bold text-xs rounded-xl transition flex items-center justify-center gap-2"
               >
-                <Receipt className="w-4 h-4" /> Download Official Invoice
+                <Receipt className="w-4 h-4" /> Print Tax Receipt
               </button>
             </div>
           </div>
         )}
       </main>
 
-      {/* Luxury Checkout Drawer / Modal */}
+      {/* Luxury Checkout Modal */}
       {showCheckout && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-zinc-950 border border-zinc-800 rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl space-y-6">
-            <div className="flex justify-between items-center border-b border-zinc-800/80 pb-4">
+          <div className="bg-[#030712] border border-white/[0.08] rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl space-y-5">
+            <div className="flex justify-between items-center border-b border-white/[0.08] pb-4">
               <div>
-                <h3 className="text-sm font-extrabold text-white">ReleaseDrop Express Checkout</h3>
-                <span className="text-[10px] font-mono text-zinc-500">SECURE ESCROW ORDER: {invoiceId}</span>
+                <h3 className="text-sm font-black text-white">ReleaseDrop Express Checkout</h3>
+                <span className="text-[10px] font-mono text-zinc-500">ESCROW ID: {invoiceId}</span>
               </div>
               <button onClick={() => setShowCheckout(false)} className="text-zinc-500 hover:text-white text-xs p-1">✕</button>
             </div>
 
             {paymentStep === 'select' && (
-              <div className="space-y-5">
-                {/* Summary Pill */}
-                <div className="p-4 bg-zinc-900/60 border border-zinc-800 rounded-2xl flex justify-between items-center">
+              <div className="space-y-4">
+                <div className="p-4 bg-zinc-900/60 border border-white/[0.08] rounded-2xl flex justify-between items-center">
                   <div>
                     <span className="text-[10px] text-zinc-400 uppercase tracking-wider block font-mono">Deliverable</span>
                     <div className="font-bold text-xs text-white truncate max-w-[200px] mt-0.5">{delivery?.title}</div>
@@ -313,14 +318,13 @@ export default function ClientDeliveryVault() {
                   </div>
                 </div>
 
-                {/* Methods */}
                 <div className="space-y-2.5">
-                  <label className="text-[10px] font-mono uppercase text-zinc-400 tracking-wider">Select Payment Rail</label>
+                  <label className="text-[10px] font-mono uppercase text-zinc-400 tracking-wider">Payment Protocol</label>
                   
                   <div 
                     onClick={() => setSelectedMethod('upi')}
                     className={`p-4 rounded-2xl border cursor-pointer flex items-center justify-between transition ${
-                      selectedMethod === 'upi' ? 'border-emerald-500 bg-emerald-500/5' : 'border-zinc-800/80 bg-zinc-900/30'
+                      selectedMethod === 'upi' ? 'border-emerald-500 bg-emerald-500/5' : 'border-white/[0.08] bg-zinc-950'
                     }`}
                   >
                     <div className="flex items-center gap-3">
@@ -338,7 +342,7 @@ export default function ClientDeliveryVault() {
                   <div 
                     onClick={() => setSelectedMethod('card')}
                     className={`p-4 rounded-2xl border cursor-pointer flex items-center justify-between transition ${
-                      selectedMethod === 'card' ? 'border-emerald-500 bg-emerald-500/5' : 'border-zinc-800/80 bg-zinc-900/30'
+                      selectedMethod === 'card' ? 'border-emerald-500 bg-emerald-500/5' : 'border-white/[0.08] bg-zinc-950'
                     }`}
                   >
                     <div className="flex items-center gap-3">
@@ -382,7 +386,7 @@ export default function ClientDeliveryVault() {
                 <div>
                   <h4 className="text-base font-bold text-white">Settlement Authorized</h4>
                   <p className="text-[11px] text-zinc-400 max-w-xs mx-auto mt-1">
-                    Master production files have been decrypted. You can now access full-resolution downloads.
+                    Master production files decrypted. Full-resolution downloads unlocked.
                   </p>
                 </div>
                 <button 
@@ -397,9 +401,9 @@ export default function ClientDeliveryVault() {
         </div>
       )}
 
-      {/* Footer */}
-      <footer className="py-8 border-t border-zinc-900/80 text-center text-[10px] font-mono text-zinc-600">
-        RELEASEDROP ESCROW PROTOCOL • 256-BIT CLIENT PROTECTION • ANTI-PIRACY VAULT
+      {/* Trust Footer */}
+      <footer className="py-8 border-t border-white/[0.08] text-center text-[10px] font-mono text-zinc-600 z-10">
+        RELEASEDROP ESCROW NETWORK • 256-BIT CRYPTOGRAPHIC VAULT • SECURE ASSET DELIVERY
       </footer>
     </div>
   )
