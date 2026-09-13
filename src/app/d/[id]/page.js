@@ -16,7 +16,6 @@ export default function ClientDeliveryPortal() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   
-  // Security & View States
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isScreenProtected, setIsScreenProtected] = useState(false)
   const [unlocking, setUnlocking] = useState(false)
@@ -27,7 +26,6 @@ export default function ClientDeliveryPortal() {
   useEffect(() => {
     if (!id) return
 
-    // Fetch delivery manifest & increment view count
     const fetchDelivery = async () => {
       try {
         const docRef = doc(db, 'deliveries', id)
@@ -84,7 +82,6 @@ export default function ClientDeliveryPortal() {
     }
   }, [id])
 
-  // Toggle Fullscreen
   const toggleFullscreen = () => {
     if (!playerContainerRef.current) return
     if (!document.fullscreenElement) {
@@ -94,7 +91,6 @@ export default function ClientDeliveryPortal() {
     }
   }
 
-  // Authorize Payment & Cryptographic Decryption
   const handleAuthorizeSettlement = async () => {
     setUnlocking(true)
     setUnlockStep('Connecting to Escrow Liquidity Layer...')
@@ -140,7 +136,7 @@ export default function ClientDeliveryPortal() {
           <AlertTriangle className="w-6 h-6" />
         </div>
         <h1 className="text-xl font-bold">Delivery Access Unavailable</h1>
-        <p className="text-xs text-slate-400 mt-2 max-w-sm">{error || 'Manifest has expired or been revoked by author.'}</p>
+        <p className="text-xs text-slate-400 mt-2 max-w-sm">{error || 'Manifest has expired or been revoked.'}</p>
       </div>
     )
   }
@@ -162,7 +158,7 @@ export default function ClientDeliveryPortal() {
         </div>
       )}
 
-      {/* Top Header */}
+      {/* Header */}
       <header className="border-b border-slate-200 bg-white sticky top-0 z-30 shadow-sm">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -177,23 +173,19 @@ export default function ClientDeliveryPortal() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5">
-            <span className={`px-3 py-1 rounded-full text-[10px] font-mono font-bold flex items-center gap-1.5 ${
-              isPaid 
-                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
-                : 'bg-amber-50 text-amber-700 border border-amber-200'
-            }`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${isPaid ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`} />
-              {isPaid ? 'CLEARED & LICENSED' : 'ESCROW LOCKED'}
-            </span>
-          </div>
+          <span className={`px-3 py-1 rounded-full text-[10px] font-mono font-bold flex items-center gap-1.5 ${
+            isPaid 
+              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+              : 'bg-amber-50 text-amber-700 border border-amber-200'
+          }`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${isPaid ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`} />
+            {isPaid ? 'CLEARED & LICENSED' : 'ESCROW LOCKED'}
+          </span>
         </div>
       </header>
 
       {/* Main Viewport */}
       <main className="max-w-5xl mx-auto p-4 sm:p-8 space-y-6">
-        
-        {/* Deliverable Meta Info */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-slate-200/90 rounded-2xl p-5 shadow-sm">
           <div>
             <span className="text-[10px] font-mono font-bold text-blue-600 uppercase tracking-widest">
@@ -201,7 +193,7 @@ export default function ClientDeliveryPortal() {
             </span>
             <h1 className="text-xl sm:text-2xl font-black text-slate-900 mt-0.5 tracking-tight">{delivery.title}</h1>
             <p className="text-xs text-slate-500 mt-1">
-              Prepared by <strong className="text-slate-800 font-semibold">{delivery.userEmail}</strong> for <strong className="text-slate-800 font-semibold">{delivery.clientName}</strong>
+              Prepared for <strong className="text-slate-800 font-semibold">{delivery.clientName}</strong>
             </p>
           </div>
 
@@ -219,11 +211,11 @@ export default function ClientDeliveryPortal() {
           className={`relative rounded-2xl bg-black border border-slate-900 overflow-hidden shadow-2xl transition-all ${
             isFullscreen ? 'fixed inset-0 z-50 rounded-none h-screen w-screen flex items-center justify-center' : 'aspect-video w-full'
           }`}
+          onContextMenu={(e) => e.preventDefault()}
         >
-          {/* Active Asset Render (Image vs Video) */}
           {delivery.fileType?.includes('video') ? (
             <video 
-              src={delivery.previewUrl} 
+              src={isPaid ? delivery.fileUrl : delivery.previewUrl} 
               controls={isPaid}
               controlsList="nodownload noplaybackrate"
               disablePictureInPicture
@@ -235,29 +227,14 @@ export default function ClientDeliveryPortal() {
             />
           ) : (
             <img 
-              src={delivery.previewUrl} 
+              src={isPaid ? delivery.fileUrl : delivery.previewUrl} 
               alt="Deliverable Master Inspection" 
               className="w-full h-full object-contain pointer-events-none" 
+              draggable="false"
             />
           )}
 
-          {/* 🛡️ Non-Obtrusive 45° Diagonal Anti-Theft Watermark Overlay (Only Active Pre-Payment) */}
-          {!isPaid && (
-            <div className="absolute inset-0 pointer-events-none overflow-hidden flex flex-col justify-around opacity-30 select-none z-10">
-              {[...Array(6)].map((_, i) => (
-                <div 
-                  key={i} 
-                  className="whitespace-nowrap text-[14px] sm:text-[18px] md:text-[22px] font-mono font-black text-white tracking-[0.4em] uppercase transform -rotate-12 flex justify-between"
-                  style={{ textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}
-                >
-                  <span>{watermark}</span>
-                  <span>{watermark}</span>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Inspection Viewport Floating Controls */}
+          {/* Floating Fullscreen Button */}
           <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
             <button 
               onClick={toggleFullscreen}
@@ -271,20 +248,20 @@ export default function ClientDeliveryPortal() {
           {!isPaid && (
             <div className="absolute bottom-4 left-4 z-20">
               <span className="px-3 py-1.5 rounded-xl bg-black/70 backdrop-blur-md text-[10px] font-mono text-amber-300 border border-amber-500/30 flex items-center gap-1.5 shadow-lg">
-                <Lock className="w-3 h-3" /> Watermarked Inspection Sandbox
+                <Lock className="w-3 h-3" /> Watermarked Low-Res Preview
               </span>
             </div>
           )}
         </div>
 
-        {/* Action Clearance Section */}
+        {/* Action Section */}
         <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-sm">
           {!isPaid ? (
             <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
               <div className="space-y-1 text-center sm:text-left">
                 <h3 className="text-base font-extrabold text-slate-900">Authorize Settlement to Unlock Master Asset</h3>
                 <p className="text-xs text-slate-500 max-w-md">
-                  Once settlement of ₹{Number(delivery.grossAmount || 0).toLocaleString('en-IN')} clears, all preview watermarks strip instantly and full uncompressed files ({delivery.fileSize}) decrypt for download.
+                  Once settlement of ₹{Number(delivery.grossAmount || 0).toLocaleString('en-IN')} clears, preview watermarks strip instantly and raw 4K uncompressed files ({delivery.fileSize}) decrypt for download.
                 </p>
               </div>
 
@@ -332,7 +309,6 @@ export default function ClientDeliveryPortal() {
             </div>
           )}
         </div>
-
       </main>
     </div>
   )
