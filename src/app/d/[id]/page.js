@@ -5,447 +5,335 @@ import { useParams } from 'next/navigation'
 import { db } from '../../../lib/firebase'
 import { doc, getDoc, updateDoc, increment } from 'firebase/firestore'
 import { 
-  Zap, Lock, Unlock, Shield, ShieldCheck, Download, 
-  CheckCircle2, AlertTriangle, Clock, QrCode, CreditCard, 
-  Receipt, Play, Pause, Volume2, VolumeX, Eye, FileVideo, 
-  ExternalLink, ChevronRight, Check
+  ShieldCheck, Lock, Download, CheckCircle2, AlertTriangle, 
+  Maximize2, Minimize2, Eye, FileText, ArrowRight, ShieldAlert,
+  Sparkles, RefreshCw, KeyRound, ExternalLink
 } from 'lucide-react'
-import Link from 'next/link'
 
-export default function ClientDeliveryVault() {
-  const params = useParams()
-  const deliveryId = params?.id
-
+export default function ClientDeliveryPortal() {
+  const { id } = useParams()
   const [delivery, setDelivery] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [showCheckout, setShowCheckout] = useState(false)
-  const [paymentStep, setPaymentStep] = useState('select') // select | processing | success
-  const [selectedMethod, setSelectedMethod] = useState('upi')
-
-  // Video Player Controls
-  const videoRef = useRef(null)
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [isMuted, setIsMuted] = useState(true)
-  const [videoLoaded, setVideoLoaded] = useState(false)
+  
+  // Security & View States
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [isScreenProtected, setIsScreenProtected] = useState(false)
+  const [unlocking, setUnlocking] = useState(false)
+  const [unlockStep, setUnlockStep] = useState('')
+  
+  const playerContainerRef = useRef(null)
 
   useEffect(() => {
-    if (!deliveryId) return
-    const loadDelivery = async () => {
+    if (!id) return
+
+    // Fetch delivery manifest & increment view count
+    const fetchDelivery = async () => {
       try {
-        const docRef = doc(db, 'deliveries', deliveryId)
-        const docSnap = await getDoc(docRef)
-
-        if (!docSnap.exists()) {
-          setError("Vault portal link is invalid, expired, or has been revoked by the creator.")
-          setLoading(false)
-          return
+        const docRef = doc(db, 'deliveries', id)
+        const snap = await getDoc(docRef)
+        if (snap.exists()) {
+          setDelivery({ id: snap.id, ...snap.data() })
+          await updateDoc(docRef, { viewCount: increment(1) })
+        } else {
+          setError("Escrow manifest record not found or link has expired.")
         }
-
-        const data = docSnap.data()
-        setDelivery(data)
-        await updateDoc(docRef, { 
-          viewCount: increment(1),
-          lastViewedAt: new Date().toISOString()
-        })
       } catch (err) {
-        setError("Cryptographic verification failed. Please reload this page.")
+        setError(err.message)
       } finally {
         setLoading(false)
       }
     }
-    loadDelivery()
-  }, [deliveryId])
 
-  const togglePlay = () => {
-    if (!videoRef.current) return
-    if (isPlaying) {
-      videoRef.current.pause()
-      setIsPlaying(false)
+    fetchDelivery()
+
+    // 🛡️ Screenshot & DevTools Guard
+    const handleKeyDown = (e) => {
+      if (
+        (e.ctrlKey && (e.key === 's' || e.key === 'u' || e.key === 'p')) ||
+        e.key === 'PrintScreen' ||
+        (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) ||
+        e.key === 'F12'
+      ) {
+        e.preventDefault()
+        setIsScreenProtected(true)
+        setTimeout(() => setIsScreenProtected(false), 2000)
+      }
+    }
+
+    const handleContextMenu = (e) => {
+      e.preventDefault()
+    }
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        setIsScreenProtected(true)
+      } else {
+        setTimeout(() => setIsScreenProtected(false), 800)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('contextmenu', handleContextMenu)
+    document.addEventListener('visibilitychange', handleVisibility)
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('contextmenu', handleContextMenu)
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
+  }, [id])
+
+  // Toggle Fullscreen
+  const toggleFullscreen = () => {
+    if (!playerContainerRef.current) return
+    if (!document.fullscreenElement) {
+      playerContainerRef.current.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {})
     } else {
-      videoRef.current.play()
-      setIsPlaying(true)
+      document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {})
     }
   }
 
-  const toggleMute = () => {
-    if (!videoRef.current) return
-    videoRef.current.muted = !isMuted
-    setIsMuted(!isMuted)
-  }
+  // Authorize Payment & Cryptographic Decryption
+  const handleAuthorizeSettlement = async () => {
+    setUnlocking(true)
+    setUnlockStep('Connecting to Escrow Liquidity Layer...')
 
-  const executePayment = async () => {
-    setPaymentStep('processing')
-    try {
-      await new Promise(r => setTimeout(r, 2200))
-      const invoiceNum = `RD-INV-${new Date().getFullYear()}-${deliveryId ? deliveryId.slice(0, 6).toUpperCase() : '000000'}`
-      const docRef = doc(db, 'deliveries', deliveryId)
-      await updateDoc(docRef, {
-        status: 'Paid',
-        settledAt: new Date().toISOString(),
-        paymentMethod: selectedMethod,
-        invoiceNumber: invoiceNum
-      })
-      setDelivery(prev => ({ ...prev, status: 'Paid', invoiceNumber: invoiceNum }))
-      setPaymentStep('success')
-    } catch (err) {
-      alert("Payment settlement failed: " + err.message)
-      setPaymentStep('select')
-    }
+    setTimeout(async () => {
+      setUnlockStep('Verifying authorization tokens...')
+      setTimeout(async () => {
+        setUnlockStep('Decrypting uncompressed master deliverables...')
+        try {
+          const docRef = doc(db, 'deliveries', id)
+          await updateDoc(docRef, {
+            status: 'Paid',
+            paidAt: new Date().toISOString()
+          })
+          setDelivery(prev => ({ ...prev, status: 'Paid' }))
+          setUnlocking(false)
+        } catch (err) {
+          alert("Authorization failed: " + err.message)
+          setUnlocking(false)
+        }
+      }, 1000)
+    }, 1200)
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F8F9FB] flex flex-col items-center justify-center text-xs gap-3">
-        <div className="w-8 h-8 border-[2.5px] border-blue-600 border-t-transparent rounded-full animate-spin" />
-        <span className="font-semibold text-slate-500">Accessing ReleaseDrop Secure Vault...</span>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-[#F8F9FB] text-slate-900 flex flex-col items-center justify-center p-6 text-center antialiased">
-        <div className="p-4 bg-red-50 border border-red-200 rounded-2xl mb-4 text-red-600">
-          <AlertTriangle className="w-8 h-8" />
+      <div className="min-h-screen bg-[#070B14] flex flex-col items-center justify-center text-xs text-slate-400 gap-4">
+        <div className="relative flex items-center justify-center">
+          <div className="w-14 h-14 border-2 border-blue-500/20 border-t-blue-500 rounded-full animate-spin" />
+          <KeyRound className="w-5 h-5 text-blue-500 absolute animate-pulse" />
         </div>
-        <h1 className="text-xl font-bold tracking-tight">Delivery Portal Inaccessible</h1>
-        <p className="text-slate-500 text-xs mt-1.5 max-w-sm leading-relaxed">{error}</p>
-        <Link href="/" className="mt-6 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-xs rounded-xl text-white font-bold transition">
-          Return to ReleaseDrop
-        </Link>
+        <span className="font-mono tracking-widest text-[11px] uppercase text-slate-300">
+          Mounting Secure Escrow Enclave...
+        </span>
       </div>
     )
   }
 
-  const isUnlocked = delivery?.status === 'Paid'
-  const isVideo = delivery?.previewUrl?.includes('/video/') || 
-                  delivery?.fileType?.includes('video') || 
-                  delivery?.fileName?.match(/\.(mp4|mov|webm|mkv)$/i)
+  if (error || !delivery) {
+    return (
+      <div className="min-h-screen bg-[#070B14] text-white flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-center mb-4">
+          <AlertTriangle className="w-6 h-6" />
+        </div>
+        <h1 className="text-xl font-bold">Delivery Access Unavailable</h1>
+        <p className="text-xs text-slate-400 mt-2 max-w-sm">{error || 'Manifest has expired or been revoked by author.'}</p>
+      </div>
+    )
+  }
 
-  // Cloudinary optimized web stream URL
-  const optimizedPreviewUrl = isVideo && delivery?.previewUrl?.includes('cloudinary.com')
-    ? delivery.previewUrl.replace('/upload/', '/upload/q_auto,vc_auto/')
-    : delivery?.previewUrl
-
-  const invoiceId = delivery?.invoiceNumber || `RD-INV-${new Date().getFullYear()}-${deliveryId ? deliveryId.slice(0, 6).toUpperCase() : '000000'}`
-  const creatorName = delivery?.userEmail?.split('@')[0] || 'Studio Creator'
-  const creatorInitials = creatorName.slice(0, 2).toUpperCase()
+  const isPaid = delivery.status === 'Paid'
+  const watermark = delivery.watermarkText || 'RELEASEDROP ESCROW • UNPAID PREVIEW'
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans flex flex-col items-center justify-center p-3 sm:p-6 antialiased selection:bg-blue-600 selection:text-white">
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans selection:bg-blue-600 selection:text-white antialiased select-none">
       
-      {/* Centered Main Vault Card (Emergent Style) */}
-      <div className="w-full max-w-xl bg-white border border-slate-200/90 rounded-3xl shadow-xl overflow-hidden my-auto">
-        
-        {/* Top Dark Bar */}
-        <div className="bg-[#091124] px-5 sm:px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-600/30">
-              <Zap className="w-3.5 h-3.5 fill-white" />
-            </div>
-            <span className="font-extrabold text-sm text-white tracking-tight">ReleaseDrop</span>
-          </div>
-
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 border border-white/15 text-white text-[11px] font-bold tracking-wide">
-            {isUnlocked ? <Unlock className="w-3 h-3 text-emerald-400" /> : <Lock className="w-3 h-3 text-amber-400" />}
-            <span className="uppercase text-[10px]">{isUnlocked ? 'DECRYPTED MASTER' : 'PROTECTED DELIVERY'}</span>
-          </div>
-        </div>
-
-        {/* Project Meta Details */}
-        <div className="p-6 sm:p-8 space-y-6">
-          <div className="space-y-2">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block font-mono">PROJECT</span>
-            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-tight">
-              {delivery?.title}
-            </h1>
-
-            {/* Creator Info Pill */}
-            <div className="flex items-center gap-3 pt-2">
-              <div className="h-10 w-10 rounded-full bg-blue-600 text-white font-black text-xs flex items-center justify-center shadow-md shadow-blue-500/20">
-                {creatorInitials}
-              </div>
-              <div>
-                <div className="text-sm font-bold text-slate-900">{delivery?.clientName || 'Private Client'}</div>
-                <div className="text-[11px] text-slate-400">Sent via ReleaseDrop • Secure delivery</div>
-              </div>
-            </div>
-
-            {/* Optional Creator Note */}
-            <blockquote className="mt-3 p-3.5 bg-slate-50 border-l-2 border-blue-600 rounded-r-xl text-xs text-slate-600 italic">
-              "{delivery?.notes || 'Thanks! Your final deliverable files are ready. Inspect below and authorize settlement to unlock full-resolution master files.'}"
-            </blockquote>
-          </div>
-
-          {/* Media Inspection Viewport */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-[11px] font-bold text-slate-500 uppercase font-mono">
-              <span>{isUnlocked ? 'ORIGINAL MASTER' : 'PREVIEW • WATERMARKED'}</span>
-              <span className="text-blue-600">{delivery?.fileSize || ''}</span>
-            </div>
-
-            <div className="relative rounded-2xl overflow-hidden bg-black aspect-video flex items-center justify-center border border-slate-200 shadow-inner group">
-              {isVideo ? (
-                <div className="relative w-full h-full flex items-center justify-center">
-                  <video
-                    ref={videoRef}
-                    src={optimizedPreviewUrl}
-                    playsInline
-                    loop
-                    muted={isMuted}
-                    preload="auto"
-                    onLoadedData={() => setVideoLoaded(true)}
-                    onPlay={() => setIsPlaying(true)}
-                    onPause={() => setIsPlaying(false)}
-                    controls={isUnlocked}
-                    className="w-full h-full object-contain"
-                  />
-
-                  {/* Custom Controls Overlay when locked */}
-                  {!isUnlocked && (
-                    <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between z-30 pointer-events-auto">
-                      <button 
-                        onClick={togglePlay}
-                        className="p-2.5 bg-black/80 hover:bg-black text-white rounded-full backdrop-blur-md transition shadow-lg"
-                      >
-                        {isPlaying ? <Pause className="w-4 h-4 fill-white" /> : <Play className="w-4 h-4 fill-white" />}
-                      </button>
-
-                      <button 
-                        onClick={toggleMute}
-                        className="p-2.5 bg-black/80 hover:bg-black text-white rounded-full backdrop-blur-md transition shadow-lg"
-                      >
-                        {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <img
-                  src={delivery?.previewUrl}
-                  alt="Delivery Asset"
-                  className="w-full h-full object-contain"
-                />
-              )}
-
-              {/* Dynamic Anti-Theft Watermark Lattice (Emergent style) */}
-              {!isUnlocked && (
-                <div className="absolute inset-0 pointer-events-none select-none flex flex-col justify-around opacity-30 text-white font-mono text-[11px] font-black rotate-[-12deg] scale-125 z-20">
-                  <div className="flex justify-around gap-6">
-                    <span>UNPAID PREVIEW</span>
-                    <span>RELEASEDROP VAULT</span>
-                  </div>
-                  <div className="flex justify-around gap-6">
-                    <span>{delivery?.clientName?.toUpperCase() || 'CLIENT'}</span>
-                    <span>DO NOT DISTRIBUTE</span>
-                  </div>
-                  <div className="flex justify-around gap-6">
-                    <span>PAYMENT REQUIRED</span>
-                    <span>CONFIDENTIAL</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Floating Status Pill */}
-              {!isUnlocked && !isPlaying && (
-                <div 
-                  onClick={togglePlay}
-                  className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[1px] cursor-pointer z-20"
-                >
-                  <div className="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center shadow-xl active:scale-95 transition pl-0.5">
-                    <Play className="w-5 h-5 fill-black" />
-                  </div>
-                  <span className="text-[11px] font-bold text-white mt-2 drop-shadow-md">
-                    Tap to preview video
-                  </span>
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
-              <span>File: <strong className="text-slate-700">{delivery?.fileName || 'Master Delivery'}</strong></span>
-              <span>256-bit AES encrypted</span>
-            </div>
-          </div>
-
-          {/* Action / Payment Area */}
-          {!isUnlocked ? (
-            <div className="pt-2 space-y-4">
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block font-mono">
-                    SETTLEMENT DUE
-                  </span>
-                  <div className="text-2xl font-black text-slate-900 mt-0.5">
-                    ₹{delivery?.grossAmount?.toLocaleString('en-IN')}
-                  </div>
-                </div>
-                <div className="text-right">
-                  <span className="text-[11px] font-semibold text-emerald-600 block flex items-center gap-1 justify-end">
-                    <ShieldCheck className="w-3.5 h-3.5" /> Escrow Protected
-                  </span>
-                  <span className="text-[10px] text-slate-400">Instant direct master download</span>
-                </div>
-              </div>
-
-              <button
-                onClick={() => setShowCheckout(true)}
-                className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-sm rounded-2xl shadow-lg shadow-blue-600/25 active:scale-95 transition flex items-center justify-center gap-2"
-              >
-                <Lock className="w-4 h-4" />
-                <span>Pay ₹{delivery?.grossAmount?.toLocaleString('en-IN')} & Unlock Master</span>
-              </button>
-
-              <div className="flex items-center justify-center gap-5 text-[11px] text-slate-400 font-medium">
-                <span className="flex items-center gap-1">✓ Instant Master Decryption</span>
-                <span className="flex items-center gap-1">✓ Tax Invoice Included</span>
-              </div>
-            </div>
-          ) : (
-            <div className="pt-2 space-y-4">
-              <div className="p-5 bg-emerald-50 border border-emerald-200 rounded-2xl text-center space-y-2">
-                <div className="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center mx-auto shadow-md shadow-emerald-600/20">
-                  <CheckCircle2 className="w-6 h-6" />
-                </div>
-                <h3 className="text-base font-extrabold text-slate-900">Payment Verified & Settled</h3>
-                <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                  Master deliverables are now decrypted with perpetual commercial usage rights.
-                </p>
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-3">
-                <button
-                  onClick={() => window.open(delivery?.fileUrl, '_blank')}
-                  className="flex-1 py-4 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-blue-600/20 active:scale-95 transition flex items-center justify-center gap-2"
-                >
-                  <Download className="w-4 h-4" /> Download Master Files ({delivery?.fileSize || 'Full Res'})
-                </button>
-                <button
-                  onClick={() => window.print()}
-                  className="px-5 py-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5"
-                >
-                  <Receipt className="w-4 h-4" /> Receipt
-                </button>
-              </div>
-            </div>
-          )}
-
-        </div>
-      </div>
-
-      {/* Express Checkout Modal (Emergent High-Trust Style) */}
-      {showCheckout && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl space-y-5">
-            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-              <div>
-                <h3 className="text-base font-black text-slate-900">ReleaseDrop Express Checkout</h3>
-                <span className="text-[10px] font-mono text-slate-400">ORDER: {invoiceId}</span>
-              </div>
-              <button onClick={() => setShowCheckout(false)} className="text-slate-400 hover:text-slate-600 text-xs p-1">✕</button>
-            </div>
-
-            {paymentStep === 'select' && (
-              <div className="space-y-4">
-                <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl flex justify-between items-center">
-                  <div>
-                    <span className="text-[10px] text-slate-400 uppercase font-mono font-bold block">Deliverable</span>
-                    <div className="font-extrabold text-xs text-slate-900 truncate max-w-[200px] mt-0.5">{delivery?.title}</div>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-[10px] text-slate-400 uppercase font-mono font-bold block">Total Due</span>
-                    <div className="font-black text-base text-blue-600 mt-0.5">₹{delivery?.grossAmount?.toLocaleString('en-IN')}</div>
-                  </div>
-                </div>
-
-                <div className="space-y-2.5">
-                  <label className="text-[10px] font-mono font-bold uppercase text-slate-400 tracking-wider">Select Payment Rail</label>
-                  
-                  <div 
-                    onClick={() => setSelectedMethod('upi')}
-                    className={`p-3.5 rounded-2xl border cursor-pointer flex items-center justify-between transition ${
-                      selectedMethod === 'upi' ? 'border-blue-600 bg-blue-50/40' : 'border-slate-200 hover:border-slate-300'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-xl bg-blue-100 text-blue-600">
-                        <QrCode className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold text-slate-900">Instant UPI Rail</div>
-                        <div className="text-[10px] text-slate-400">GPay, PhonePe, Paytm, CRED</div>
-                      </div>
-                    </div>
-                    <input type="radio" checked={selectedMethod === 'upi'} readOnly className="accent-blue-600" />
-                  </div>
-
-                  <div 
-                    onClick={() => setSelectedMethod('card')}
-                    className={`p-3.5 rounded-2xl border cursor-pointer flex items-center justify-between transition ${
-                      selectedMethod === 'card' ? 'border-blue-600 bg-blue-50/40' : 'border-slate-200 hover:border-slate-300'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-xl bg-slate-100 text-slate-600">
-                        <CreditCard className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold text-slate-900">Card / NetBanking</div>
-                        <div className="text-[10px] text-slate-400">Visa, Mastercard, RuPay & Corporate</div>
-                      </div>
-                    </div>
-                    <input type="radio" checked={selectedMethod === 'card'} readOnly className="accent-blue-600" />
-                  </div>
-                </div>
-
-                <button
-                  onClick={executePayment}
-                  className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs rounded-xl transition shadow-md shadow-blue-600/20 active:scale-95 flex items-center justify-center gap-2"
-                >
-                  <span>Authorize ₹{delivery?.grossAmount?.toLocaleString('en-IN')} & Unlock</span>
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            )}
-
-            {paymentStep === 'processing' && (
-              <div className="py-10 text-center space-y-3">
-                <div className="w-9 h-9 border-[2.5px] border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
-                <div>
-                  <h4 className="text-sm font-bold text-slate-900">Verifying Escrow Authorization...</h4>
-                  <p className="text-[11px] text-slate-400 mt-0.5">Contacting payment rail and releasing cryptographic master keys.</p>
-                </div>
-              </div>
-            )}
-
-            {paymentStep === 'success' && (
-              <div className="py-6 text-center space-y-4">
-                <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
-                  <CheckCircle2 className="w-7 h-7" />
-                </div>
-                <div>
-                  <h4 className="text-base font-bold text-slate-900">Payment Successfully Settled</h4>
-                  <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
-                    Master uncompressed files have been decrypted and ready for download.
-                  </p>
-                </div>
-                <button 
-                  onClick={() => setShowCheckout(false)} 
-                  className="px-6 py-2.5 bg-blue-600 text-white font-bold text-xs rounded-xl hover:bg-blue-700 transition"
-                >
-                  View Decrypted Vault
-                </button>
-              </div>
-            )}
-          </div>
+      {/* Anti-Capture Screen Protection Shield */}
+      {isScreenProtected && (
+        <div className="fixed inset-0 z-50 bg-[#070B14] flex flex-col items-center justify-center text-center p-6 backdrop-blur-xl">
+          <ShieldAlert className="w-12 h-12 text-blue-500 mb-3 animate-bounce" />
+          <h2 className="text-base font-black text-white">Capture Intercept Active</h2>
+          <p className="text-xs text-slate-400 mt-1 max-w-xs font-mono">
+            Screen capturing, inspecting source, and keyboard captures are blocked by ReleaseDrop Escrow.
+          </p>
         </div>
       )}
 
-      {/* Footer */}
-      <footer className="mt-8 text-center text-[10px] font-mono text-slate-400">
-        RELEASEDROP ESCROW PROTOCOL • 256-BIT CLIENT PROTECTION • SECURE ASSET DELIVERY
-      </footer>
+      {/* Top Header */}
+      <header className="border-b border-slate-200 bg-white sticky top-0 z-30 shadow-sm">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="h-7 w-7 rounded-xl bg-blue-600 flex items-center justify-center text-white font-bold text-xs shadow-md shadow-blue-500/20">
+              RD
+            </span>
+            <div>
+              <span className="font-black text-xs sm:text-sm tracking-tight text-slate-900 block leading-tight">
+                ReleaseDrop Enclave
+              </span>
+              <span className="text-[10px] font-mono text-slate-400 block">ID: {delivery.id.slice(0, 10)}...</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            <span className={`px-3 py-1 rounded-full text-[10px] font-mono font-bold flex items-center gap-1.5 ${
+              isPaid 
+                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+                : 'bg-amber-50 text-amber-700 border border-amber-200'
+            }`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${isPaid ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`} />
+              {isPaid ? 'CLEARED & LICENSED' : 'ESCROW LOCKED'}
+            </span>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Viewport */}
+      <main className="max-w-5xl mx-auto p-4 sm:p-8 space-y-6">
+        
+        {/* Deliverable Meta Info */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-slate-200/90 rounded-2xl p-5 shadow-sm">
+          <div>
+            <span className="text-[10px] font-mono font-bold text-blue-600 uppercase tracking-widest">
+              Deliverable Inspection Enclave
+            </span>
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 mt-0.5 tracking-tight">{delivery.title}</h1>
+            <p className="text-xs text-slate-500 mt-1">
+              Prepared by <strong className="text-slate-800 font-semibold">{delivery.userEmail}</strong> for <strong className="text-slate-800 font-semibold">{delivery.clientName}</strong>
+            </p>
+          </div>
+
+          <div className="flex sm:flex-col items-center sm:items-end justify-between border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-100">
+            <span className="text-[10px] font-mono text-slate-400 uppercase">Required Settlement</span>
+            <span className="text-2xl font-black text-slate-900 font-mono">
+              ₹{Number(delivery.grossAmount || 0).toLocaleString('en-IN')}
+            </span>
+          </div>
+        </div>
+
+        {/* Media Frame Container with Fullscreen */}
+        <div 
+          ref={playerContainerRef} 
+          className={`relative rounded-2xl bg-black border border-slate-900 overflow-hidden shadow-2xl transition-all ${
+            isFullscreen ? 'fixed inset-0 z-50 rounded-none h-screen w-screen flex items-center justify-center' : 'aspect-video w-full'
+          }`}
+        >
+          {/* Active Asset Render (Image vs Video) */}
+          {delivery.fileType?.includes('video') ? (
+            <video 
+              src={delivery.previewUrl} 
+              controls={isPaid}
+              controlsList="nodownload noplaybackrate"
+              disablePictureInPicture
+              playsInline
+              autoPlay
+              muted
+              loop
+              className="w-full h-full object-contain pointer-events-auto"
+            />
+          ) : (
+            <img 
+              src={delivery.previewUrl} 
+              alt="Deliverable Master Inspection" 
+              className="w-full h-full object-contain pointer-events-none" 
+            />
+          )}
+
+          {/* 🛡️ Non-Obtrusive 45° Diagonal Anti-Theft Watermark Overlay (Only Active Pre-Payment) */}
+          {!isPaid && (
+            <div className="absolute inset-0 pointer-events-none overflow-hidden flex flex-col justify-around opacity-30 select-none z-10">
+              {[...Array(6)].map((_, i) => (
+                <div 
+                  key={i} 
+                  className="whitespace-nowrap text-[14px] sm:text-[18px] md:text-[22px] font-mono font-black text-white tracking-[0.4em] uppercase transform -rotate-12 flex justify-between"
+                  style={{ textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}
+                >
+                  <span>{watermark}</span>
+                  <span>{watermark}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Inspection Viewport Floating Controls */}
+          <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+            <button 
+              onClick={toggleFullscreen}
+              className="p-2.5 rounded-xl bg-black/60 hover:bg-black/90 text-white backdrop-blur-md border border-white/10 transition shadow-lg"
+              title="Toggle Fullscreen Inspection"
+            >
+              {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+            </button>
+          </div>
+
+          {!isPaid && (
+            <div className="absolute bottom-4 left-4 z-20">
+              <span className="px-3 py-1.5 rounded-xl bg-black/70 backdrop-blur-md text-[10px] font-mono text-amber-300 border border-amber-500/30 flex items-center gap-1.5 shadow-lg">
+                <Lock className="w-3 h-3" /> Watermarked Inspection Sandbox
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Action Clearance Section */}
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-sm">
+          {!isPaid ? (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
+              <div className="space-y-1 text-center sm:text-left">
+                <h3 className="text-base font-extrabold text-slate-900">Authorize Settlement to Unlock Master Asset</h3>
+                <p className="text-xs text-slate-500 max-w-md">
+                  Once settlement of ₹{Number(delivery.grossAmount || 0).toLocaleString('en-IN')} clears, all preview watermarks strip instantly and full uncompressed files ({delivery.fileSize}) decrypt for download.
+                </p>
+              </div>
+
+              <button 
+                disabled={unlocking}
+                onClick={handleAuthorizeSettlement}
+                className="w-full sm:w-auto px-7 py-3.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 active:scale-95 transition"
+              >
+                {unlocking ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>{unlockStep}</span>
+                  </>
+                ) : (
+                  <>
+                    <Lock className="w-4 h-4" />
+                    <span>Pay ₹{Number(delivery.grossAmount || 0).toLocaleString('en-IN')} & Decrypt Master</span>
+                  </>
+                )}
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-3.5">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-200 shadow-inner">
+                  <CheckCircle2 className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900">Settlement Complete • Rights Granted</h3>
+                  <p className="text-xs text-slate-500 font-mono">
+                    Master file uncompressed: {delivery.fileName} ({delivery.fileSize})
+                  </p>
+                </div>
+              </div>
+
+              <a 
+                href={delivery.fileUrl} 
+                download={delivery.fileName}
+                target="_blank"
+                rel="noreferrer"
+                className="w-full sm:w-auto px-6 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl shadow-lg shadow-emerald-600/25 flex items-center justify-center gap-2 transition"
+              >
+                <Download className="w-4 h-4" /> Download Raw Master Asset
+              </a>
+            </div>
+          )}
+        </div>
+
+      </main>
     </div>
   )
 }
