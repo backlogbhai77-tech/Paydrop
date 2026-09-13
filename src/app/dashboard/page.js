@@ -5,9 +5,9 @@ import { auth, db, googleProvider } from '../../lib/firebase'
 import { signInWithPopup, signInWithRedirect, signOut, onAuthStateChanged } from 'firebase/auth'
 import { collection, addDoc, query, where, getDocs, deleteDoc, doc, serverTimestamp } from 'firebase/firestore'
 import { 
-  FolderKanban, ShieldCheck, Plus, LogOut, Eye, Trash2, 
-  ExternalLink, UploadCloud, CreditCard, LayoutDashboard,
-  Settings, Menu, X, ArrowUpRight, Copy, Check, Lock, Sparkles
+  Zap, Shield, Plus, LogOut, Eye, Trash2, ArrowUpRight, 
+  UploadCloud, Copy, Check, Lock, Layers, FolderKanban, 
+  CreditCard, Settings, Menu, X, FileVideo, ExternalLink
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -19,9 +19,10 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [deliveries, setDeliveries] = useState([])
   const [showModal, setShowModal] = useState(false)
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [creating, setCreating] = useState(false)
   const [copiedId, setCopiedId] = useState(null)
+  const [activeTab, setActiveTab] = useState('portals')
 
   // Form Fields
   const [title, setTitle] = useState('')
@@ -91,10 +92,10 @@ export default function Dashboard() {
           if (xhr.status === 200 && res.secure_url) {
             resolve(res.secure_url)
           } else {
-            reject(new Error(res?.error?.message || "Upload error"))
+            reject(new Error(res?.error?.message || "Upload failed"))
           }
         } catch (e) {
-          reject(new Error("Upload failed"))
+          reject(new Error("File upload error"))
         }
       }
 
@@ -152,7 +153,7 @@ export default function Dashboard() {
   }
 
   const handleDelete = async (id) => {
-    if (!confirm("Revoke this portal link?")) return
+    if (!confirm("Revoke this portal link? The client link will immediately stop working.")) return
     await deleteDoc(doc(db, 'deliveries', id))
     setDeliveries(prev => prev.filter(d => d.id !== id))
   }
@@ -165,176 +166,209 @@ export default function Dashboard() {
 
   const totalSettled = deliveries.filter(d => d.status === 'Paid').reduce((acc, c) => acc + (c.creatorPayout || c.grossAmount || 0), 0)
   const pendingEscrow = deliveries.filter(d => d.status === 'Awaiting Payment').reduce((acc, c) => acc + (c.creatorPayout || c.grossAmount || 0), 0)
+  const numAmountPreview = Number(amount) || 0
+  const previewFee = Math.max(Math.round(numAmountPreview * 0.05), 50)
+  const previewPayout = Math.max(numAmountPreview - previewFee, 0)
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#090D16] text-slate-400 flex flex-col items-center justify-center text-xs gap-3">
-        <div className="w-7 h-7 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-        <span className="font-mono text-slate-500">Loading ReleaseDrop...</span>
+      <div className="min-h-screen bg-slate-50 text-slate-600 flex flex-col items-center justify-center text-xs gap-3">
+        <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+        <span className="font-semibold text-slate-500">Loading ReleaseDrop...</span>
       </div>
     )
   }
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-[#090D16] text-slate-100 flex flex-col items-center justify-center p-6 text-center">
-        <div className="h-12 w-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-indigo-400 flex items-center justify-center text-white font-bold text-xl mb-4 shadow-xl shadow-indigo-500/20">
-          RD
+      <div className="min-h-screen bg-[#FAFAFC] text-slate-900 flex flex-col items-center justify-center p-6 text-center">
+        <div className="h-12 w-12 rounded-2xl bg-blue-600 flex items-center justify-center text-white font-bold text-xl mb-4 shadow-lg shadow-blue-500/20">
+          <Zap className="w-6 h-6 fill-white" />
         </div>
-        <h1 className="text-2xl font-bold tracking-tight">ReleaseDrop Workspace</h1>
-        <p className="text-slate-400 text-xs mt-1.5 max-w-xs leading-relaxed">Enterprise payment-locked asset delivery portal.</p>
-        <button onClick={handleGoogleLogin} className="mt-6 px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs rounded-xl shadow-lg shadow-indigo-500/20 active:scale-95 transition">
-          Sign In with Google
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 border border-blue-100 text-blue-600 text-[11px] font-semibold mb-3">
+          <Shield className="w-3.5 h-3.5" /> Protected Delivery Workspace
+        </div>
+        <h1 className="text-2xl sm:text-3xl font-black tracking-tight">Sign In to ReleaseDrop</h1>
+        <p className="text-slate-500 text-xs sm:text-sm mt-2 max-w-sm">
+          Lock deliverables behind payment escrows. Start sending protected master files to your clients.
+        </p>
+        <button 
+          onClick={handleGoogleLogin} 
+          className="mt-6 px-6 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-600/20 active:scale-95 transition flex items-center gap-2"
+        >
+          Continue with Google
         </button>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[#090D16] text-slate-200 font-sans flex">
-      {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex w-64 bg-[#0D121F] border-r border-slate-800/80 flex-col justify-between p-5">
+    <div className="min-h-screen bg-[#F8F9FA] text-slate-900 font-sans flex antialiased">
+      
+      {/* Desktop Left Sidebar */}
+      <aside className="hidden lg:flex w-64 bg-white border-r border-slate-200/80 flex-col justify-between p-5 sticky top-0 h-screen z-30">
         <div className="space-y-6">
-          <div className="flex items-center gap-3 px-2">
-            <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-400 flex items-center justify-center text-white font-black text-sm shadow-md shadow-indigo-500/20">
-              RD
+          <div className="flex items-center gap-2.5 px-2">
+            <div className="h-8 w-8 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-600/20">
+              <Zap className="w-4 h-4 fill-white" />
             </div>
-            <div>
-              <div className="font-bold text-sm tracking-tight text-white">ReleaseDrop</div>
-              <div className="text-[10px] font-mono text-slate-500">ESCROW CONSOLE</div>
-            </div>
+            <span className="font-extrabold text-base tracking-tight text-slate-900">ReleaseDrop</span>
           </div>
 
           <nav className="space-y-1">
-            <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-indigo-600/10 text-indigo-400 text-xs font-semibold">
-              <LayoutDashboard className="w-4 h-4" /> Portals Overview
+            <button 
+              onClick={() => setActiveTab('portals')}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition ${
+                activeTab === 'portals' ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              <FolderKanban className="w-4 h-4" /> Active Portals
             </button>
-            <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800/40 hover:text-slate-200 text-xs font-medium transition">
-              <FolderKanban className="w-4 h-4" /> Deliverables
-            </button>
-            <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800/40 hover:text-slate-200 text-xs font-medium transition">
-              <CreditCard className="w-4 h-4" /> Payouts & Escrow
+            <button 
+              onClick={() => setActiveTab('settlements')}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition ${
+                activeTab === 'settlements' ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              <CreditCard className="w-4 h-4" /> Escrow Settlements
             </button>
           </nav>
         </div>
 
-        <div className="border-t border-slate-800/80 pt-4 flex items-center justify-between px-2">
+        {/* User Card */}
+        <div className="border-t border-slate-100 pt-4 flex items-center justify-between px-2">
           <div className="truncate max-w-[140px]">
-            <div className="text-xs font-medium text-slate-200 truncate">{user.displayName || user.email}</div>
-            <div className="text-[10px] text-slate-500 font-mono">Pro Escrow</div>
+            <div className="text-xs font-bold text-slate-800 truncate">{user.displayName || user.email}</div>
+            <div className="text-[10px] text-slate-400 font-medium">Verified Creator</div>
           </div>
-          <button onClick={() => signOut(auth)} className="p-2 text-slate-400 hover:text-red-400 transition" title="Log Out">
+          <button onClick={() => signOut(auth)} className="p-2 text-slate-400 hover:text-red-500 rounded-lg transition" title="Log Out">
             <LogOut className="w-4 h-4" />
           </button>
         </div>
       </aside>
 
-      {/* Main Content Area */}
+      {/* Main Workspace */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Top Navbar */}
-        <header className="h-16 border-b border-slate-800/80 bg-[#0D121F]/80 backdrop-blur-xl px-4 sm:px-8 flex items-center justify-between sticky top-0 z-20">
+        
+        {/* Top Header */}
+        <header className="h-16 bg-white border-b border-slate-200/80 px-4 sm:px-8 flex items-center justify-between sticky top-0 z-20">
           <div className="flex items-center gap-3">
-            <button onClick={() => setMobileMenuOpen(true)} className="lg:hidden p-2 text-slate-400 hover:text-white">
+            <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-lg">
               <Menu className="w-5 h-5" />
             </button>
-            <span className="text-sm font-semibold text-white tracking-tight">Active Portals</span>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-black text-slate-900">Deliveries</span>
+              <span className="text-[11px] font-semibold px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full">{deliveries.length} active</span>
+            </div>
           </div>
 
           <button 
             onClick={() => setShowModal(true)} 
-            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-xl shadow-lg shadow-indigo-600/20 active:scale-95 transition flex items-center gap-2"
+            className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-600/20 active:scale-95 transition flex items-center gap-1.5"
           >
-            <Plus className="w-4 h-4" /> New Delivery Vault
+            <Plus className="w-4 h-4" /> Lock New Delivery
           </button>
         </header>
 
-        {/* Workspace Canvas */}
-        <main className="flex-1 p-4 sm:p-8 space-y-6 max-w-7xl w-full mx-auto">
-          {/* Top Metric Cards */}
+        {/* Content Body */}
+        <main className="flex-1 p-4 sm:p-8 space-y-6 max-w-6xl w-full mx-auto">
+          
+          {/* Key Metric Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="p-5 rounded-2xl bg-[#0D121F] border border-slate-800/80">
-              <div className="text-slate-400 text-xs font-medium">Settled Volume</div>
-              <div className="text-2xl font-bold text-white mt-1">₹{totalSettled.toLocaleString('en-IN')}</div>
-              <div className="text-[10px] text-emerald-400 mt-1 font-mono">Verified in creator account</div>
+            <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm">
+              <span className="text-xs font-semibold text-slate-500">Settled Earnings</span>
+              <div className="text-2xl font-black text-slate-900 mt-1">₹{totalSettled.toLocaleString('en-IN')}</div>
+              <span className="text-[11px] text-emerald-600 font-semibold mt-1 inline-block">100% Payout Disbursed</span>
             </div>
 
-            <div className="p-5 rounded-2xl bg-[#0D121F] border border-slate-800/80">
-              <div className="text-slate-400 text-xs font-medium">Pending Escrow</div>
-              <div className="text-2xl font-bold text-amber-400 mt-1">₹{pendingEscrow.toLocaleString('en-IN')}</div>
-              <div className="text-[10px] text-slate-500 mt-1 font-mono">Awaiting client release</div>
+            <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm">
+              <span className="text-xs font-semibold text-slate-500">Locked in Escrow</span>
+              <div className="text-2xl font-black text-blue-600 mt-1">₹{pendingEscrow.toLocaleString('en-IN')}</div>
+              <span className="text-[11px] text-slate-400 font-medium mt-1 inline-block">Releases on client authorization</span>
             </div>
 
-            <div className="p-5 rounded-2xl bg-[#0D121F] border border-slate-800/80">
-              <div className="text-slate-400 text-xs font-medium">Live Portals</div>
-              <div className="text-2xl font-bold text-slate-100 mt-1">{deliveries.length}</div>
-              <div className="text-[10px] text-indigo-400 mt-1 font-mono">256-Bit Escrow Guarded</div>
+            <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm">
+              <span className="text-xs font-semibold text-slate-500">Active Portals</span>
+              <div className="text-2xl font-black text-slate-900 mt-1">{deliveries.length}</div>
+              <span className="text-[11px] text-slate-400 font-medium mt-1 inline-block">7-Day Expiry Guarantee</span>
             </div>
           </div>
 
-          {/* Portals Section */}
+          {/* Portals List View */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-white tracking-tight">Active Deliverables</h2>
-              <span className="text-xs text-slate-500">{deliveries.length} Total</span>
+              <h2 className="text-sm font-extrabold text-slate-900">Protected Delivery Portals</h2>
             </div>
 
             {deliveries.length === 0 ? (
-              <div className="p-12 rounded-2xl bg-[#0D121F] border border-dashed border-slate-800 text-center space-y-3">
-                <Lock className="w-8 h-8 text-slate-600 mx-auto" />
-                <div className="text-sm font-semibold text-slate-300">No deliveries deployed yet</div>
-                <p className="text-xs text-slate-500 max-w-sm mx-auto">Upload any deliverable from your phone or PC, set the locked amount, and generate a client vault.</p>
-                <button onClick={() => setShowModal(true)} className="px-4 py-2 bg-indigo-600 text-white text-xs font-medium rounded-xl">
-                  Deploy First Vault
+              <div className="p-12 rounded-3xl bg-white border border-dashed border-slate-300 text-center space-y-3">
+                <Lock className="w-9 h-9 text-slate-400 mx-auto" />
+                <h3 className="text-sm font-bold text-slate-800">No deliveries locked yet</h3>
+                <p className="text-xs text-slate-500 max-w-xs mx-auto leading-relaxed">
+                  Upload your master project files, specify the price, and send the watermarked preview link to your client.
+                </p>
+                <button 
+                  onClick={() => setShowModal(true)} 
+                  className="px-5 py-2.5 bg-blue-600 text-white text-xs font-bold rounded-xl shadow-md hover:bg-blue-700 transition"
+                >
+                  Create First Delivery
                 </button>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {deliveries.map(item => (
-                  <div key={item.id} className="p-5 rounded-2xl bg-[#0D121F] border border-slate-800/80 hover:border-slate-700/80 transition space-y-4">
+                  <div key={item.id} className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:border-slate-300 transition space-y-4">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <span className="text-[10px] font-mono text-indigo-400 uppercase tracking-wider">{item.clientName}</span>
-                        <h3 className="text-sm font-bold text-white mt-0.5">{item.title}</h3>
-                        <p className="text-[11px] text-slate-500 font-mono mt-0.5">{item.fileName || 'Master Deliverable'} • {item.fileSize || ''}</p>
+                        <div className="inline-flex items-center gap-1.5 text-[11px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md mb-1.5">
+                          {item.clientName}
+                        </div>
+                        <h3 className="text-base font-extrabold text-slate-900 leading-snug">{item.title}</h3>
+                        <p className="text-[11px] text-slate-400 font-medium mt-1 flex items-center gap-1">
+                          <FileVideo className="w-3.5 h-3.5 text-slate-500" />
+                          {item.fileName || 'Master File'} • {item.fileSize || ''}
+                        </p>
                       </div>
 
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-medium ${
-                        item.status === 'Paid' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide uppercase ${
+                        item.status === 'Paid' 
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+                          : 'bg-amber-50 text-amber-700 border border-amber-200'
                       }`}>
                         {item.status}
                       </span>
                     </div>
 
-                    <div className="flex items-center justify-between pt-2 border-t border-slate-800/60 text-xs">
+                    <div className="flex items-center justify-between pt-3 border-t border-slate-100 text-xs">
                       <div>
-                        <span className="text-[10px] text-slate-500 font-mono uppercase block">Settlement Due</span>
-                        <span className="font-bold text-white text-sm">₹{item.grossAmount?.toLocaleString('en-IN')}</span>
+                        <span className="text-[10px] text-slate-400 font-bold uppercase block">Payout Value</span>
+                        <span className="font-extrabold text-slate-900 text-base">₹{item.grossAmount?.toLocaleString('en-IN')}</span>
                       </div>
 
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-2">
                         <button 
                           onClick={() => copyLink(item.id)}
-                          className="px-3 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium transition flex items-center gap-1"
+                          className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition flex items-center gap-1.5"
                         >
-                          {copiedId === item.id ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                          {copiedId === item.id ? 'Copied' : 'Copy Link'}
+                          {copiedId === item.id ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                          {copiedId === item.id ? 'Copied' : 'Share'}
                         </button>
 
                         <Link 
                           href={`/d/${item.id}`} 
                           target="_blank" 
-                          className="p-2 bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg transition"
-                          title="Open Client View"
+                          className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition"
+                          title="Open Client Vault"
                         >
-                          <ArrowUpRight className="w-3.5 h-3.5" />
+                          <ArrowUpRight className="w-4 h-4" />
                         </Link>
 
                         <button 
                           onClick={() => handleDelete(item.id)} 
-                          className="p-2 bg-slate-800/80 hover:bg-red-500/10 text-slate-400 hover:text-red-400 rounded-lg transition"
-                          title="Delete Portal"
+                          className="p-2 bg-slate-100 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-xl transition"
+                          title="Revoke Delivery"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </div>
@@ -347,97 +381,131 @@ export default function Dashboard() {
       </div>
 
       {/* Mobile Drawer */}
-      {mobileMenuOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 flex lg:hidden">
-          <div className="w-64 bg-[#0D121F] h-full p-5 flex flex-col justify-between">
+      {sidebarOpen && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex lg:hidden">
+          <div className="w-72 bg-white h-full p-6 flex flex-col justify-between shadow-2xl">
             <div className="space-y-6">
               <div className="flex justify-between items-center">
-                <span className="font-bold text-sm text-white">ReleaseDrop</span>
-                <button onClick={() => setMobileMenuOpen(false)} className="text-slate-400"><X className="w-5 h-5" /></button>
+                <div className="flex items-center gap-2">
+                  <div className="h-8 w-8 rounded-xl bg-blue-600 flex items-center justify-center text-white">
+                    <Zap className="w-4 h-4 fill-white" />
+                  </div>
+                  <span className="font-bold text-sm text-slate-900">ReleaseDrop</span>
+                </div>
+                <button onClick={() => setSidebarOpen(false)} className="text-slate-400 p-1">
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-              <nav className="space-y-1 text-xs">
-                <div className="px-3 py-2 bg-indigo-600/10 text-indigo-400 rounded-xl font-medium">Dashboard</div>
+
+              <nav className="space-y-1">
+                <button onClick={() => { setActiveTab('portals'); setSidebarOpen(false); }} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-blue-50 text-blue-600 text-xs font-bold">
+                  <FolderKanban className="w-4 h-4" /> Active Portals
+                </button>
+                <button onClick={() => { setActiveTab('settlements'); setSidebarOpen(false); }} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-600 text-xs font-bold">
+                  <CreditCard className="w-4 h-4" /> Escrow Settlements
+                </button>
               </nav>
             </div>
-            <button onClick={() => signOut(auth)} className="text-xs text-red-400 flex items-center gap-2 py-2">
+
+            <button onClick={() => signOut(auth)} className="text-xs font-bold text-red-600 flex items-center gap-2 py-2 border-t border-slate-100">
               <LogOut className="w-4 h-4" /> Sign Out
             </button>
           </div>
         </div>
       )}
 
-      {/* Deploy Vault Modal */}
+      {/* Lock Delivery Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#0D121F] border border-slate-800 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
-            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
-              <h3 className="text-sm font-bold text-white">Create Payment-Locked Delivery</h3>
-              <button onClick={() => setShowModal(false)} className="text-slate-500 hover:text-white text-xs">✕</button>
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl space-y-4">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-extrabold text-slate-900">Create Protected Delivery</h3>
+                <span className="text-[11px] text-slate-400">Lock master file behind payment escrow</span>
+              </div>
+              <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-600 text-xs p-1">✕</button>
             </div>
 
             <form onSubmit={handleCreateDelivery} className="space-y-3.5">
               <div>
-                <label className="text-[11px] font-medium text-slate-400 block mb-1">Deliverable Title *</label>
+                <label className="text-[11px] font-bold text-slate-700 block mb-1">Project / Deliverable Title *</label>
                 <input 
                   type="text" 
                   required 
-                  placeholder="e.g. Brand Commercial Video (Master 4K)"
+                  placeholder="e.g. Brand Campaign — Final Master 4K"
                   value={title} 
                   onChange={e => setTitle(e.target.value)} 
-                  className="w-full bg-[#090D16] border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-indigo-500" 
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:outline-none focus:border-blue-600 focus:bg-white transition" 
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[11px] font-medium text-slate-400 block mb-1">Client Name</label>
+                  <label className="text-[11px] font-bold text-slate-700 block mb-1">Client Name</label>
                   <input 
                     type="text" 
-                    placeholder="e.g. Acme Media"
+                    placeholder="e.g. Alex Creative Studio"
                     value={clientName} 
                     onChange={e => setClientName(e.target.value)} 
-                    className="w-full bg-[#090D16] border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-indigo-500" 
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:outline-none focus:border-blue-600 focus:bg-white transition" 
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] font-medium text-slate-400 block mb-1">Amount (₹) *</label>
+                  <label className="text-[11px] font-bold text-slate-700 block mb-1">Amount (₹) *</label>
                   <input 
                     type="number" 
                     required 
                     placeholder="5000"
                     value={amount} 
                     onChange={e => setAmount(e.target.value)} 
-                    className="w-full bg-[#090D16] border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-indigo-500" 
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:outline-none focus:border-blue-600 focus:bg-white transition" 
                   />
                 </div>
               </div>
 
+              {numAmountPreview > 0 && (
+                <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl text-[11px] space-y-1">
+                  <div className="flex justify-between text-slate-500">
+                    <span>Client Authorization:</span>
+                    <span className="font-bold text-slate-900">₹{numAmountPreview.toLocaleString('en-IN')}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-400">
+                    <span>ReleaseDrop Escrow (5%):</span>
+                    <span>-₹{previewFee.toLocaleString('en-IN')}</span>
+                  </div>
+                  <div className="flex justify-between text-blue-600 font-bold pt-1 border-t border-slate-200/60">
+                    <span>Net Creator Payout:</span>
+                    <span>₹{previewPayout.toLocaleString('en-IN')}</span>
+                  </div>
+                </div>
+              )}
+
               <div>
-                <label className="text-[11px] font-medium text-slate-400 block mb-1">Select File from Device *</label>
-                <label className="border border-dashed border-slate-800 hover:border-indigo-500/50 rounded-xl p-5 flex flex-col items-center justify-center cursor-pointer bg-[#090D16] transition">
-                  <UploadCloud className="w-6 h-6 text-indigo-400 mb-1" />
-                  <span className="text-xs font-medium text-slate-200">{selectedFile ? selectedFile.name : "Choose Video, Image, or ZIP"}</span>
-                  <span className="text-[10px] text-slate-500 mt-0.5">{selectedFile ? `${(selectedFile.size / (1024*1024)).toFixed(2)} MB Selected` : "Tap to browse phone files"}</span>
+                <label className="text-[11px] font-bold text-slate-700 block mb-1">Pick Master File From Phone/Device *</label>
+                <label className="border-2 border-dashed border-slate-200 hover:border-blue-500 rounded-2xl p-5 flex flex-col items-center justify-center cursor-pointer bg-slate-50 hover:bg-blue-50/20 transition">
+                  <UploadCloud className="w-6 h-6 text-blue-600 mb-1" />
+                  <span className="text-xs font-bold text-slate-800">{selectedFile ? selectedFile.name : "Tap to choose file"}</span>
+                  <span className="text-[10px] text-slate-400 mt-0.5">{selectedFile ? `${(selectedFile.size / (1024*1024)).toFixed(2)} MB Ready` : "MP4, MOV, PNG, JPG, ZIP"}</span>
                   <input type="file" required onChange={handleFileSelect} className="hidden" accept="image/*,video/*,.zip" />
                 </label>
               </div>
 
               {uploading && (
-                <div className="space-y-1">
-                  <div className="flex justify-between text-[10px] text-slate-400 font-mono">
-                    <span>Uploading deliverable...</span>
+                <div className="space-y-1 pt-1">
+                  <div className="flex justify-between text-[11px] font-semibold text-slate-600">
+                    <span>Uploading master deliverable...</span>
                     <span>{uploadProgress}%</span>
                   </div>
-                  <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-indigo-500 transition-all duration-200" style={{ width: `${uploadProgress}%` }} />
+                  <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-blue-600 transition-all duration-200" style={{ width: `${uploadProgress}%` }} />
                   </div>
                 </div>
               )}
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
-                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 text-xs text-slate-400">Cancel</button>
-                <button type="submit" disabled={creating || uploading} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs rounded-xl disabled:opacity-50">
-                  {creating ? 'Locking File...' : 'Deploy Vault'}
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2.5 text-xs font-semibold text-slate-500">Cancel</button>
+                <button type="submit" disabled={creating || uploading} className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-600/20 disabled:opacity-50 transition">
+                  {creating ? 'Locking File...' : 'Create Delivery Portal'}
                 </button>
               </div>
             </form>
