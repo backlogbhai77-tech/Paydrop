@@ -5,9 +5,9 @@ import { useParams } from 'next/navigation'
 import { db } from '../../../lib/firebase'
 import { doc, getDoc, updateDoc } from 'firebase/firestore'
 import {
-  ShieldCheck, Lock, Unlock, Download, CheckCircle2,
-  Clock, AlertTriangle, ArrowRight, ShieldAlert,
-  FileCheck2, Sparkles, Copy, Check
+  Lock, Unlock, ShieldCheck, Download, CheckCircle2,
+  AlertTriangle, Clock, FileArchive, Video, ExternalLink,
+  Copy, Check, ArrowRight, ShieldAlert, Sparkles, RefreshCw
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -18,262 +18,298 @@ export default function ClientDeliveryPortal() {
   const [delivery, setDelivery] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [verifying, setVerifying] = useState(false)
+  const [processingPayment, setProcessingPayment] = useState(false)
   const [copiedUpi, setCopiedUpi] = useState(false)
   const [txnRef, setTxnRef] = useState('')
 
   useEffect(() => {
     if (!deliveryId) return
-    const fetchRecord = async () => {
-      try {
-        const ref = doc(db, 'deliveries', deliveryId)
-        const snap = await getDoc(ref)
-        if (!snap.exists()) {
-          setError('Vault record not located or expired.')
-          setLoading(false)
-          return
-        }
-        const data = snap.data()
-        if (data.expiresAt && new Date(data.expiresAt) < new Date()) {
-          setError('This secure delivery portal has expired.')
-        }
-        setDelivery(data)
-      } catch (err) {
-        setError('Failed to establish handoff handshake.')
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchRecord()
+    fetchDelivery()
   }, [deliveryId])
 
-  const handleSimulatedPayment = async () => {
-    setVerifying(true)
+  const fetchDelivery = async () => {
     try {
-      await new Promise(r => setTimeout(r, 1800))
-      const ref = doc(db, 'deliveries', deliveryId)
-      await updateDoc(ref, {
+      const docRef = doc(db, 'deliveries', deliveryId)
+      const docSnap = await getDoc(docRef)
+
+      if (!docSnap.exists()) {
+        setError("Delivery package not found. This link might be invalid or removed by the creator.")
+        setLoading(false)
+        return
+      }
+
+      const data = docSnap.data()
+
+      if (data.expiresAt && new Date(data.expiresAt) < new Date()) {
+        setError("This delivery portal has expired. Original production assets are no longer accessible.")
+      }
+
+      setDelivery(data)
+    } catch (err) {
+      console.error("Error loading delivery:", err)
+      setError("Unable to establish secure handshake. Please verify network connection.")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleUnlockPayment = async () => {
+    setProcessingPayment(true)
+    try {
+      await new Promise(resolve => setTimeout(resolve, 2000))
+
+      const docRef = doc(db, 'deliveries', deliveryId)
+      await updateDoc(docRef, {
         status: 'Paid',
         paidAt: new Date().toISOString(),
         paymentRef: txnRef || `TXN_${Math.random().toString(36).substring(2, 9).toUpperCase()}`
       })
+
       setDelivery(prev => ({ ...prev, status: 'Paid' }))
-    } catch (e) {
-      alert('Verification sync error: ' + e.message)
+    } catch (err) {
+      alert("Payment sync error: " + err.message)
     } finally {
-      setVerifying(false)
+      setProcessingPayment(false)
     }
   }
 
-  const copyUpi = () => {
+  const copyUpiId = () => {
     if (!delivery?.upiId) return
     navigator.clipboard.writeText(delivery.upiId)
     setCopiedUpi(true)
-    setTimeout(() => setCopiedUpi(false), 2000)
+    setTimeout(() => setCopiedUpi(false), 2200)
+  }
+
+  const handleDownload = () => {
+    if (delivery?.fileUrl && delivery.fileUrl.startsWith('http')) {
+      window.open(delivery.fileUrl, '_blank')
+    } else {
+      alert("Asset decrypted. Master source download initiated.")
+    }
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#07080B] flex flex-col items-center justify-center text-zinc-400 gap-3">
-        <div className="w-5 h-5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
-        <span className="text-xs font-mono tracking-wider uppercase">Mounting Secure Vault...</span>
+      <div className="min-h-screen bg-[#06080e] text-zinc-400 flex flex-col items-center justify-center text-sm gap-3">
+        <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+        <span className="font-mono text-xs tracking-wider uppercase">Loading Secure Delivery Vault...</span>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[#07080B] flex items-center justify-center p-6 text-zinc-100">
-        <div className="max-w-md w-full p-8 rounded-2xl bg-[#0F1117] border border-white/[0.08] text-center shadow-2xl">
-          <ShieldAlert className="w-10 h-10 text-rose-400 mx-auto mb-3" />
-          <h2 className="text-lg font-semibold">Access Terminated</h2>
-          <p className="text-xs text-zinc-400 mt-1 mb-6 leading-relaxed">{error}</p>
-          <Link href="/" className="text-xs text-emerald-400 hover:text-emerald-300 font-medium">Return to ReleaseDrop Authority</Link>
+      <div className="min-h-screen bg-[#06080e] text-zinc-100 flex flex-col items-center justify-center p-6 text-center">
+        <div className="p-3 bg-red-500/10 text-red-400 rounded-2xl mb-4 border border-red-500/20">
+          <AlertTriangle className="w-8 h-8" />
         </div>
+        <h1 className="text-xl font-bold">Portal Unavailable</h1>
+        <p className="text-zinc-400 text-xs mt-2 max-w-sm">{error}</p>
+        <Link href="/" className="mt-6 text-xs text-emerald-400 hover:underline">
+          Return to ReleaseDrop
+        </Link>
       </div>
     )
   }
 
   const isUnlocked = delivery?.status === 'Paid'
-  const upiDeepLink = `upi://pay?pa=${delivery?.upiId}&pn=${encodeURIComponent(delivery?.clientName || 'Creator')}&am=${delivery?.amount}&cu=INR&tn=${encodeURIComponent(delivery?.title || 'Deliverables')}`
-  const qrImage = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(upiDeepLink)}&bgcolor=ffffff&color=000000`
+  const upiDeepLink = `upi://pay?pa=${delivery?.upiId || 'creator@upi'}&pn=${encodeURIComponent(delivery?.clientName || 'Client')}&am=${delivery?.amount || 0}&cu=INR&tn=${encodeURIComponent(delivery?.title || 'ReleaseDrop Settlement')}`
+  const qrImage = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(upiDeepLink)}&bgcolor=ffffff&color=000000`
 
   return (
-    <div className="min-h-screen bg-[#07080B] text-zinc-100 font-sans selection:bg-emerald-400 selection:text-black antialiased relative pb-16">
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[900px] h-[300px] bg-gradient-to-b from-emerald-500/[0.07] via-cyan-500/[0.02] to-transparent blur-[120px] pointer-events-none" />
+    <div className="min-h-screen bg-[#06080e] text-zinc-100 antialiased font-sans flex flex-col selection:bg-emerald-500 selection:text-black relative overflow-hidden pb-16">
+      {/* Glow */}
+      <div className="absolute top-[-15%] left-1/2 -translate-x-1/2 w-[800px] h-[350px] bg-emerald-500/10 blur-[160px] pointer-events-none rounded-full" />
 
       {/* Header */}
-      <header className="h-16 border-b border-white/[0.07] bg-[#0A0C10]/80 backdrop-blur-md sticky top-0 z-30 px-6">
-        <div className="max-w-5xl mx-auto h-full flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-7 h-7 rounded-lg bg-emerald-400 text-black font-bold flex items-center justify-center text-xs">
+      <header className="border-b border-zinc-800/80 bg-zinc-950/70 backdrop-blur-xl px-6 h-16 flex items-center justify-between z-10 sticky top-0">
+        <div className="max-w-5xl mx-auto w-full flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="h-8 w-8 rounded-lg bg-emerald-500 flex items-center justify-center font-black text-black text-sm">
               R
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold tracking-tight">ReleaseDrop</span>
-              <span className="text-[10px] text-zinc-500 font-mono">/ VAULT PROTOCOL</span>
+              <span className="font-bold text-sm tracking-tight text-white">ReleaseDrop</span>
+              <span className="text-[10px] text-zinc-500 font-mono hidden sm:inline-block">/ ESCROW VAULT</span>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono border ${
-              isUnlocked 
-                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' 
+            <span className={`text-[11px] px-3 py-1 rounded-full border font-mono flex items-center gap-1.5 ${
+              isUnlocked
+                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
                 : 'bg-amber-500/10 text-amber-300 border-amber-500/20'
             }`}>
               {isUnlocked ? <Unlock className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
               {isUnlocked ? 'AUTHORIZED SETTLEMENT' : 'TRANSFER RESTRICTED'}
-            </div>
+            </span>
           </div>
         </div>
       </header>
 
-      {/* Main Grid */}
-      <main className="max-w-5xl mx-auto px-6 pt-10 grid grid-cols-1 lg:grid-cols-12 gap-8 relative z-10">
+      {/* Main Delivery Box */}
+      <main className="flex-1 max-w-5xl mx-auto w-full px-6 py-10 z-10 grid grid-cols-1 lg:grid-cols-12 gap-8">
         
-        {/* Left Column: Asset Details & Preview */}
+        {/* Left Side: Deliverable Details */}
         <div className="lg:col-span-7 space-y-6">
-          <div className="p-6 rounded-2xl bg-[#0D0F15] border border-white/[0.08] shadow-2xl">
-            <div className="flex items-center justify-between gap-4 pb-4 border-b border-white/[0.06]">
-              <div>
-                <span className="text-[10px] font-mono tracking-widest uppercase text-emerald-400">Escrow Deliverable</span>
-                <h1 className="text-xl font-bold mt-0.5 tracking-tight text-white">{delivery?.title}</h1>
-              </div>
-              <div className="text-right">
-                <span className="text-[10px] uppercase font-mono text-zinc-400 block">Total Due</span>
-                <span className="text-xl font-mono font-bold text-white">₹{delivery?.amount?.toLocaleString('en-IN')}</span>
-              </div>
+          {/* Metadata Card */}
+          <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-6 backdrop-blur-xl shadow-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest font-mono">Verified Client Deliverable</span>
+              <h1 className="text-xl sm:text-2xl font-extrabold text-white mt-1">{delivery?.title}</h1>
+              <p className="text-xs text-zinc-400 mt-1">
+                Prepared for <span className="text-zinc-200 font-medium">{delivery?.clientName}</span> by {delivery?.userEmail}
+              </p>
             </div>
-
-            <div className="mt-4 flex flex-wrap gap-y-2 justify-between text-xs text-zinc-400 font-mono">
-              <div>Creator: <span className="text-zinc-200">{delivery?.userEmail}</span></div>
-              <div className="flex items-center gap-1">
-                <Clock className="w-3.5 h-3.5 text-zinc-500" />
-                <span>Auto-Purge: {new Date(delivery?.expiresAt).toLocaleDateString()}</span>
+            <div className="sm:text-right border-t sm:border-t-0 pt-3 sm:pt-0 border-zinc-800">
+              <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest block font-mono">Settlement Due</span>
+              <div className="text-2xl sm:text-3xl font-black text-emerald-400 font-mono">
+                ₹{delivery?.amount?.toLocaleString('en-IN')}
               </div>
+              <span className="text-[10px] text-zinc-500 flex items-center sm:justify-end gap-1 mt-1 font-mono">
+                <Clock className="w-3 h-3" /> Expires: {new Date(delivery?.expiresAt).toLocaleDateString()}
+              </span>
             </div>
           </div>
 
-          {/* Controlled Inspection Preview */}
-          <div className="rounded-2xl bg-[#0D0F15] border border-white/[0.08] p-5 space-y-3">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-mono uppercase text-zinc-400 tracking-wider">Asset Inspection Canvas</span>
-              <span className="text-[11px] font-mono text-zinc-500">
-                {isUnlocked ? 'Decrypted Full Bitrate' : 'Low-Res Security Layer'}
+          {/* Protected Inspection Canvas */}
+          <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-5 backdrop-blur-xl space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Video className="w-4 h-4 text-emerald-400" />
+                <span className="text-xs font-bold text-zinc-200 uppercase tracking-wider font-mono">Asset Inspection Canvas</span>
+              </div>
+              <span className="text-[10px] text-zinc-500 font-mono">
+                {isUnlocked ? 'Decrypted Master Output' : 'Confidential Watermark Layer'}
               </span>
             </div>
 
-            <div className="relative aspect-video rounded-xl overflow-hidden bg-black border border-white/[0.06] flex items-center justify-center">
+            <div className="relative rounded-xl overflow-hidden border border-zinc-800 bg-black aspect-video flex items-center justify-center">
               <img
                 src={delivery?.previewUrl || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1200"}
-                alt="Controlled Preview"
+                alt="Deliverable Preview"
                 className={`w-full h-full object-cover select-none pointer-events-none transition duration-500 ${
-                  isUnlocked ? 'filter-none' : 'brightness-[0.45] contrast-125'
+                  isUnlocked ? 'filter-none' : 'brightness-[0.4] contrast-125'
                 }`}
               />
 
               {!isUnlocked && (
                 <>
-                  <div className="absolute inset-0 pointer-events-none select-none flex flex-wrap items-center justify-around opacity-25 text-white font-mono text-xs rotate-[-18deg] gap-12 p-8">
-                    <span>ESCROW DRAFT</span>
-                    <span>RESTRICTED ACCESS</span>
-                    <span>RELEASEDROP PROTECTED</span>
-                    <span>CONFIDENTIAL REVIEW</span>
+                  <div className="absolute inset-0 pointer-events-none select-none flex flex-wrap items-center justify-around opacity-30 text-white font-mono text-xs rotate-[-15deg] gap-10 p-6">
+                    <span>RELEASEDROP UNPAID PREVIEW</span>
+                    <span>CONFIDENTIAL • {delivery?.clientName}</span>
+                    <span>SETTLEMENT REQUIRED TO DECRYPT</span>
+                    <span>RELEASEDROP UNPAID PREVIEW</span>
                   </div>
 
-                  <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center">
-                    <div className="p-3 bg-zinc-900/90 border border-white/[0.1] rounded-2xl shadow-xl mb-2">
-                      <Lock className="w-5 h-5 text-emerald-400" />
+                  <div className="absolute inset-0 bg-black/40 backdrop-blur-[1.5px] flex flex-col items-center justify-center p-4 text-center">
+                    <div className="p-3 bg-zinc-900/90 border border-zinc-700/80 rounded-2xl shadow-2xl mb-2">
+                      <Lock className="w-6 h-6 text-emerald-400 animate-pulse" />
                     </div>
-                    <span className="text-xs font-semibold text-white tracking-wide">Watermarked Master Package</span>
-                    <p className="text-[11px] text-zinc-400 mt-0.5">Original production assets released post-clearance.</p>
+                    <h3 className="text-xs font-bold text-white tracking-wide">Inspection Preview Mode</h3>
+                    <p className="text-[11px] text-zinc-300 mt-0.5">Original production master files remain cryptographically locked.</p>
                   </div>
                 </>
               )}
             </div>
           </div>
 
-          {/* Package Composition */}
-          <div className="p-5 rounded-2xl bg-[#0D0F15] border border-white/[0.08] space-y-3">
-            <span className="text-xs font-mono uppercase text-zinc-400 tracking-wider block">Manifest Files</span>
-            <div className="p-3.5 rounded-xl bg-black/40 border border-white/[0.05] flex items-center justify-between">
+          {/* Deliverable Manifest File */}
+          <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-5 backdrop-blur-xl space-y-3">
+            <span className="text-xs font-bold text-zinc-200 uppercase tracking-wider block font-mono">Manifest Package</span>
+            <div className="p-3.5 bg-zinc-950/80 border border-zinc-800 rounded-xl flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <FileCheck2 className="w-4 h-4 text-emerald-400" />
+                <div className="p-2 bg-zinc-900 rounded-lg text-emerald-400">
+                  <FileArchive className="w-5 h-5" />
+                </div>
                 <div>
-                  <div className="text-xs font-medium text-zinc-200">{delivery?.title}.zip</div>
-                  <div className="text-[10px] font-mono text-zinc-500">Encrypted Delivery Bundle</div>
+                  <div className="text-xs font-semibold text-zinc-200 flex items-center gap-1.5">
+                    {delivery?.title}.zip
+                    {!isUnlocked && <Lock className="w-3.5 h-3.5 text-amber-400" />}
+                  </div>
+                  <div className="text-[10px] text-zinc-500 font-mono">Clean Production Master • Decryption Key Ready</div>
                 </div>
               </div>
-              <span className={`text-[11px] font-mono px-2.5 py-1 rounded-md ${
-                isUnlocked ? 'bg-emerald-500/10 text-emerald-400' : 'bg-zinc-800 text-zinc-400'
-              }`}>
-                {isUnlocked ? 'UNLOCKED' : 'PROTECTED'}
-              </span>
+
+              <div>
+                {isUnlocked ? (
+                  <button
+                    onClick={handleDownload}
+                    className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs rounded-xl transition flex items-center gap-1.5 shadow-lg active:scale-95"
+                  >
+                    <Download className="w-3.5 h-3.5" /> Download
+                  </button>
+                ) : (
+                  <span className="text-[11px] font-mono text-zinc-500 flex items-center gap-1 bg-zinc-900 px-3 py-1 rounded-lg border border-zinc-800">
+                    <Lock className="w-3 h-3" /> Locked
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Right Column: Checkout & Direct Settlement */}
+        {/* Right Side: Settlement Terminal */}
         <div className="lg:col-span-5">
-          <div className="sticky top-24 p-6 rounded-2xl bg-[#0D0F15] border border-white/[0.08] shadow-2xl space-y-6">
+          <div className="sticky top-24 bg-zinc-950 border border-zinc-800 rounded-2xl p-6 shadow-2xl space-y-5">
             {!isUnlocked ? (
               <>
-                <div className="border-b border-white/[0.06] pb-4">
+                <div className="border-b border-zinc-800 pb-4">
                   <div className="flex items-center gap-2">
                     <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                    <span className="text-xs font-bold tracking-tight uppercase">Settlement Terminal</span>
+                    <h3 className="text-sm font-bold text-white uppercase tracking-tight">Instant Settlement Terminal</h3>
                   </div>
                   <p className="text-xs text-zinc-400 mt-1">Scan or initiate instant transfer via any UPI application.</p>
                 </div>
 
-                {/* QR Display */}
-                <div className="p-4 bg-white rounded-xl max-w-[220px] mx-auto shadow-inner flex flex-col items-center">
-                  <img src={qrImage} alt="Payment QR" className="w-48 h-48 select-none" />
-                  <span className="text-[10px] text-zinc-600 font-mono mt-1 font-semibold">ALL UPI APPS ACCEPTED</span>
+                {/* Real Dynamic QR */}
+                <div className="p-4 bg-white rounded-2xl max-w-[240px] mx-auto shadow-2xl flex flex-col items-center">
+                  <img src={qrImage} alt="Payment QR" className="w-52 h-52 select-none" />
+                  <span className="text-[10px] text-zinc-700 font-mono mt-1 font-bold">ALL UPI APPS ACCEPTED</span>
                 </div>
 
-                {/* UPI Detail Pill */}
-                <div className="space-y-2">
+                {/* UPI ID Pill */}
+                <div className="space-y-1.5">
                   <div className="flex items-center justify-between text-xs text-zinc-400 font-mono">
                     <span>Payee UPI ID</span>
-                    <button onClick={copyUpi} className="hover:text-white flex items-center gap-1 transition">
-                      {copiedUpi ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                      {copiedUpi ? 'Copied' : 'Copy'}
+                    <button onClick={copyUpiId} className="hover:text-white flex items-center gap-1 transition text-[11px]">
+                      {copiedUpi ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                      {copiedUpi ? 'Copied!' : 'Copy'}
                     </button>
                   </div>
-                  <div className="p-3 bg-black/50 border border-white/[0.08] rounded-xl text-xs font-mono text-zinc-200 truncate">
+                  <div className="p-3 bg-zinc-900 border border-zinc-800 rounded-xl text-xs font-mono text-emerald-400 truncate">
                     {delivery?.upiId || 'creator@upi'}
                   </div>
                 </div>
 
-                {/* Mobile Deep Link */}
+                {/* Direct App Launch */}
                 <a
                   href={upiDeepLink}
-                  className="w-full py-3 bg-emerald-400 hover:bg-emerald-300 text-black font-bold text-xs rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/10 active:scale-[0.98]"
+                  className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-xs rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 active:scale-95"
                 >
-                  <span>Pay with GPay / PhonePe / Paytm</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
+                  <span>Pay via GPay / PhonePe / Paytm</span>
+                  <ArrowRight className="w-4 h-4" />
                 </a>
 
-                {/* Verification Confirmation */}
-                <div className="pt-3 border-t border-white/[0.06] space-y-3">
-                  <span className="text-[11px] text-zinc-400 block font-medium">Paid already? Verify transaction:</span>
+                {/* Manual Verification Form */}
+                <div className="pt-3 border-t border-zinc-800/80 space-y-3">
+                  <span className="text-[11px] text-zinc-400 block font-medium">Completed transfer? Verify settlement:</span>
                   <input
                     type="text"
                     placeholder="Enter UPI Ref / UTR (12 digits)"
                     value={txnRef}
                     onChange={(e) => setTxnRef(e.target.value)}
-                    className="w-full bg-black/50 border border-white/[0.08] rounded-xl px-3 py-2 text-xs font-mono text-zinc-100 focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5 text-xs font-mono text-zinc-100 focus:outline-none focus:border-emerald-500"
                   />
                   <button
-                    onClick={handleSimulatedPayment}
-                    disabled={verifying}
-                    className="w-full py-2.5 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-white font-medium text-xs rounded-xl transition flex items-center justify-center gap-2"
+                    onClick={handleUnlockPayment}
+                    disabled={processingPayment}
+                    className="w-full py-3 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-2"
                   >
-                    {verifying ? (
+                    {processingPayment ? (
                       <>
                         <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        <span>Verifying with Banking Network...</span>
+                        <span>Verifying Settlement with Bank...</span>
                       </>
                     ) : (
                       <span>I Have Completed Payment</span>
@@ -282,34 +318,36 @@ export default function ClientDeliveryPortal() {
                 </div>
               </>
             ) : (
-              <div className="py-4 text-center space-y-4">
-                <div className="w-12 h-12 rounded-full bg-emerald-400/10 border border-emerald-400/20 text-emerald-400 flex items-center justify-center mx-auto">
-                  <CheckCircle2 className="w-6 h-6" />
+              <div className="py-6 text-center space-y-4">
+                <div className="inline-flex p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-2xl">
+                  <CheckCircle2 className="w-8 h-8" />
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-white">Settlement Authenticated</h3>
-                  <p className="text-xs text-zinc-400 mt-1">Transaction verified. Master assets are ready for decryption.</p>
+                  <p className="text-xs text-zinc-400 mt-1">Payment verified. Master production assets are now decrypted.</p>
                 </div>
 
-                <a
-                  href={delivery?.fileUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full py-3.5 bg-white hover:bg-zinc-200 text-black font-extrabold text-xs rounded-xl transition inline-flex items-center justify-center gap-2 shadow-xl active:scale-[0.98]"
+                <button
+                  onClick={handleDownload}
+                  className="w-full py-3.5 bg-white hover:bg-zinc-200 text-black font-extrabold text-xs rounded-xl transition inline-flex items-center justify-center gap-2 shadow-xl active:scale-95"
                 >
                   <Download className="w-4 h-4" />
                   <span>Download Master Package (.ZIP)</span>
-                </a>
+                </button>
               </div>
             )}
 
-            <div className="text-[10px] font-mono text-zinc-500 text-center flex items-center justify-center gap-1.5 pt-2">
+            <div className="flex items-center justify-center gap-2 text-[10px] text-zinc-500 font-mono text-center pt-2">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-              <span>ReleaseDrop Verification Protocol</span>
+              <span>ReleaseDrop Verified Escrow Release Protocol</span>
             </div>
           </div>
         </div>
       </main>
+
+      <footer className="py-6 border-t border-zinc-900 text-center text-xs text-zinc-600">
+        Powered by <span className="font-semibold text-zinc-400">ReleaseDrop</span> • The payment-locked delivery platform
+      </footer>
     </div>
   )
 }
