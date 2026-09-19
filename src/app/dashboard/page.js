@@ -9,12 +9,24 @@ import {
   UploadCloud, CheckCircle2, Lock, ArrowRight, ArrowLeft, 
   Copy, Check, Trash2, ExternalLink, FileArchive, Clock,
   AlertCircle, RefreshCw, X, MessageSquare, Send, Bell,
-  ChevronRight, Sparkles, Filter, MoreVertical, Eye
+  Sparkles, Filter, MoreVertical, Eye, Share2
 } from 'lucide-react'
 import Link from 'next/link'
 
 const CLOUDINARY_CLOUD_NAME = "mrfujhf8"
 const CLOUDINARY_UPLOAD_PRESET = "releasedrop_vault"
+
+// Clean Currency Formatter to prevent huge number overflow
+function formatCurrency(amount) {
+  const val = Number(amount) || 0
+  if (val >= 10000000) {
+    return `₹${(val / 10000000).toFixed(2)}Cr`
+  }
+  if (val >= 100000) {
+    return `₹${(val / 100000).toFixed(2)}L`
+  }
+  return `₹${val.toLocaleString('en-IN')}`
+}
 
 export default function Dashboard() {
   const [user, setUser] = useState(null)
@@ -22,7 +34,7 @@ export default function Dashboard() {
   const [deliveries, setDeliveries] = useState([])
   const [filterStatus, setFilterStatus] = useState('all') // all | pending | paid
   
-  const [currentView, setCurrentView] = useState('overview') // overview | deliveries | create | messages
+  const [currentView, setCurrentView] = useState('overview')
   const [copiedId, setCopiedId] = useState(null)
   const [toast, setToast] = useState(null)
 
@@ -38,8 +50,6 @@ export default function Dashboard() {
   const [amount, setAmount] = useState('')
   const [expirySelection, setExpirySelection] = useState('7')
   const [watermarkText, setWatermarkText] = useState('RELEASEDROP • PROTECTED PREVIEW')
-  
-  // Custom Branding
   const [brandStudioName, setBrandStudioName] = useState('')
 
   // Multi-File Upload Queue
@@ -293,17 +303,17 @@ export default function Dashboard() {
       
       {/* Toast Notification */}
       {toast && (
-        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50">
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 max-w-[90vw]">
           <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl shadow-xl bg-slate-900 text-white text-xs font-semibold border border-slate-800">
             <Check className="w-3.5 h-3.5 text-emerald-400" />
-            <span>{toast.message}</span>
+            <span className="truncate">{toast.message}</span>
           </div>
         </div>
       )}
 
       {/* Primary Top Bar */}
       <header className="h-16 bg-white border-b border-slate-200/80 sticky top-0 z-30 px-4 sm:px-8 flex items-center justify-between">
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-4 sm:gap-6">
           <Link href="/" className="flex items-center gap-2.5">
             <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-sm">
               <Zap className="w-4 h-4 fill-white" />
@@ -334,20 +344,19 @@ export default function Dashboard() {
           </nav>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           <button 
             onClick={() => { setCurrentView('create'); setWizardStep(1); }}
-            className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-sm transition active:scale-95 flex items-center gap-1.5"
+            className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-sm transition active:scale-95 flex items-center gap-1.5"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>New Delivery</span>
+            <span className="hidden sm:inline">New Delivery</span>
+            <span className="sm:hidden">New</span>
           </button>
-
-          <div className="h-4 w-px bg-slate-200 hidden sm:block" />
 
           <button
             onClick={() => signOut(auth)}
-            className="text-xs font-medium text-slate-500 hover:text-rose-600 transition"
+            className="text-xs font-medium text-slate-500 hover:text-rose-600 transition ml-1"
           >
             Sign Out
           </button>
@@ -355,14 +364,14 @@ export default function Dashboard() {
       </header>
 
       {/* Main Workspace Frame */}
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-8 py-8 space-y-6">
+      <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-8 py-6 sm:py-8 space-y-6">
 
         {/* ======================= VIEW: CREATE WIZARD ======================= */}
         {currentView === 'create' && (
           <div className="max-w-2xl mx-auto space-y-6">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-xl font-bold tracking-tight text-slate-900">New Escrow Vault</h1>
+                <h1 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900">New Escrow Vault</h1>
                 <p className="text-xs text-slate-500 mt-0.5">Bundle deliverables with anti-leak inspection protection.</p>
               </div>
               <button 
@@ -375,11 +384,11 @@ export default function Dashboard() {
 
             {/* Stepper Header */}
             <div className="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-sm flex items-center justify-between text-xs font-semibold">
-              <span className={wizardStep === 1 ? 'text-blue-600 font-bold' : 'text-slate-400'}>1. Asset Files</span>
+              <span className={wizardStep === 1 ? 'text-blue-600 font-bold' : 'text-slate-400'}>1. Files</span>
               <span className="text-slate-300">→</span>
               <span className={wizardStep === 2 ? 'text-blue-600 font-bold' : 'text-slate-400'}>2. Details</span>
               <span className="text-slate-300">→</span>
-              <span className={wizardStep === 3 ? 'text-blue-600 font-bold' : 'text-slate-400'}>3. Watermark & Price</span>
+              <span className={wizardStep === 3 ? 'text-blue-600 font-bold' : 'text-slate-400'}>3. Price</span>
               <span className="text-slate-300">→</span>
               <span className={wizardStep === 4 ? 'text-blue-600 font-bold' : 'text-slate-400'}>4. Deploy</span>
             </div>
@@ -387,10 +396,10 @@ export default function Dashboard() {
             {/* STEP 1 */}
             {wizardStep === 1 && (
               <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 space-y-5 shadow-sm">
-                <div className="border-2 border-dashed border-slate-200 hover:border-blue-500 rounded-2xl p-8 text-center bg-slate-50/50 transition">
+                <div className="border-2 border-dashed border-slate-200 hover:border-blue-500 rounded-2xl p-6 sm:p-8 text-center bg-slate-50/50 transition">
                   <UploadCloud className="w-10 h-10 text-blue-600 mx-auto mb-2" />
-                  <span className="text-sm font-bold text-slate-900 block">Select Project Deliverables</span>
-                  <span className="text-xs text-slate-400 mt-0.5 block">MP4, MOV, PNG, JPG, PDF, ZIP (Up to 250MB)</span>
+                  <span className="text-sm font-bold text-slate-900 block">Select Deliverable Assets</span>
+                  <span className="text-xs text-slate-400 mt-0.5 block">MP4, MOV, PNG, JPG, PDF, ZIP (Max 250MB)</span>
                   <label className="mt-4 inline-block px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl cursor-pointer shadow-sm transition">
                     Browse Files
                     <input type="file" multiple onChange={handleFilesAdd} className="hidden" />
@@ -405,7 +414,7 @@ export default function Dashboard() {
                         <div key={i} className="p-3 flex items-center justify-between text-xs">
                           <div className="flex items-center gap-2 truncate">
                             <FileArchive className="w-4 h-4 text-blue-600 shrink-0" />
-                            <span className="font-medium text-slate-800 truncate">{f.name}</span>
+                            <span className="font-medium text-slate-800 truncate max-w-[180px] sm:max-w-xs">{f.name}</span>
                           </div>
                           <div className="flex items-center gap-3">
                             <span className="text-slate-400 font-mono">{(f.size / (1024*1024)).toFixed(2)} MB</span>
@@ -457,7 +466,7 @@ export default function Dashboard() {
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-bold text-slate-700 block mb-1">Client Email (For Link Delivery)</label>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">Client Email (Optional)</label>
                     <input
                       type="email"
                       placeholder="client@acme.com"
@@ -476,21 +485,21 @@ export default function Dashboard() {
                         key={opt}
                         type="button"
                         onClick={() => setExpirySelection(opt)}
-                        className={`py-2 rounded-xl border transition ${
+                        className={`py-2 rounded-xl border transition text-center ${
                           expirySelection === opt ? 'bg-blue-50 border-blue-500 text-blue-700 font-bold' : 'border-slate-200 text-slate-600 hover:border-slate-300'
                         }`}
                       >
-                        {opt === 'never' ? 'Never' : `${opt} Days`}
+                        {opt === 'never' ? 'Never' : `${opt}d`}
                       </button>
                     ))}
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">Handover Note to Client</label>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Handover Note</label>
                   <textarea
                     rows={2}
-                    placeholder="e.g. Approved color grade bundle. Inspect stream below; original assets release instantly upon settlement."
+                    placeholder="e.g. Approved cut. Inspect preview below; raw master unpacks instantly upon settlement."
                     value={clientMessage}
                     onChange={e => setClientMessage(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-900 focus:outline-none focus:border-blue-600"
@@ -552,8 +561,8 @@ export default function Dashboard() {
               <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 space-y-4 shadow-sm">
                 <div className="border border-slate-200 rounded-xl p-4 bg-slate-50 space-y-2 text-xs">
                   <div className="flex justify-between font-bold text-slate-900 border-b border-slate-200 pb-2">
-                    <span>{title}</span>
-                    <span>₹{Number(amount).toLocaleString('en-IN')}</span>
+                    <span className="truncate max-w-[200px]">{title}</span>
+                    <span className="font-mono">{formatCurrency(amount)}</span>
                   </div>
                   <div className="flex justify-between text-slate-500">
                     <span>Client: {clientName}</span>
@@ -584,7 +593,7 @@ export default function Dashboard() {
                     className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-2"
                   >
                     <Lock className="w-4 h-4" />
-                    <span>{creating ? 'Sealing Assets...' : 'Deploy Payment-Locked Vault'}</span>
+                    <span>{creating ? 'Sealing Assets...' : 'Deploy Vault'}</span>
                   </button>
                 </div>
               </div>
@@ -595,42 +604,47 @@ export default function Dashboard() {
         {/* ======================= VIEW: OVERVIEW ======================= */}
         {currentView === 'overview' && (
           <div className="space-y-6">
-            {/* Metric Row */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block font-mono">CLEARED REVENUE</span>
-                <div className="text-2xl font-black text-slate-900 mt-1">₹{totalRevenue.toLocaleString('en-IN')}</div>
-                <span className="text-[11px] text-emerald-600 mt-1 block font-semibold">{paidDeliveries.length} settled drops</span>
+            
+            {/* Metric Row with strict text containment */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200 shadow-sm min-w-0 overflow-hidden">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block font-mono truncate">CLEARED REVENUE</span>
+                <div className="text-lg sm:text-2xl font-black text-slate-900 mt-1 truncate font-mono" title={`₹${totalRevenue.toLocaleString('en-IN')}`}>
+                  {formatCurrency(totalRevenue)}
+                </div>
+                <span className="text-[10px] sm:text-[11px] text-emerald-600 mt-1 block font-semibold truncate">{paidDeliveries.length} settled drops</span>
               </div>
 
-              <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block font-mono">PENDING SETTLEMENT</span>
-                <div className="text-2xl font-black text-slate-900 mt-1">₹{pendingAmount.toLocaleString('en-IN')}</div>
-                <span className="text-[11px] text-amber-600 mt-1 block font-semibold">{pendingDeliveries.length} awaiting payment</span>
+              <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200 shadow-sm min-w-0 overflow-hidden">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block font-mono truncate">PENDING SETTLEMENT</span>
+                <div className="text-lg sm:text-2xl font-black text-slate-900 mt-1 truncate font-mono" title={`₹${pendingAmount.toLocaleString('en-IN')}`}>
+                  {formatCurrency(pendingAmount)}
+                </div>
+                <span className="text-[10px] sm:text-[11px] text-amber-600 mt-1 block font-semibold truncate">{pendingDeliveries.length} awaiting payment</span>
               </div>
 
-              <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block font-mono">ACTIVE VAULTS</span>
-                <div className="text-2xl font-black text-slate-900 mt-1">{deliveries.length}</div>
-                <span className="text-[11px] text-slate-400 mt-1 block">Live portal links</span>
+              <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200 shadow-sm min-w-0 overflow-hidden">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block font-mono truncate">ACTIVE VAULTS</span>
+                <div className="text-lg sm:text-2xl font-black text-slate-900 mt-1 truncate font-mono">{deliveries.length}</div>
+                <span className="text-[10px] sm:text-[11px] text-slate-400 mt-1 block truncate">Live portal links</span>
               </div>
 
-              <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block font-mono">STUDIO IDENTITY</span>
-                <div className="text-base font-bold text-slate-900 mt-1 truncate">{brandStudioName}</div>
-                <span className="text-[11px] text-blue-600 mt-1 block font-semibold">White-label ready</span>
+              <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200 shadow-sm min-w-0 overflow-hidden">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block font-mono truncate">STUDIO IDENTITY</span>
+                <div className="text-sm sm:text-base font-bold text-slate-900 mt-1 truncate">{brandStudioName}</div>
+                <span className="text-[10px] sm:text-[11px] text-blue-600 mt-1 block font-semibold truncate">White-label ready</span>
               </div>
             </div>
 
-            {/* Main Delivery Table with Filter */}
+            {/* Deliveries Container */}
             <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
               <div className="p-4 sm:p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <h2 className="text-sm font-bold text-slate-900">Recent Deliveries</h2>
-                  <p className="text-xs text-slate-400">Manage client links and real-time status.</p>
+                  <p className="text-xs text-slate-400">Manage client portals and track clearance in real-time.</p>
                 </div>
 
-                <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl text-xs font-semibold">
+                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs font-semibold self-start sm:self-auto">
                   <button 
                     onClick={() => setFilterStatus('all')}
                     className={`px-3 py-1 rounded-lg transition ${filterStatus === 'all' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
@@ -655,67 +669,131 @@ export default function Dashboard() {
               {filteredDeliveries.length === 0 ? (
                 <div className="py-12 text-center text-xs text-slate-400">No matching deliveries located.</div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50/70 border-b border-slate-100 text-slate-400 uppercase font-mono text-[10px]">
-                      <tr>
-                        <th className="px-5 py-3">Project Title</th>
-                        <th className="px-5 py-3">Client</th>
-                        <th className="px-5 py-3">Settlement</th>
-                        <th className="px-5 py-3">Status</th>
-                        <th className="px-5 py-3 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {filteredDeliveries.map(item => (
-                        <tr key={item.id} className="hover:bg-slate-50/50 transition">
-                          <td className="px-5 py-3.5 font-bold text-slate-900">
-                            <div className="flex items-center gap-2 truncate max-w-[200px] sm:max-w-xs">
+                <>
+                  {/* MOBILE VIEW: Clean Self-Contained Card Stack (No Horizontal Scroll Slip) */}
+                  <div className="divide-y divide-slate-100 md:hidden">
+                    {filteredDeliveries.map(item => (
+                      <div key={item.id} className="p-4 space-y-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
                               <FileArchive className="w-4 h-4 text-blue-600 shrink-0" />
-                              <span className="truncate">{item.title}</span>
+                              <h3 className="text-sm font-bold text-slate-900 truncate">{item.title}</h3>
                             </div>
-                          </td>
-                          <td className="px-5 py-3.5 text-slate-600">{item.clientName}</td>
-                          <td className="px-5 py-3.5 font-mono font-bold text-slate-900">
-                            ₹{Number(item.grossAmount || 0).toLocaleString('en-IN')}
-                          </td>
-                          <td className="px-5 py-3.5">
-                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                              item.status === 'Paid'
-                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                : 'bg-amber-50 text-amber-700 border border-amber-200'
-                            }`}>
-                              <span className={`w-1.5 h-1.5 rounded-full ${item.status === 'Paid' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                              {item.status}
-                            </span>
-                          </td>
-                          <td className="px-5 py-3.5 text-right space-x-2">
+                            <p className="text-xs text-slate-500 mt-0.5">
+                              Client: <span className="text-slate-700 font-medium">{item.clientName}</span>
+                            </p>
+                          </div>
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
+                            item.status === 'Paid'
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : 'bg-amber-50 text-amber-700 border border-amber-200'
+                          }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${item.status === 'Paid' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                            {item.status === 'Paid' ? 'Paid' : 'Awaiting'}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-1">
+                          <span className="font-mono font-black text-sm text-slate-900">
+                            {formatCurrency(item.grossAmount)}
+                          </span>
+
+                          {/* Consolidated Unified Button Pill */}
+                          <div className="flex items-center gap-1.5 bg-slate-50 p-1 rounded-xl border border-slate-200/80">
                             <button
                               onClick={() => copyLink(item.id)}
-                              className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-xs transition"
+                              className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-lg shadow-sm border border-slate-200 transition flex items-center gap-1"
                             >
-                              {copiedId === item.id ? 'Copied!' : 'Copy Link'}
+                              {copiedId === item.id ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                              <span>{copiedId === item.id ? 'Copied' : 'Link'}</span>
                             </button>
+
                             <Link
                               href={`/d/${item.id}`}
                               target="_blank"
-                              className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg inline-block text-xs transition"
+                              className="p-1.5 hover:bg-white hover:shadow-sm rounded-lg text-slate-600 transition"
                               title="Open Portal"
                             >
                               <ExternalLink className="w-3.5 h-3.5" />
                             </Link>
+
                             <button
                               onClick={() => handleDelete(item.id)}
-                              className="p-1.5 hover:text-rose-600 text-slate-400 transition"
+                              className="p-1.5 hover:bg-rose-50 hover:text-rose-600 rounded-lg text-slate-400 transition"
+                              title="Delete"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
-                          </td>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* DESKTOP VIEW: Clean Table */}
+                  <div className="hidden md:block overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-50/70 border-b border-slate-100 text-slate-400 uppercase font-mono text-[10px]">
+                        <tr>
+                          <th className="px-5 py-3">Project Title</th>
+                          <th className="px-5 py-3">Client</th>
+                          <th className="px-5 py-3">Settlement</th>
+                          <th className="px-5 py-3">Status</th>
+                          <th className="px-5 py-3 text-right">Actions</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {filteredDeliveries.map(item => (
+                          <tr key={item.id} className="hover:bg-slate-50/50 transition">
+                            <td className="px-5 py-3.5 font-bold text-slate-900">
+                              <div className="flex items-center gap-2 truncate max-w-[220px]">
+                                <FileArchive className="w-4 h-4 text-blue-600 shrink-0" />
+                                <span className="truncate">{item.title}</span>
+                              </div>
+                            </td>
+                            <td className="px-5 py-3.5 text-slate-600">{item.clientName}</td>
+                            <td className="px-5 py-3.5 font-mono font-bold text-slate-900">
+                              {formatCurrency(item.grossAmount)}
+                            </td>
+                            <td className="px-5 py-3.5">
+                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                                item.status === 'Paid'
+                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                  : 'bg-amber-50 text-amber-700 border border-amber-200'
+                              }`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${item.status === 'Paid' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                                {item.status}
+                              </span>
+                            </td>
+                            <td className="px-5 py-3.5 text-right space-x-2">
+                              <button
+                                onClick={() => copyLink(item.id)}
+                                className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-xs transition"
+                              >
+                                {copiedId === item.id ? 'Copied!' : 'Copy Link'}
+                              </button>
+                              <Link
+                                href={`/d/${item.id}`}
+                                target="_blank"
+                                className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg inline-block text-xs transition"
+                                title="Open Portal"
+                              >
+                                <ExternalLink className="w-3.5 h-3.5" />
+                              </Link>
+                              <button
+                                onClick={() => handleDelete(item.id)}
+                                className="p-1.5 hover:text-rose-600 text-slate-400 transition"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
               )}
             </div>
           </div>
@@ -739,15 +817,15 @@ export default function Dashboard() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {deliveries.map(item => (
-                <div key={item.id} className="p-5 bg-white border border-slate-200 rounded-2xl shadow-sm space-y-3">
+                <div key={item.id} className="p-4 sm:p-5 bg-white border border-slate-200 rounded-2xl shadow-sm space-y-3">
                   <div className="flex justify-between items-start">
-                    <div>
+                    <div className="min-w-0 flex-1 pr-2">
                       <span className="text-[10px] font-mono text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md font-bold inline-block">
                         {item.clientName}
                       </span>
-                      <h3 className="text-sm font-bold text-slate-900 mt-1">{item.title}</h3>
+                      <h3 className="text-sm font-bold text-slate-900 mt-1 truncate">{item.title}</h3>
                     </div>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
                       item.status === 'Paid' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
                     }`}>
                       {item.status}
@@ -757,10 +835,10 @@ export default function Dashboard() {
                   <div className="flex justify-between items-center pt-3 border-t border-slate-100 text-xs">
                     <div>
                       <span className="text-slate-400 block text-[10px] uppercase font-mono">Invoice</span>
-                      <span className="font-bold text-slate-900 font-mono">₹{Number(item.grossAmount || 0).toLocaleString('en-IN')}</span>
+                      <span className="font-bold text-slate-900 font-mono">{formatCurrency(item.grossAmount)}</span>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                       <button onClick={() => copyLink(item.id)} className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs">
                         {copiedId === item.id ? 'Copied' : 'Share'}
                       </button>
@@ -793,18 +871,18 @@ export default function Dashboard() {
                       selectedDeliveryChat?.id === d.id ? 'bg-blue-50 border-blue-500' : 'bg-white border-slate-200 hover:border-slate-300'
                     }`}
                   >
-                    <div className="font-bold text-slate-900">{d.title}</div>
+                    <div className="font-bold text-slate-900 truncate">{d.title}</div>
                     <div className="text-slate-500 mt-0.5">Client: {d.clientName}</div>
                     <div className="text-blue-600 font-medium text-[10px] mt-1">{d.messages?.length || 0} messages</div>
                   </button>
                 ))}
               </div>
 
-              <div className="lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-5 flex flex-col h-[450px] shadow-sm">
+              <div className="lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 flex flex-col h-[420px] sm:h-[450px] shadow-sm">
                 {selectedDeliveryChat ? (
                   <>
                     <div className="border-b border-slate-100 pb-3">
-                      <h3 className="text-sm font-bold text-slate-900">{selectedDeliveryChat.title}</h3>
+                      <h3 className="text-sm font-bold text-slate-900 truncate">{selectedDeliveryChat.title}</h3>
                       <span className="text-xs text-slate-400">{selectedDeliveryChat.clientName}</span>
                     </div>
 
@@ -814,7 +892,7 @@ export default function Dashboard() {
                       ) : (
                         selectedDeliveryChat.messages.map((m, i) => (
                           <div key={i} className={`flex flex-col ${m.sender === 'creator' ? 'items-end' : 'items-start'}`}>
-                            <div className={`p-3 rounded-xl text-xs max-w-sm ${
+                            <div className={`p-3 rounded-xl text-xs max-w-[85%] sm:max-w-sm ${
                               m.sender === 'creator' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-800'
                             }`}>
                               {m.text}
