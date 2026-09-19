@@ -1,332 +1,333 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import Link from 'next/link'
 import { 
-  Zap, Shield, Lock, ArrowRight, CheckCircle2, Play, 
-  Sparkles, Eye, Download, ChevronRight, ShieldCheck, 
-  Layers, RefreshCw, FileText, Globe, Check, Laptop,
-  ArrowUpRight, FileCheck2, Cpu, CreditCard, LockKeyhole
+  Zap, Lock, Unlock, ShieldCheck, ArrowRight, 
+  CheckCircle2, UploadCloud, Eye, Download, 
+  FileCheck2, ChevronRight, HelpCircle, Layers,
+  CreditCard, Sparkles, Smartphone, Shield
 } from 'lucide-react'
 
 export default function LandingPage() {
-  const [activeTab, setActiveTab] = useState('locked') // 'locked' | 'unlocked'
-  const [isScrolled, setIsScrolled] = useState(false)
-
-  useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 20)
-    }
-    window.addEventListener('scroll', handleScroll)
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
+  const [demoActiveTab, setDemoActiveTab] = useState('creator') // 'creator' | 'client'
+  const [demoPaid, setDemoPaid] = useState(false)
+  const [demoAmount, setDemoAmount] = useState('8,500')
+  const [demoTitle, setDemoTitle] = useState('Brand Campaign — 4K Final Cut')
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-blue-600 selection:text-white antialiased overflow-x-hidden w-full relative">
+    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-[#F8FAFC] text-slate-900 font-sans selection:bg-blue-600 selection:text-white antialiased">
       
-      {/* 1. Subtle Precision Ambient Mesh (Controlled Width to Prevent Side-Sliding) */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[420px] bg-[radial-gradient(ellipse_at_top,rgba(37,99,235,0.06),transparent_70%)] pointer-events-none -z-10" />
-
-      {/* 2. Precision Top Navigation */}
-      <header className={`sticky top-0 z-40 transition-all duration-200 border-b ${
-        isScrolled 
-          ? 'bg-white/90 backdrop-blur-md border-slate-200/90 shadow-[0_2px_12px_-4px_rgba(0,0,0,0.04)]' 
-          : 'bg-white/70 backdrop-blur-sm border-slate-100'
-      }`}>
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="h-8 w-8 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-600/20 group-hover:scale-[1.02] transition-transform">
+      {/* Navigation Bar */}
+      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-slate-200/80">
+        <div className="max-w-6xl mx-auto px-4 sm:px-8 h-16 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2.5">
+            <div className="h-8 w-8 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
               <Zap className="w-4 h-4 fill-white" />
             </div>
-            <span className="font-extrabold text-sm tracking-tight text-slate-900">
-              ReleaseDrop
-            </span>
+            <span className="font-black text-lg tracking-tight text-slate-900 uppercase">ReleaseDrop</span>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-6 text-xs font-semibold text-slate-600">
-            <a href="#how-it-works" className="hover:text-slate-900 transition">How It Works</a>
-            <a href="#simulator" className="hover:text-slate-900 transition">Live Vault Demo</a>
-            <a href="#security" className="hover:text-slate-900 transition">Escrow Security</a>
+          <nav className="hidden md:flex items-center gap-8 text-xs font-semibold text-slate-600">
+            <a href="#how-it-works" className="hover:text-blue-600 transition">How It Works</a>
+            <a href="#demo" className="hover:text-blue-600 transition">Interactive Demo</a>
+            <a href="#features" className="hover:text-blue-600 transition">Features</a>
+            <a href="#faq" className="hover:text-blue-600 transition">FAQ</a>
           </nav>
 
           <div className="flex items-center gap-3">
             <Link 
               href="/dashboard"
-              className="text-xs font-semibold text-slate-600 hover:text-slate-900 px-3 py-1.5 transition"
+              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs sm:text-sm rounded-xl shadow-sm transition active:scale-95"
             >
-              Sign In
-            </Link>
-            <Link 
-              href="/dashboard"
-              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-sm hover:shadow active:scale-95 transition-all flex items-center gap-1.5"
-            >
-              Launch Studio <ArrowUpRight className="w-3.5 h-3.5 text-slate-400" />
+              Open Studio
             </Link>
           </div>
         </div>
       </header>
 
-      {/* 3. Hero Section (Controlled Zero Horizontal Bleed) */}
-      <section className="pt-16 sm:pt-24 pb-16 px-4 sm:px-6 max-w-5xl mx-auto text-center relative">
-        
-        {/* Subtle Pill Badge */}
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-50 border border-slate-200/80 text-slate-700 text-[11px] font-semibold mb-6 shadow-sm">
-          <span className="flex h-2 w-2 rounded-full bg-blue-600 animate-pulse" />
-          <span>ReleaseDrop 2.0 Escrow Core</span>
-          <span className="text-slate-300">|</span>
-          <span className="text-blue-600 font-bold">Zero Client Exploitation</span>
+      {/* Hero Section */}
+      <section className="pt-16 pb-20 px-4 sm:px-8 max-w-5xl mx-auto text-center relative">
+        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-50 border border-blue-200/80 text-blue-700 text-xs font-bold mb-6 shadow-sm">
+          <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+          <span>Zero Client Ghosting • Instant Settlement</span>
         </div>
 
-        {/* Main Headline */}
-        <h1 className="text-3xl sm:text-5xl md:text-6xl font-black text-slate-900 tracking-tight leading-[1.15] max-w-4xl mx-auto">
-          Stop sending master deliverables <br className="hidden sm:block" />
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700">
-            before payment clears.
-          </span>
+        <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-slate-900 max-w-3xl mx-auto leading-[1.15]">
+          Get paid before you hand over the <span className="text-blue-600">final files.</span>
         </h1>
 
-        {/* Sub-headline */}
-        <p className="mt-5 text-sm sm:text-base text-slate-500 max-w-2xl mx-auto leading-relaxed font-normal">
-          The payment-locked escrow delivery engine for professional creators, video editors, and production studios. 
-          Provide client preview inspection with dynamic anti-theft watermarks—assets decrypt instantly upon verified settlement.
+        <p className="mt-5 text-sm sm:text-base lg:text-lg text-slate-600 max-w-2xl mx-auto leading-relaxed">
+          Upload final deliverables, set your price, and send a secured link. Clients inspect watermarked previews, and master files unlock automatically the instant payment settles.
         </p>
 
-        {/* Action CTAs */}
         <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
-          <Link 
+          <Link
             href="/dashboard"
-            className="w-full sm:w-auto px-6 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-lg shadow-blue-600/25 active:scale-95 transition-all flex items-center justify-center gap-2"
+            className="w-full sm:w-auto px-7 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 active:scale-95 transition"
           >
-            Create Your First Drop <ArrowRight className="w-4 h-4" />
+            <span>Create Your First Drop</span>
+            <ArrowRight className="w-4 h-4" />
           </Link>
-          <a 
-            href="#simulator"
-            className="w-full sm:w-auto px-6 py-3.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-bold text-xs rounded-xl shadow-sm transition flex items-center justify-center gap-2"
+          <a
+            href="#demo"
+            className="w-full sm:w-auto px-6 py-3.5 bg-white hover:bg-slate-50 text-slate-700 font-bold text-sm rounded-xl border border-slate-200 transition shadow-sm"
           >
-            <Laptop className="w-3.5 h-3.5 text-slate-500" /> Test Client Viewport
+            Try Live Sandbox
           </a>
         </div>
 
-        {/* Trust Validation Grid */}
-        <div className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-3 max-w-3xl mx-auto text-left">
-          <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-200/80">
-            <div className="text-lg font-black text-slate-900 font-mono">₹0 Leakage</div>
-            <div className="text-[11px] text-slate-500 mt-0.5">Payment-locked files</div>
-          </div>
-          <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-200/80">
-            <div className="text-lg font-black text-slate-900 font-mono">Direct SMTP</div>
-            <div className="text-[11px] text-slate-500 mt-0.5">Automated client inbox alert</div>
-          </div>
-          <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-200/80">
-            <div className="text-lg font-black text-slate-900 font-mono">&lt; 1 Second</div>
-            <div className="text-[11px] text-slate-500 mt-0.5">Instant decryption speed</div>
-          </div>
-          <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-200/80">
-            <div className="text-lg font-black text-slate-900 font-mono">100% Free</div>
-            <div className="text-[11px] text-slate-500 mt-0.5">No subscription fees</div>
-          </div>
+        <div className="mt-6 flex items-center justify-center gap-5 text-xs text-slate-500 font-medium">
+          <span className="flex items-center gap-1.5">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Free to get started
+          </span>
+          <span className="flex items-center gap-1.5">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> No client sign-up needed
+          </span>
+          <span className="flex items-center gap-1.5">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Instant UPI & Cards
+          </span>
         </div>
       </section>
 
-      {/* 4. Live Interactive Escrow Simulator */}
-      <section id="simulator" className="py-16 px-4 sm:px-6 max-w-4xl mx-auto">
+      {/* Interactive Live Sandbox Demo Section */}
+      <section id="demo" className="py-12 px-4 sm:px-8 max-w-5xl mx-auto">
         <div className="text-center mb-8">
-          <span className="text-[11px] font-mono font-bold text-blue-600 uppercase tracking-widest block mb-1">Interactive Sandbox</span>
-          <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Experience Both Sides of the Escrow</h2>
-          <p className="text-xs text-slate-500 mt-1">See how clients inspect your work with watermarks, and how uncompressed files unlock post-settlement.</p>
+          <span className="text-xs font-bold uppercase tracking-wider text-blue-600">Interactive Sandbox</span>
+          <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mt-1">See How ReleaseDrop Operates</h2>
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">Switch between Creator setup and Client payout views.</p>
         </div>
 
-        {/* State Toggle Selector */}
-        <div className="flex justify-center mb-6">
-          <div className="bg-slate-100 p-1 rounded-xl border border-slate-200 inline-flex gap-1">
-            <button 
-              onClick={() => setActiveTab('locked')}
-              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${
-                activeTab === 'locked' 
-                  ? 'bg-white text-slate-900 shadow-sm border border-slate-200/60' 
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <LockKeyhole className="w-3.5 h-3.5 text-amber-500" />
-              <span>Client Inspection (Pre-Payment)</span>
-            </button>
-            <button 
-              onClick={() => setActiveTab('unlocked')}
-              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${
-                activeTab === 'unlocked' 
-                  ? 'bg-white text-slate-900 shadow-sm border border-slate-200/60' 
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Asset Decrypted (Post-Payment)</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Viewport Frame */}
-        <div className="rounded-2xl border border-slate-200/90 bg-white shadow-xl shadow-slate-200/50 overflow-hidden transition-all">
-          
-          {/* Browser Topbar */}
-          <div className="bg-slate-50 border-b border-slate-200/80 px-4 py-3 flex items-center justify-between text-xs">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-slate-300" />
-              <span className="w-2.5 h-2.5 rounded-full bg-slate-300" />
-              <span className="w-2.5 h-2.5 rounded-full bg-slate-300" />
-              <span className="font-mono text-slate-500 text-[11px] ml-2 hidden sm:inline">
-                releasedrop.vercel.app/d/commercial-master-4k
-              </span>
+        <div className="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-8 shadow-xl">
+          {/* Tab Switcher */}
+          <div className="flex justify-center mb-8">
+            <div className="bg-slate-100 p-1 rounded-xl flex items-center gap-1 text-xs font-bold">
+              <button
+                onClick={() => setDemoActiveTab('creator')}
+                className={`px-4 py-2 rounded-lg transition ${
+                  demoActiveTab === 'creator' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                1. Creator: Lock Assets
+              </button>
+              <button
+                onClick={() => setDemoActiveTab('client')}
+                className={`px-4 py-2 rounded-lg transition ${
+                  demoActiveTab === 'client' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                2. Client: Review & Pay
+              </button>
             </div>
-            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono ${
-              activeTab === 'locked' ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-            }`}>
-              {activeTab === 'locked' ? 'Awaiting Payment' : 'Settlement Cleared'}
-            </span>
           </div>
 
-          {/* Viewport Content */}
-          <div className="p-6 sm:p-10 bg-slate-50/50">
-            {activeTab === 'locked' ? (
-              <div className="max-w-md mx-auto text-center space-y-4 py-4">
-                <div className="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-200/80 text-amber-600 mx-auto flex items-center justify-center shadow-inner">
-                  <Lock className="w-7 h-7" />
-                </div>
-                
-                <div>
-                  <div className="text-[10px] font-mono uppercase tracking-widest text-amber-600 font-bold">Inspection Watermark Active</div>
-                  <h3 className="text-base font-extrabold text-slate-900 mt-0.5">Nike Summer Campaign — Master Edit</h3>
-                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                    Full uncompressed ProRes production master is encrypted in the vault. Authorize payment to unlock raw source assets.
-                  </p>
-                </div>
+          {/* Sandbox: Creator View */}
+          {demoActiveTab === 'creator' && (
+            <div className="max-w-md mx-auto space-y-4">
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Deliverable Title</label>
+                <input
+                  type="text"
+                  value={demoTitle}
+                  onChange={(e) => setDemoTitle(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-900 focus:outline-none focus:border-blue-600"
+                />
+              </div>
 
-                <div className="p-4 bg-white border border-slate-200 rounded-xl flex items-center justify-between text-left shadow-sm">
-                  <div>
-                    <span className="text-[10px] text-slate-400 font-mono block uppercase">Due Settlement</span>
-                    <span className="text-lg font-black text-slate-900 font-mono">₹12,500</span>
-                  </div>
-                  <button className="px-4 py-2 bg-blue-600 text-white font-bold text-xs rounded-xl shadow-sm">
-                    Pay & Decrypt Master →
-                  </button>
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Settlement Amount (INR ₹)</label>
+                <input
+                  type="text"
+                  value={demoAmount}
+                  onChange={(e) => setDemoAmount(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-bold text-slate-900 focus:outline-none focus:border-blue-600"
+                />
+              </div>
+
+              <div className="p-4 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50/60 text-center">
+                <UploadCloud className="w-8 h-8 text-blue-600 mx-auto mb-1" />
+                <span className="text-xs font-bold text-slate-800 block">Commercial_Master_4K.zip</span>
+                <span className="text-[10px] text-slate-400">1.4 GB • Held in Escrow Storage</span>
+              </div>
+
+              <button
+                onClick={() => setDemoActiveTab('client')}
+                className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md transition flex items-center justify-center gap-2"
+              >
+                <span>Generate Client PayLink</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          {/* Sandbox: Client View */}
+          {demoActiveTab === 'client' && (
+            <div className="max-w-md mx-auto bg-slate-50 border border-slate-200/90 rounded-2xl p-5 sm:p-6 space-y-4 shadow-sm">
+              <div className="flex justify-between items-start border-b border-slate-200 pb-3">
+                <div>
+                  <span className="text-[10px] font-bold text-blue-600 uppercase font-mono">CLIENT PORTAL</span>
+                  <h3 className="text-base font-black text-slate-900 truncate max-w-[220px]">{demoTitle}</h3>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase block">Due</span>
+                  <span className="text-base font-black text-slate-900 font-mono">₹{demoAmount}</span>
                 </div>
               </div>
-            ) : (
-              <div className="max-w-md mx-auto text-center space-y-4 py-4">
-                <div className="w-14 h-14 rounded-2xl bg-emerald-50 border border-emerald-200/80 text-emerald-600 mx-auto flex items-center justify-center shadow-inner">
-                  <FileCheck2 className="w-7 h-7" />
-                </div>
-                
-                <div>
-                  <div className="text-[10px] font-mono uppercase tracking-widest text-emerald-600 font-bold">Escrow Verified • Rights Transferred</div>
-                  <h3 className="text-base font-extrabold text-slate-900 mt-0.5">Nike Summer Campaign — 4K ProRes 422 HQ</h3>
-                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                    Settlement verified by ReleaseDrop Escrow. Watermarks stripped; raw master asset ready for production release.
-                  </p>
+
+              {/* Watermarked Frame */}
+              <div className="relative aspect-video rounded-xl bg-slate-950 overflow-hidden flex items-center justify-center border border-slate-800">
+                <div className="absolute inset-0 select-none pointer-events-none flex flex-col justify-around opacity-30 text-white font-mono text-[10px] font-black uppercase rotate-[-12deg]">
+                  <div className="flex justify-around"><span>PREVIEW ONLY</span><span>UNPAID ASSET</span></div>
+                  <div className="flex justify-around"><span>RELEASEDROP ESCROW</span><span>PROTECTED</span></div>
                 </div>
 
-                <div className="p-4 bg-white border border-emerald-200 rounded-xl flex items-center justify-between text-left shadow-sm">
-                  <div>
-                    <span className="text-[10px] text-emerald-600 font-mono block uppercase font-bold">Master Ready</span>
-                    <span className="text-xs font-mono text-slate-500">nike_master_v3_final.zip (1.8 GB)</span>
-                  </div>
-                  <button className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-sm flex items-center gap-1.5 transition">
-                    <Download className="w-3.5 h-3.5" /> Download
-                  </button>
+                <div className="text-center p-3 z-10">
+                  {demoPaid ? (
+                    <div className="text-emerald-400">
+                      <Unlock className="w-8 h-8 mx-auto mb-1" />
+                      <span className="text-xs font-bold text-white">Full 4K Decrypted</span>
+                    </div>
+                  ) : (
+                    <div>
+                      <Lock className="w-8 h-8 text-amber-400 mx-auto mb-1 animate-pulse" />
+                      <span className="text-xs font-bold text-white">Watermarked Draft</span>
+                      <p className="text-[10px] text-slate-400">Unlocks post-settlement</p>
+                    </div>
+                  )}
                 </div>
               </div>
-            )}
-          </div>
+
+              {!demoPaid ? (
+                <button
+                  onClick={() => setDemoPaid(true)}
+                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs sm:text-sm rounded-xl shadow-md transition active:scale-95 flex items-center justify-center gap-2"
+                >
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>Approve & Pay ₹{demoAmount} (Simulate)</span>
+                </button>
+              ) : (
+                <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-center space-y-2">
+                  <div className="text-xs font-bold text-emerald-800 flex items-center justify-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Payment Verified
+                  </div>
+                  <button
+                    onClick={() => setDemoPaid(false)}
+                    className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg transition shadow-sm"
+                  >
+                    Download Master Assets (.ZIP)
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </section>
 
-      {/* 5. Precision 3-Step Escrow Architecture */}
-      <section id="how-it-works" className="py-20 px-4 sm:px-6 max-w-5xl mx-auto border-t border-slate-100">
-        <div className="text-center mb-14">
-          <span className="text-[11px] font-mono font-bold text-blue-600 uppercase tracking-widest block mb-1">Architecture</span>
-          <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">How Escrow Delivery Works</h2>
-          <p className="text-xs text-slate-500 mt-1">Simple, airtight transaction loop designed for professional agency workflows.</p>
+      {/* How It Works Flow */}
+      <section id="how-it-works" className="py-16 px-4 sm:px-8 max-w-5xl mx-auto border-t border-slate-200/80">
+        <div className="text-center mb-12">
+          <span className="text-xs font-bold uppercase tracking-wider text-blue-600">Simple 4-Step Process</span>
+          <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mt-1">One Link. Payment First. Files After.</h2>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[
+            { step: '01', title: 'Upload Deliverables', desc: 'Drop final MP4s, ZIP bundles, PSDs, or Figma exports into encrypted storage.' },
+            { step: '02', title: 'Set Your Price', desc: 'Enter settlement fee in INR. Choose expiration and custom watermark protection.' },
+            { step: '03', title: 'Share Direct Link', desc: 'Send one secure portal link. Client reviews full watermarked preview with zero login.' },
+            { step: '04', title: 'Automated Release', desc: 'Instant UPI/Card verification triggers file decryption and unlocks high-res download.' }
+          ].map((item, idx) => (
+            <div key={idx} className="p-6 rounded-2xl bg-white border border-slate-200/90 shadow-sm space-y-2">
+              <span className="text-xs font-mono font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">{item.step}</span>
+              <h3 className="text-base font-bold text-slate-900 mt-2">{item.title}</h3>
+              <p className="text-xs text-slate-500 leading-relaxed">{item.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Features Bento Grid */}
+      <section id="features" className="py-16 px-4 sm:px-8 max-w-5xl mx-auto border-t border-slate-200/80">
+        <div className="text-center mb-12">
+          <span className="text-xs font-bold uppercase tracking-wider text-blue-600">Built For Creatives</span>
+          <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mt-1">Everything Freelancers Need to Get Paid</h2>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          
-          {/* Step 1 */}
-          <div className="p-6 rounded-2xl bg-white border border-slate-200/90 shadow-sm hover:shadow-md transition space-y-4">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-mono font-bold text-sm">
-              01
+          <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-2">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mb-3">
+              <Eye className="w-5 h-5" />
             </div>
-            <div>
-              <h3 className="text-sm font-bold text-slate-900">Upload & Vault Lock</h3>
-              <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
-                Drop your raw deliverables (videos, designs, ZIP files). Assets are securely vaulted with anti-theft preview watermarks.
-              </p>
-            </div>
+            <h3 className="text-base font-bold text-slate-900">Anti-Scrape Watermarking</h3>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Subtle diagonal and email overlays discourage screen recording while allowing clients to confirm edit quality and audio sync.
+            </p>
           </div>
 
-          {/* Step 2 */}
-          <div className="p-6 rounded-2xl bg-white border border-slate-200/90 shadow-sm hover:shadow-md transition space-y-4">
-            <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-mono font-bold text-sm">
-              02
+          <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-2">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-3">
+              <CreditCard className="w-5 h-5" />
             </div>
-            <div>
-              <h3 className="text-sm font-bold text-slate-900">Automated Client Delivery</h3>
-              <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
-                ReleaseDrop automatically dispatches an official branded email to your client with invoice terms and an interactive inspection portal.
-              </p>
-            </div>
+            <h3 className="text-base font-bold text-slate-900">Instant UPI Settlement</h3>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Clients pay via Google Pay, PhonePe, Paytm or Card. Real-time verification decrypts master files in under 2 seconds.
+            </p>
           </div>
 
-          {/* Step 3 */}
-          <div className="p-6 rounded-2xl bg-white border border-slate-200/90 shadow-sm hover:shadow-md transition space-y-4">
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-mono font-bold text-sm">
-              03
+          <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-2">
+            <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center mb-3">
+              <Layers className="w-5 h-5" />
             </div>
-            <div>
-              <h3 className="text-sm font-bold text-slate-900">Instant Release & Payout</h3>
-              <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
-                As soon as the client authorizes payment, uncompressed master assets decrypt immediately and funds route directly to your balance.
-              </p>
-            </div>
+            <h3 className="text-base font-bold text-slate-900">Multi-File Packages</h3>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Deliver complete project packages: video cut, source ZIP, project files, and exported assets grouped in one handoff page.
+            </p>
           </div>
         </div>
       </section>
 
-      {/* 6. Security Standards Section */}
-      <section id="security" className="py-16 px-4 sm:px-6 max-w-5xl mx-auto border-t border-slate-100">
-        <div className="bg-slate-50/70 border border-slate-200/90 rounded-3xl p-8 sm:p-12 text-center max-w-3xl mx-auto space-y-4">
-          <div className="w-12 h-12 rounded-2xl bg-white border border-slate-200 text-blue-600 mx-auto flex items-center justify-center shadow-sm">
-            <ShieldCheck className="w-6 h-6" />
-          </div>
-          <h2 className="text-2xl font-black text-slate-900 tracking-tight">Built to Eliminate Creative Insecurity</h2>
-          <p className="text-xs text-slate-500 max-w-lg mx-auto leading-relaxed">
-            Never again worry about sending work over Google Drive or WeTransfer only to wait weeks for payment. ReleaseDrop puts control back in creators' hands.
+      {/* Frequently Asked Questions */}
+      <section id="faq" className="py-16 px-4 sm:px-8 max-w-3xl mx-auto border-t border-slate-200/80">
+        <div className="text-center mb-10">
+          <span className="text-xs font-bold uppercase tracking-wider text-blue-600">Got Questions?</span>
+          <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mt-1">Frequently Asked Questions</h2>
+        </div>
+
+        <div className="space-y-4 text-left">
+          {[
+            { q: "Does the client need an account to pay and download?", a: "No. The client gets a clean, zero-login link where they can preview the watermarked assets, approve the deliverable, pay, and download immediately." },
+            { q: "What formats can I deliver?", a: "Any digital asset: MP4, MOV, PNG, JPG, PDF, ZIP, Figma exports, PSDs, code repositories, or audio packages." },
+            { q: "How long do delivery links remain active?", a: "You configure expiration during upload: 7 days, 14 days, 30 days, or Never." },
+            { q: "What if the client asks for revisions?", a: "The client portal includes a direct feedback box so the client can request adjustments or revisions before approving and releasing final payment." }
+          ].map((item, idx) => (
+            <div key={idx} className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-sm space-y-1.5">
+              <h3 className="text-sm font-bold text-slate-900">{item.q}</h3>
+              <p className="text-xs text-slate-500 leading-relaxed">{item.a}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Bottom Call To Action */}
+      <section className="py-20 px-4 sm:px-8 max-w-4xl mx-auto text-center">
+        <div className="p-8 sm:p-12 rounded-3xl bg-slate-900 text-white shadow-2xl relative overflow-hidden">
+          <h2 className="text-2xl sm:text-4xl font-black tracking-tight">Stop sending final work without getting paid.</h2>
+          <p className="text-slate-400 text-xs sm:text-sm mt-3 max-w-md mx-auto leading-relaxed">
+            Create your protected vault link in under 60 seconds and deliver your creative projects with 100% confidence.
           </p>
-          <div className="pt-2">
-            <Link 
-              href="/dashboard"
-              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-600/20 inline-flex items-center gap-2 active:scale-95 transition"
-            >
-              Get Started for Free <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center gap-2 mt-7 px-8 py-3.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm rounded-xl shadow-lg transition active:scale-95"
+          >
+            <span>Launch Free Studio</span>
+            <ArrowRight className="w-4 h-4" />
+          </Link>
         </div>
       </section>
 
-      {/* 7. Clean Minimalist Studio Footer */}
-      <footer className="border-t border-slate-200/80 py-10 px-4 sm:px-6 bg-white text-center">
-        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
-          <div className="flex items-center gap-2">
-            <div className="h-6 w-6 rounded-lg bg-blue-600 flex items-center justify-center text-white">
-              <Zap className="w-3.5 h-3.5 fill-white" />
-            </div>
-            <span className="font-bold text-slate-900">ReleaseDrop Studio</span>
-            <span className="text-slate-300">|</span>
-            <span className="font-mono text-[11px]">Protected Delivery Engine</span>
-          </div>
-
-          <div className="font-mono text-[11px] text-slate-400">
-            © 2026 ReleaseDrop Escrow. All rights reserved.
-          </div>
-        </div>
+      {/* Clean Footer */}
+      <footer className="py-8 border-t border-slate-200 text-center text-xs text-slate-500">
+        <p>© 2026 ReleaseDrop Platform. Built for independent creators and creative agencies.</p>
       </footer>
 
     </div>
