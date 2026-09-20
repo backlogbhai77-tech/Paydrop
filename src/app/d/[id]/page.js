@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import { db } from '../../../lib/firebase'
-import { doc, getDoc, updateDoc, increment } from 'firebase/firestore'
+import { doc, getDoc, updateDoc, increment, onSnapshot } from 'firebase/firestore'
 import { 
   ShieldCheck, Lock, Unlock, Download, CheckCircle2, AlertTriangle, 
   Eye, FileText, ArrowRight, ShieldAlert,
@@ -18,11 +18,14 @@ export default function ClientDeliveryPortal() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   
-  // Player & Fullscreen
-  const [isFullscreen, setIsFullscreen] = useState(false)
-  const playerContainerRef = useRef(null)
+  // Multi-File Active Inspection Tab
+  const [activeFileIndex, setActiveFileIndex] = useState(0)
 
-  // Checkout & States
+  // Fullscreen Canvas State
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const canvasContainerRef = useRef(null)
+
+  // Checkout & Interactive States
   const [showCheckoutModal, setShowCheckoutModal] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState('upi')
   const [termsAccepted, setTermsAccepted] = useState(false)
@@ -30,32 +33,33 @@ export default function ClientDeliveryPortal() {
   const [downloadingFileIndex, setDownloadingFileIndex] = useState(null)
   const [showReceiptModal, setShowReceiptModal] = useState(false)
   
-  // Client Revision Messaging
+  // Real-Time 2-Way Chat State
   const [clientMessageText, setClientMessageText] = useState('')
   const [sendingMsg, setSendingMsg] = useState(false)
 
   useEffect(() => {
     if (!id) return
 
-    const fetchDelivery = async () => {
-      try {
-        const docRef = doc(db, 'deliveries', id)
-        const snap = await getDoc(docRef)
-        if (snap.exists()) {
-          setDelivery({ id: snap.id, ...snap.data() })
-          await updateDoc(docRef, { viewCount: increment(1) })
-        } else {
-          setError("Escrow manifest not found or link has expired.")
-        }
-      } catch (err) {
-        setError(err.message)
-      } finally {
+    const docRef = doc(db, 'deliveries', id)
+
+    // Real-Time Listener so client receives creator replies instantly
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        setDelivery({ id: docSnap.id, ...docSnap.data() })
+        setLoading(false)
+      } else {
+        setError("Escrow delivery not found or link has expired.")
         setLoading(false)
       }
-    }
+    }, (err) => {
+      setError(err.message)
+      setLoading(false)
+    })
 
-    fetchDelivery()
+    // View Count Increment once on mount
+    updateDoc(docRef, { viewCount: increment(1) }).catch(() => {})
 
+    // Anti-Theft Guard
     const handleKeyDown = (e) => {
       if (
         (e.ctrlKey && (e.key === 's' || e.key === 'u' || e.key === 'p')) ||
@@ -72,37 +76,39 @@ export default function ClientDeliveryPortal() {
     window.addEventListener('contextmenu', handleContextMenu)
 
     return () => {
+      unsubscribe()
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('contextmenu', handleContextMenu)
     }
   }, [id])
 
   const toggleFullscreen = () => {
-    if (!playerContainerRef.current) return
+    if (!canvasContainerRef.current) return
     if (!document.fullscreenElement) {
-      playerContainerRef.current.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {})
+      canvasContainerRef.current.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {})
     } else {
       document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {})
     }
   }
 
+  // Pure Direct Blob Download (PDF & ZIP Safe)
   const handleDownloadItem = async (fileUrl, fileName, index) => {
     if (!fileUrl) return
     setDownloadingFileIndex(index)
 
     try {
-      const res = await fetch(fileUrl)
-      const blob = await res.blob()
+      const response = await fetch(fileUrl)
+      const blob = await response.blob()
       const blobUrl = window.URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = blobUrl
-      link.download = fileName || 'ReleaseDrop_Asset'
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
+      const a = document.createElement('a')
+      a.href = blobUrl
+      a.download = fileName || 'ReleaseDrop_Deliverable'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
       window.URL.revokeObjectURL(blobUrl)
     } catch {
-      window.location.href = fileUrl
+      window.open(fileUrl, '_blank')
     } finally {
       setTimeout(() => setDownloadingFileIndex(null), 1000)
     }
@@ -123,7 +129,6 @@ export default function ClientDeliveryPortal() {
           paidAt: new Date().toISOString(),
           paymentMethodUsed: paymentMethod
         })
-        setDelivery(prev => ({ ...prev, status: 'Paid' }))
         setUnlocking(false)
         setShowCheckoutModal(false)
       } catch (err) {
@@ -139,12 +144,15 @@ export default function ClientDeliveryPortal() {
     try {
       const docRef = doc(db, 'deliveries', id)
       const existing = delivery.messages || []
-      const updated = [...existing, { sender: 'client', text: clientMessageText.trim(), time: new Date().toISOString() }]
+      const updated = [...existing, { 
+        sender: 'client', 
+        text: clientMessageText.trim(), 
+        time: new Date().toISOString() 
+      }]
       await updateDoc(docRef, { messages: updated })
-      setDelivery(prev => ({ ...prev, messages: updated }))
       setClientMessageText('')
     } catch (err) {
-      alert("Failed to submit request: " + err.message)
+      alert("Failed to submit message: " + err.message)
     } finally {
       setSendingMsg(false)
     }
@@ -174,12 +182,13 @@ export default function ClientDeliveryPortal() {
   const isPaid = delivery.status === 'Paid'
   const brandName = delivery.customBrand?.studioName || 'ReleaseDrop Workspace'
   const watermarkText = delivery.watermarkText || 'RELEASEDROP • PROTECTED PREVIEW'
-  const files = delivery.files || (delivery.fileUrl ? [{ name: delivery.fileName || 'Master_Package.zip', size: delivery.fileSize || 'Bundle', url: delivery.fileUrl }] : [])
+  const files = delivery.files || (delivery.fileUrl ? [{ name: delivery.fileName || 'Master_Package.zip', size: delivery.fileSize || 'Bundle', url: delivery.fileUrl, type: delivery.fileType }] : [])
+  const activeFile = files[activeFileIndex] || files[0]
 
   return (
     <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-[#F8FAFC] text-slate-900 font-sans selection:bg-blue-600 selection:text-white antialiased pb-16">
       
-      {/* Header */}
+      {/* Top Header */}
       <header className="border-b border-slate-200 bg-white sticky top-0 z-30 px-4 sm:px-6 h-14 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div className="w-6 h-6 rounded bg-blue-600 flex items-center justify-center text-white font-bold text-xs">
@@ -197,12 +206,12 @@ export default function ClientDeliveryPortal() {
               ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
               : 'bg-amber-50 text-amber-700 border-amber-200'
           }`}>
-            {isPaid ? 'LICENSED' : 'LOCKED'}
+            {isPaid ? 'LICENSED & RELEASED' : 'PAYMENT-LOCKED'}
           </span>
         </div>
       </header>
 
-      {/* Main Content */}
+      {/* Main Enclave Content */}
       <main className="max-w-3xl mx-auto px-4 pt-6 space-y-5">
         
         {/* Invoice Summary Box */}
@@ -221,7 +230,7 @@ export default function ClientDeliveryPortal() {
           </div>
         </div>
 
-        {/* Handover Message */}
+        {/* Creator Handover Message */}
         {delivery.clientMessage && (
           <div className="p-3.5 bg-blue-50/50 border border-blue-100 rounded-xl text-xs text-slate-700">
             <strong className="text-blue-900 block mb-0.5 font-semibold">Creator Note:</strong>
@@ -229,18 +238,38 @@ export default function ClientDeliveryPortal() {
           </div>
         )}
 
-        {/* Studio Inspection Canvas + Fullscreen Player */}
+        {/* Multi-File Tab Selector (For Multi-File Projects) */}
+        {files.length > 1 && (
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+            {files.map((file, idx) => (
+              <button
+                key={idx}
+                onClick={() => setActiveFileIndex(idx)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition border ${
+                  activeFileIndex === idx 
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-xs' 
+                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                }`}
+              >
+                {file.name}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Universal Multi-Format Inspection Canvas */}
         <div className="space-y-1.5">
           <div 
-            ref={playerContainerRef}
+            ref={canvasContainerRef}
             className={`relative rounded-xl bg-black border border-slate-800 overflow-hidden shadow-sm ${
               isFullscreen ? 'fixed inset-0 z-50 rounded-none h-screen w-screen flex items-center justify-center' : 'aspect-video w-full'
             }`}
             onContextMenu={e => e.preventDefault()}
           >
-            {delivery.primaryPreviewUrl?.includes('video') ? (
+            {/* Format 1: Video */}
+            {activeFile?.type?.includes('video') || activeFile?.name?.match(/\.(mp4|mov|webm)$/i) ? (
               <video 
-                src={delivery.primaryPreviewUrl} 
+                src={activeFile.url} 
                 controls={isPaid}
                 controlsList="nodownload"
                 playsInline
@@ -249,15 +278,37 @@ export default function ClientDeliveryPortal() {
                 loop 
                 className="w-full h-full object-contain"
               />
-            ) : (
+            ) : 
+            /* Format 2: PDF Document Embed */
+            activeFile?.type?.includes('pdf') || activeFile?.name?.endsWith('.pdf') ? (
+              <div className="w-full h-full bg-slate-900 flex flex-col items-center justify-center p-4 text-center">
+                <iframe 
+                  src={`${activeFile.url}#toolbar=0&navpanes=0`} 
+                  className="w-full h-full rounded border-0" 
+                  title="PDF Preview"
+                />
+              </div>
+            ) : 
+            /* Format 3: Image */
+            activeFile?.type?.includes('image') || activeFile?.name?.match(/\.(png|jpg|jpeg|webp)$/i) ? (
               <img 
-                src={delivery.primaryPreviewUrl || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1200"} 
-                alt="Inspection" 
+                src={activeFile.url} 
+                alt="Inspection Draft" 
                 className={`w-full h-full object-contain ${isPaid ? '' : 'brightness-75'}`}
               />
+            ) : (
+            /* Format 4: ZIP / Archive / Code Package */
+              <div className="w-full h-full bg-slate-950 flex flex-col items-center justify-center p-6 text-center text-slate-300">
+                <FileArchive className="w-12 h-12 text-blue-500 mb-2" />
+                <span className="text-sm font-bold text-white">{activeFile?.name}</span>
+                <span className="text-xs text-slate-400 mt-0.5">{activeFile?.size} • Encrypted Archive Bundle</span>
+                <p className="text-[11px] text-slate-500 mt-2 max-w-xs">
+                  Package contents and source files unpack immediately upon settlement verification.
+                </p>
+              </div>
             )}
 
-            {/* Fullscreen Button Toggle */}
+            {/* Fullscreen Toggle Button */}
             <button 
               onClick={toggleFullscreen}
               className="absolute top-3 right-3 z-20 p-2 bg-black/60 hover:bg-black/90 text-white rounded-lg border border-white/10 transition"
@@ -266,7 +317,7 @@ export default function ClientDeliveryPortal() {
               {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
             </button>
 
-            {/* Watermark Overlay */}
+            {/* Watermark Overlay (Only Pre-Payment) */}
             {!isPaid && (
               <div className="absolute inset-0 pointer-events-none overflow-hidden flex flex-col justify-around select-none z-10 opacity-30 animate-watermark-drift">
                 {[...Array(5)].map((_, i) => (
@@ -279,7 +330,6 @@ export default function ClientDeliveryPortal() {
             )}
           </div>
 
-          {/* Dedicated Watermark Overlay Notice */}
           {!isPaid && (
             <div className="flex items-center gap-1.5 px-2 text-[11px] text-slate-500 font-medium">
               <ShieldCheck className="w-3.5 h-3.5 text-blue-600 shrink-0" />
@@ -288,7 +338,7 @@ export default function ClientDeliveryPortal() {
           )}
         </div>
 
-        {/* File Package Bundle Manifest */}
+        {/* Deliverable Manifest Bundle */}
         <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-sm space-y-2.5">
           <span className="text-xs font-mono uppercase text-slate-400 font-semibold block">
             Bundle Files ({files.length})
@@ -335,19 +385,46 @@ export default function ClientDeliveryPortal() {
           </div>
         </div>
 
-        {/* Inquiries & Revisions Input: Made Prominent BEFORE Payment */}
-        <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-sm space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-900 flex items-center gap-1.5">
-              <MessageSquare className="w-3.5 h-3.5 text-blue-600" /> Need Changes Before Paying?
-            </span>
-            <span className="text-[10px] text-slate-400">Zero-risk revision request</span>
+        {/* Prominent Feedback & Revisions Section (Visible Pre-Payment) */}
+        <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-sm space-y-3">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+            <div>
+              <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                <MessageSquare className="w-3.5 h-3.5 text-blue-600" /> Need Changes Before Paying?
+              </span>
+              <p className="text-[11px] text-slate-500">Communicate adjustments directly with the creator.</p>
+            </div>
+            <span className="text-[10px] text-blue-600 font-medium bg-blue-50 px-2 py-0.5 rounded">Live Thread</span>
           </div>
 
+          {/* Conversation History */}
+          {(delivery.messages || []).length > 0 && (
+            <div className="max-h-48 overflow-y-auto space-y-2 p-3 bg-slate-50 rounded-xl">
+              {delivery.messages.map((m, idx) => {
+                const isCreator = m.sender === 'creator'
+                return (
+                  <div key={idx} className={`flex flex-col ${isCreator ? 'items-start' : 'items-end'}`}>
+                    <span className="text-[9px] text-slate-400 font-mono mb-0.5">
+                      {isCreator ? `${brandName} (Creator)` : 'You'} • {new Date(m.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                    <div className={`p-2.5 rounded-xl text-xs max-w-sm ${
+                      isCreator 
+                        ? 'bg-blue-600 text-white rounded-bl-xs' 
+                        : 'bg-white border border-slate-200 text-slate-800 rounded-br-xs'
+                    }`}>
+                      {m.text}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Message Input */}
           <div className="space-y-2">
             <textarea 
               rows={2}
-              placeholder="Ask questions or request changes directly from the creator before clearing payment..."
+              placeholder="Ask questions or submit revision requests..."
               value={clientMessageText}
               onChange={e => setClientMessageText(e.target.value)}
               className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-xs text-slate-900 focus:outline-none focus:border-blue-600"
@@ -356,9 +433,9 @@ export default function ClientDeliveryPortal() {
               <button 
                 onClick={handlePostClientMessage}
                 disabled={sendingMsg || !clientMessageText.trim()}
-                className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs rounded-lg disabled:opacity-40 transition flex items-center gap-1"
+                className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs rounded-lg disabled:opacity-40 transition flex items-center gap-1"
               >
-                <Send className="w-3 h-3" /> <span>Send Revision Note</span>
+                <Send className="w-3 h-3" /> <span>Send Note</span>
               </button>
             </div>
           </div>
@@ -371,7 +448,7 @@ export default function ClientDeliveryPortal() {
               <div>
                 <h3 className="text-sm font-bold text-slate-900">Approve Deliverables & Unlock Master Files</h3>
                 <p className="text-[11px] text-slate-500 mt-0.5">
-                  Upon verification of ₹{Number(delivery.grossAmount || 0).toLocaleString('en-IN')}, watermarks vanish and uncompressed original assets are released immediately.
+                  Upon settlement clearance of ₹{Number(delivery.grossAmount || 0).toLocaleString('en-IN')}, watermarks vanish and original master assets unlock instantly.
                 </p>
               </div>
 
@@ -385,7 +462,7 @@ export default function ClientDeliveryPortal() {
 
               <div className="text-[10px] font-mono text-slate-400 flex items-center justify-center gap-1">
                 <ShieldCheck className="w-3 h-3 text-emerald-600" />
-                <span>256-Bit SSL Encrypted Escrow Clearance</span>
+                <span>Encrypted Handoff Verification</span>
               </div>
             </div>
           ) : (
