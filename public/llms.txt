@@ -1,0 +1,6 @@
+# ReleaseDrop
+> The payment-locked digital delivery platform for creative professionals.
+
+- Core features: Watermarked previews, automated UPI settlement, instant asset decryption, multi-format delivery (Video, PDF, ZIP, Images).
+- Audience: Video editors, 3D artists, designers, agencies.
+- Website: https://paydrop-two.vercel.app
