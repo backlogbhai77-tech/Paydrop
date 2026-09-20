@@ -3,13 +3,13 @@
 import React, { useState, useEffect } from 'react'
 import { auth, db, googleProvider } from '../../lib/firebase'
 import { signInWithPopup, signInWithRedirect, signOut, onAuthStateChanged } from 'firebase/auth'
-import { collection, addDoc, query, where, getDocs, deleteDoc, doc, updateDoc, onSnapshot, serverTimestamp } from 'firebase/firestore'
+import { collection, addDoc, query, where, getDocs, deleteDoc, doc, updateDoc, onSnapshot, serverTimestamp, writeBatch } from 'firebase/firestore'
 import { 
   Zap, Plus, LayoutDashboard, FolderKanban, ShieldCheck, 
   UploadCloud, CheckCircle2, Lock, ArrowRight, ArrowLeft, 
   Copy, Check, Trash2, ExternalLink, FileArchive, Clock,
   AlertCircle, RefreshCw, X, MessageSquare, Send, Bell,
-  Sparkles, Filter, MoreVertical, Eye, Share2, Mail, Menu, Search
+  Sparkles, Filter, Eye, Mail, Menu, Search
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -38,7 +38,7 @@ export default function Dashboard() {
   const [copiedId, setCopiedId] = useState(null)
   const [toast, setToast] = useState(null)
 
-  // 4-Step Creation Wizard
+  // 4-Step Wizard State
   const [wizardStep, setWizardStep] = useState(1)
   const [creating, setCreating] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
@@ -69,7 +69,7 @@ export default function Dashboard() {
     setTimeout(() => setToast(null), 3000)
   }
 
-  // Auth & Real-Time Listener
+  // Auth & Real-Time Firestore Sync
   useEffect(() => {
     let unsubscribeFirestore = null
 
@@ -80,7 +80,6 @@ export default function Dashboard() {
       if (currentUser) {
         setBrandStudioName(currentUser.displayName ? `${currentUser.displayName} Studio` : 'Studio Workspace')
         
-        // Real-Time Snapshot Listener for instant 2-way sync
         const q = query(collection(db, 'deliveries'), where('userId', '==', currentUser.uid))
         unsubscribeFirestore = onSnapshot(q, (snap) => {
           const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }))
@@ -100,7 +99,6 @@ export default function Dashboard() {
     }
   }, [])
 
-  // Dynamic status sequence during vault upload
   useEffect(() => {
     if (!uploading) return
     const sequence = [
@@ -140,7 +138,6 @@ export default function Dashboard() {
     setFileList(prev => prev.filter((_, i) => i !== index))
   }
 
-  // Safe Universal Upload Handler (No breaking string replaces)
   const uploadFileToCloudinary = (file) => {
     return new Promise((resolve, reject) => {
       const formData = new FormData()
@@ -161,12 +158,15 @@ export default function Dashboard() {
         try {
           const res = JSON.parse(xhr.responseText)
           if (xhr.status === 200 && (res.secure_url || res.url)) {
-            const raw = res.secure_url || res.url
+            const rawUrl = res.secure_url || res.url
+            const ext = file.name.split('.').pop().toLowerCase()
+            const detectedType = file.type || (ext === 'pdf' ? 'application/pdf' : 'application/octet-stream')
+
             resolve({
               name: file.name,
               size: (file.size / (1024 * 1024)).toFixed(2) + " MB",
-              type: file.type || (file.name.endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream'),
-              url: raw
+              type: detectedType,
+              url: rawUrl
             })
           } else {
             reject(new Error(res?.error?.message || "Storage upload failure"))
@@ -233,7 +233,6 @@ export default function Dashboard() {
         createdAt: serverTimestamp()
       })
 
-      // Client Auto-Alert Call
       if (clientEmail && clientEmail.trim().length > 0) {
         fetch('/api/send-delivery', {
           method: 'POST',
@@ -273,6 +272,24 @@ export default function Dashboard() {
       showToast("Delivery revoked", "success")
     } catch {
       showToast("Failed to delete", "error")
+    }
+  }
+
+  // 🗑️ DELETE ALL PREVIOUS DELIVERIES FEATURE
+  const handleDeleteAll = async () => {
+    if (deliveries.length === 0) return
+    const confirmed = confirm(`Are you sure you want to PERMANENTLY delete all ${deliveries.length} deliveries? This action cannot be undone.`)
+    if (!confirmed) return
+
+    try {
+      const batch = writeBatch(db)
+      deliveries.forEach(d => {
+        batch.delete(doc(db, 'deliveries', d.id))
+      })
+      await batch.commit()
+      showToast(`Successfully deleted all ${deliveries.length} deliveries.`, "success")
+    } catch (err) {
+      showToast("Failed to delete all deliveries: " + err.message, "error")
     }
   }
 
@@ -341,14 +358,13 @@ export default function Dashboard() {
     return matchesFilter && matchesSearch
   })
 
-  // Selected chat for WhatsApp-Style UI
   const activeChatDelivery = deliveries.find(d => d.id === (selectedChatId || deliveries[0]?.id))
 
   if (loading) {
     return (
       <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center text-xs text-slate-500 gap-3 font-mono">
         <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-        <span>SYNCING WORKSPACE...</span>
+        <span>AUTHENTICATING WORKSPACE...</span>
       </div>
     )
   }
@@ -386,7 +402,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Desktop Persistent Left Sidebar */}
+      {/* Desktop Left Sidebar */}
       <aside className="hidden lg:flex w-64 bg-white border-r border-slate-200 flex-col justify-between p-5 sticky top-0 h-screen z-30">
         <div className="space-y-6">
           <Link href="/" className="flex items-center gap-2.5 px-2">
@@ -451,7 +467,7 @@ export default function Dashboard() {
         </div>
       </aside>
 
-      {/* Main Body */}
+      {/* Main App Container */}
       <div className="flex-1 flex flex-col min-w-0">
         
         {/* Top Header */}
@@ -491,7 +507,7 @@ export default function Dashboard() {
           </div>
         </header>
 
-        {/* Dynamic Workspace Container */}
+        {/* Dynamic Views */}
         <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-8 py-6 sm:py-8 space-y-6">
 
           {/* ======================= VIEW: CREATE WIZARD ======================= */}
@@ -521,7 +537,7 @@ export default function Dashboard() {
                 <span className={wizardStep === 4 ? 'text-blue-600 font-semibold' : 'text-slate-400'}>4. Deploy</span>
               </div>
 
-              {/* STEP 1: Interactive Fluid Dropzone */}
+              {/* STEP 1: Dropzone */}
               {wizardStep === 1 && (
                 <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4 shadow-sm">
                   <div 
@@ -575,7 +591,7 @@ export default function Dashboard() {
                 </div>
               )}
 
-              {/* STEP 2: Details */}
+              {/* STEP 2 */}
               {wizardStep === 2 && (
                 <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4 shadow-sm">
                   <div>
@@ -654,7 +670,7 @@ export default function Dashboard() {
                 </div>
               )}
 
-              {/* STEP 3: Pricing */}
+              {/* STEP 3 */}
               {wizardStep === 3 && (
                 <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4 shadow-sm">
                   <div>
@@ -691,7 +707,7 @@ export default function Dashboard() {
                 </div>
               )}
 
-              {/* STEP 4: Review */}
+              {/* STEP 4 */}
               {wizardStep === 4 && (
                 <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4 shadow-sm">
                   <div className="border border-slate-200 rounded-xl p-3.5 bg-slate-50 space-y-1.5 text-xs">
@@ -701,7 +717,7 @@ export default function Dashboard() {
                     </div>
                     <div className="flex justify-between text-slate-500">
                       <span>Client: {clientName}</span>
-                      <span>{fileList.length} files</span>
+                      <span>{fileList.length} files bundled</span>
                     </div>
                     <div className="text-slate-500">
                       Expires: {expirySelection === 'never' ? 'Never' : `${expirySelection} Days`}
@@ -740,7 +756,7 @@ export default function Dashboard() {
           {currentView === 'overview' && (
             <div className="space-y-6">
               
-              {/* Metric Row: Sanitized with Intl.NumberFormat */}
+              {/* Metric Row */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-sm min-w-0">
                   <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block font-mono truncate">CLEARED REVENUE</span>
@@ -773,8 +789,20 @@ export default function Dashboard() {
 
               {/* Deliveries Container */}
               <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-                <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                  <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider font-mono">Deliveries & Handoffs</h2>
+                <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider font-mono">Deliveries & Handoffs</h2>
+                    {deliveries.length > 0 && (
+                      <button
+                        onClick={handleDeleteAll}
+                        className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 rounded-lg text-xs font-semibold transition flex items-center gap-1"
+                        title="Permanently remove all previous deliveries"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        <span>Delete All</span>
+                      </button>
+                    )}
+                  </div>
 
                   <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg text-xs font-medium self-start sm:self-auto">
                     <button 
@@ -802,7 +830,7 @@ export default function Dashboard() {
                   <div className="py-10 text-center text-xs text-slate-400">No matching deliveries located.</div>
                 ) : (
                   <>
-                    {/* Mobile Vertical Responsive Cards */}
+                    {/* Mobile Responsive Cards */}
                     <div className="divide-y divide-slate-100 md:hidden">
                       {filteredDeliveries.map(item => (
                         <div key={item.id} className="p-4 space-y-2.5">
@@ -872,7 +900,7 @@ export default function Dashboard() {
                       ))}
                     </div>
 
-                    {/* Desktop Table View */}
+                    {/* Desktop View Table */}
                     <div className="hidden md:block overflow-x-auto">
                       <table className="w-full text-left text-xs">
                         <thead className="bg-slate-50/60 border-b border-slate-100 text-slate-400 uppercase font-mono text-[10px]">
@@ -1017,13 +1045,12 @@ export default function Dashboard() {
                 <p className="text-xs text-slate-500">Real-time two-way communication thread with your clients.</p>
               </div>
               
-              {/* WhatsApp Web 2-Pane Container */}
               <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm grid grid-cols-1 md:grid-cols-12 h-[560px]">
                 
-                {/* Left Pane: Contacts & Deliveries List */}
+                {/* Left Pane: Contacts / Deliveries List */}
                 <div className="md:col-span-4 border-r border-slate-200 flex flex-col h-full bg-slate-50/40">
                   <div className="p-3 border-b border-slate-200 bg-white">
-                    <span className="text-xs font-bold text-slate-700 uppercase tracking-wider font-mono">Conversations</span>
+                    <span className="text-xs font-bold text-slate-700 uppercase tracking-wider font-mono">Active Threads</span>
                   </div>
 
                   <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
@@ -1071,7 +1098,6 @@ export default function Dashboard() {
                 <div className="md:col-span-8 flex flex-col h-full bg-white">
                   {activeChatDelivery ? (
                     <>
-                      {/* Active Chat Header */}
                       <div className="p-3.5 border-b border-slate-200 bg-slate-50/50 flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-slate-900 text-white font-bold text-xs flex items-center justify-center">
@@ -1093,7 +1119,6 @@ export default function Dashboard() {
                         </Link>
                       </div>
 
-                      {/* Chat Bubbles Container */}
                       <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#F8FAFC]">
                         {(activeChatDelivery.messages || []).length === 0 ? (
                           <div className="h-full flex flex-col items-center justify-center text-center p-6">
@@ -1124,7 +1149,6 @@ export default function Dashboard() {
                         )}
                       </div>
 
-                      {/* Chat Composer Bar */}
                       <div className="p-3 border-t border-slate-200 bg-white flex items-center gap-2">
                         <input 
                           type="text"
