@@ -3,14 +3,13 @@
 import React, { useState, useEffect } from 'react'
 import { auth, db, googleProvider } from '../../lib/firebase'
 import { signInWithPopup, signInWithRedirect, signOut, onAuthStateChanged } from 'firebase/auth'
-import { collection, addDoc, query, where, getDocs, deleteDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore'
+import { collection, addDoc, query, where, getDocs, deleteDoc, doc, updateDoc, onSnapshot, serverTimestamp } from 'firebase/firestore'
 import { 
   Zap, Plus, LayoutDashboard, FolderKanban, ShieldCheck, 
   UploadCloud, CheckCircle2, Lock, ArrowRight, ArrowLeft, 
   Copy, Check, Trash2, ExternalLink, FileArchive, Clock,
   AlertCircle, RefreshCw, X, MessageSquare, Send, Bell,
-  ChevronRight, Sparkles, Filter, MoreVertical, Eye, Share2, 
-  Mail, Menu, Search, Settings, HelpCircle, FileCheck
+  Sparkles, Filter, MoreVertical, Eye, Share2, Mail, Menu, Search
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -39,7 +38,7 @@ export default function Dashboard() {
   const [copiedId, setCopiedId] = useState(null)
   const [toast, setToast] = useState(null)
 
-  // 4-Step Wizard State
+  // 4-Step Creation Wizard
   const [wizardStep, setWizardStep] = useState(1)
   const [creating, setCreating] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
@@ -59,10 +58,10 @@ export default function Dashboard() {
   const [uploadProgress, setUploadProgress] = useState(0)
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState(null)
-  const [loaderStepText, setLoaderStepText] = useState('Uploading securely...')
+  const [loaderStepText, setLoaderStepText] = useState('Securing deliverables...')
 
-  // Revision & Message Tab state
-  const [selectedDeliveryChat, setSelectedDeliveryChat] = useState(null)
+  // WhatsApp-Style Messaging State
+  const [selectedChatId, setSelectedChatId] = useState(null)
   const [replyText, setReplyText] = useState('')
 
   const showToast = (message, type = 'success') => {
@@ -70,45 +69,52 @@ export default function Dashboard() {
     setTimeout(() => setToast(null), 3000)
   }
 
+  // Auth & Real-Time Listener
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (currentUser) => {
+    let unsubscribeFirestore = null
+
+    const unsubAuth = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser)
       setLoading(false)
+
       if (currentUser) {
         setBrandStudioName(currentUser.displayName ? `${currentUser.displayName} Studio` : 'Studio Workspace')
-        fetchDeliveries(currentUser.uid)
+        
+        // Real-Time Snapshot Listener for instant 2-way sync
+        const q = query(collection(db, 'deliveries'), where('userId', '==', currentUser.uid))
+        unsubscribeFirestore = onSnapshot(q, (snap) => {
+          const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+          docs.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
+          setDeliveries(docs)
+        }, (err) => {
+          console.error("Firestore sync error:", err)
+        })
+      } else {
+        setDeliveries([])
       }
     })
-    return () => unsub()
+
+    return () => {
+      unsubAuth()
+      if (unsubscribeFirestore) unsubscribeFirestore()
+    }
   }, [])
 
-  // Step-based dynamic status sequence while uploading
+  // Dynamic status sequence during vault upload
   useEffect(() => {
     if (!uploading) return
     const sequence = [
-      'Uploading securely to vault...',
-      'Applying anti-scrape dynamic watermark...',
-      'Generating secure escrow PayLink...'
+      'Encrypting and uploading to private vault...',
+      'Injecting dynamic anti-leak watermark layer...',
+      'Generating verified escrow PayLink portal...'
     ]
     let idx = 0
     const interval = setInterval(() => {
       idx = (idx + 1) % sequence.length
       setLoaderStepText(sequence[idx])
-    }, 1600)
+    }, 1500)
     return () => clearInterval(interval)
   }, [uploading])
-
-  const fetchDeliveries = async (uid) => {
-    try {
-      const q = query(collection(db, 'deliveries'), where('userId', '==', uid))
-      const snap = await getDocs(q)
-      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-      docs.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
-      setDeliveries(docs)
-    } catch (err) {
-      console.error(err)
-    }
-  }
 
   const handleGoogleLogin = async () => {
     try {
@@ -134,6 +140,7 @@ export default function Dashboard() {
     setFileList(prev => prev.filter((_, i) => i !== index))
   }
 
+  // Safe Universal Upload Handler (No breaking string replaces)
   const uploadFileToCloudinary = (file) => {
     return new Promise((resolve, reject) => {
       const formData = new FormData()
@@ -154,11 +161,12 @@ export default function Dashboard() {
         try {
           const res = JSON.parse(xhr.responseText)
           if (xhr.status === 200 && (res.secure_url || res.url)) {
+            const raw = res.secure_url || res.url
             resolve({
               name: file.name,
               size: (file.size / (1024 * 1024)).toFixed(2) + " MB",
-              type: file.type || 'document',
-              url: (res.secure_url || res.url).replace('/upload/', '/upload/fl_attachment/')
+              type: file.type || (file.name.endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream'),
+              url: raw
             })
           } else {
             reject(new Error(res?.error?.message || "Storage upload failure"))
@@ -211,10 +219,10 @@ export default function Dashboard() {
         grossAmount: numAmount,
         platformFee,
         creatorPayout,
-        watermarkText: watermarkText || 'RELEASEDROP • PROTECTED ASSET',
+        watermarkText: watermarkText || 'RELEASEDROP • PROTECTED PREVIEW',
         status: 'Awaiting Payment',
         files: uploadedManifest,
-        primaryPreviewUrl: uploadedManifest[0]?.url.replace('/fl_attachment/', '/'),
+        primaryPreviewUrl: uploadedManifest[0]?.url,
         expiresAt: expiresAt.toISOString(),
         expiryChoice: expirySelection,
         customBrand: {
@@ -225,6 +233,7 @@ export default function Dashboard() {
         createdAt: serverTimestamp()
       })
 
+      // Client Auto-Alert Call
       if (clientEmail && clientEmail.trim().length > 0) {
         fetch('/api/send-delivery', {
           method: 'POST',
@@ -240,7 +249,7 @@ export default function Dashboard() {
         }).catch(() => {})
       }
 
-      showToast("Vault deployed & client link ready.", "success")
+      showToast("Vault Sealed! Client portal link is live.", "success")
       setTitle('')
       setClientName('')
       setClientEmail('')
@@ -249,7 +258,6 @@ export default function Dashboard() {
       setFileList([])
       setWizardStep(1)
       setCurrentView('overview')
-      fetchDeliveries(user.uid)
     } catch (err) {
       showToast(err.message || "Upload process failed", "error")
     } finally {
@@ -259,10 +267,9 @@ export default function Dashboard() {
   }
 
   const handleDelete = async (id) => {
-    if (!confirm("Permanently delete this delivery? Client access will be revoked immediately.")) return
+    if (!confirm("Permanently revoke this escrow delivery?")) return
     try {
       await deleteDoc(doc(db, 'deliveries', id))
-      setDeliveries(prev => prev.filter(d => d.id !== id))
       showToast("Delivery revoked", "success")
     } catch {
       showToast("Failed to delete", "error")
@@ -278,7 +285,7 @@ export default function Dashboard() {
 
   const handleSendReminder = (item) => {
     if (!item.clientEmail) {
-      showToast("No client email linked to this drop. Share link directly.", "error")
+      showToast("No client email on file. Copy and send the portal link directly.", "error")
       return
     }
 
@@ -296,22 +303,25 @@ export default function Dashboard() {
       })
     }).catch(() => {})
 
-    showToast(`Payment reminder sent to ${item.clientEmail}`, "success")
+    showToast(`Payment reminder dispatched to ${item.clientEmail}`, "success")
   }
 
   const handleSendReply = async (deliveryId) => {
     if (!replyText.trim()) return
     try {
       const target = deliveries.find(d => d.id === deliveryId)
-      const existing = target.messages || []
-      const updated = [...existing, { sender: 'creator', text: replyText.trim(), time: new Date().toISOString() }]
+      const existing = target?.messages || []
+      const updated = [...existing, { 
+        sender: 'creator', 
+        text: replyText.trim(), 
+        time: new Date().toISOString() 
+      }]
       
       await updateDoc(doc(db, 'deliveries', deliveryId), { messages: updated })
       setReplyText('')
-      fetchDeliveries(user.uid)
-      showToast("Reply sent to client portal", "success")
+      showToast("Message sent to client portal", "success")
     } catch {
-      showToast("Failed to post message", "error")
+      showToast("Failed to send message", "error")
     }
   }
 
@@ -331,11 +341,14 @@ export default function Dashboard() {
     return matchesFilter && matchesSearch
   })
 
+  // Selected chat for WhatsApp-Style UI
+  const activeChatDelivery = deliveries.find(d => d.id === (selectedChatId || deliveries[0]?.id))
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center text-xs text-slate-500 gap-3 font-mono">
-        <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-        <span>AUTHENTICATING WORKSPACE...</span>
+        <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+        <span>SYNCING WORKSPACE...</span>
       </div>
     )
   }
@@ -347,7 +360,7 @@ export default function Dashboard() {
           <Zap className="w-6 h-6 fill-white" />
         </div>
         <h1 className="text-2xl font-bold text-slate-900 tracking-tight">ReleaseDrop Workspace</h1>
-        <p className="text-slate-500 text-xs mt-1.5 max-w-sm leading-relaxed">
+        <p className="text-slate-500 text-xs mt-1 max-w-sm">
           Lock client deliverables behind automated settlement gateways. No client signup required.
         </p>
         <button 
@@ -373,7 +386,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Desktop Persistent Sidebar */}
+      {/* Desktop Persistent Left Sidebar */}
       <aside className="hidden lg:flex w-64 bg-white border-r border-slate-200 flex-col justify-between p-5 sticky top-0 h-screen z-30">
         <div className="space-y-6">
           <Link href="/" className="flex items-center gap-2.5 px-2">
@@ -409,12 +422,17 @@ export default function Dashboard() {
             </button>
             <button
               onClick={() => { setCurrentView('messages'); setWizardStep(1); }}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition ${
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition ${
                 currentView === 'messages' ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-50'
               }`}
             >
-              <MessageSquare className="w-4 h-4" />
-              <span>Inquiries & Revisions</span>
+              <div className="flex items-center gap-3">
+                <MessageSquare className="w-4 h-4" />
+                <span>Client Messages</span>
+              </div>
+              {deliveries.some(d => d.messages?.length > 0) && (
+                <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+              )}
             </button>
           </nav>
         </div>
@@ -433,10 +451,10 @@ export default function Dashboard() {
         </div>
       </aside>
 
-      {/* Main Panel Content Container */}
+      {/* Main Body */}
       <div className="flex-1 flex flex-col min-w-0">
         
-        {/* Top Header / Mobile Bar */}
+        {/* Top Header */}
         <header className="h-16 bg-white border-b border-slate-200/80 sticky top-0 z-20 px-4 sm:px-8 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <button 
@@ -446,12 +464,11 @@ export default function Dashboard() {
               <Menu className="w-5 h-5" />
             </button>
 
-            {/* Global Quick Search */}
             <div className="relative hidden sm:block">
               <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input 
                 type="text"
-                placeholder="Search links, clients..."
+                placeholder="Search deliveries or clients..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 className="pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-blue-600 w-56 lg:w-64"
@@ -474,7 +491,7 @@ export default function Dashboard() {
           </div>
         </header>
 
-        {/* Dynamic Workspace Views */}
+        {/* Dynamic Workspace Container */}
         <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-8 py-6 sm:py-8 space-y-6">
 
           {/* ======================= VIEW: CREATE WIZARD ======================= */}
@@ -483,7 +500,7 @@ export default function Dashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <h1 className="text-lg font-bold text-slate-900">Create Encrypted Vault</h1>
-                  <p className="text-xs text-slate-500">Lock master deliverables behind verifiable settlement.</p>
+                  <p className="text-xs text-slate-500">Lock master deliverables behind payment verification.</p>
                 </div>
                 <button 
                   onClick={() => setCurrentView('overview')}
@@ -584,7 +601,7 @@ export default function Dashboard() {
                       />
                     </div>
                     <div>
-                      <label className="text-xs font-semibold text-slate-700 block mb-1">Client Email (For Link Dispatch)</label>
+                      <label className="text-xs font-semibold text-slate-700 block mb-1">Client Email (For Link Delivery)</label>
                       <input
                         type="email"
                         placeholder="client@acme.com"
@@ -617,7 +634,7 @@ export default function Dashboard() {
                     <label className="text-xs font-semibold text-slate-700 block mb-1">Handover Note</label>
                     <textarea
                       rows={2}
-                      placeholder="e.g. Approved color grade cut. Preview stream active below; master unlocks upon payment."
+                      placeholder="e.g. Approved master cut. Inspect preview below; raw master unpacks instantly upon settlement."
                       value={clientMessage}
                       onChange={e => setClientMessage(e.target.value)}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-blue-600"
@@ -674,7 +691,7 @@ export default function Dashboard() {
                 </div>
               )}
 
-              {/* STEP 4: Review & Deploy with Step-Based Loader */}
+              {/* STEP 4: Review */}
               {wizardStep === 4 && (
                 <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4 shadow-sm">
                   <div className="border border-slate-200 rounded-xl p-3.5 bg-slate-50 space-y-1.5 text-xs">
@@ -684,7 +701,7 @@ export default function Dashboard() {
                     </div>
                     <div className="flex justify-between text-slate-500">
                       <span>Client: {clientName}</span>
-                      <span>{fileList.length} files bundled</span>
+                      <span>{fileList.length} files</span>
                     </div>
                     <div className="text-slate-500">
                       Expires: {expirySelection === 'never' ? 'Never' : `${expirySelection} Days`}
@@ -711,7 +728,7 @@ export default function Dashboard() {
                       className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold text-xs rounded-xl shadow-sm transition flex items-center gap-1.5"
                     >
                       <Lock className="w-3.5 h-3.5" />
-                      <span>{creating ? 'Processing...' : 'Deploy Payment-Locked Vault'}</span>
+                      <span>{creating ? 'Sealing Assets...' : 'Deploy Payment-Locked Vault'}</span>
                     </button>
                   </div>
                 </div>
@@ -785,7 +802,7 @@ export default function Dashboard() {
                   <div className="py-10 text-center text-xs text-slate-400">No matching deliveries located.</div>
                 ) : (
                   <>
-                    {/* Responsive Mobile Card View */}
+                    {/* Mobile Vertical Responsive Cards */}
                     <div className="divide-y divide-slate-100 md:hidden">
                       {filteredDeliveries.map(item => (
                         <div key={item.id} className="p-4 space-y-2.5">
@@ -855,7 +872,7 @@ export default function Dashboard() {
                       ))}
                     </div>
 
-                    {/* Desktop View Table */}
+                    {/* Desktop Table View */}
                     <div className="hidden md:block overflow-x-auto">
                       <table className="w-full text-left text-xs">
                         <thead className="bg-slate-50/60 border-b border-slate-100 text-slate-400 uppercase font-mono text-[10px]">
@@ -872,202 +889,273 @@ export default function Dashboard() {
                             <tr key={item.id} className="hover:bg-slate-50/50 transition">
                               <td className="px-4 py-3 font-medium text-slate-900">
                                 <div className="flex items-center gap-2 truncate max-w-[200px]">
-                                <FileArchive className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                                <span className="truncate">{item.title}</span>
-                              </div>
-                            </td>
-                            <td className="px-4 py-3 text-slate-600">{item.clientName}</td>
-                            <td className="px-4 py-3 font-mono font-bold text-slate-900">
-                              {formatINR(item.grossAmount)}
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                                item.status === 'Paid'
-                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                  : 'bg-amber-50 text-amber-700 border border-amber-200'
-                              }`}>
-                                <span className={`w-1 h-1 rounded-full ${item.status === 'Paid' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                                {item.status}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 text-right space-x-1.5">
-                              {item.status !== 'Paid' && item.clientEmail && (
+                                  <FileArchive className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                                  <span className="truncate">{item.title}</span>
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 text-slate-600">{item.clientName}</td>
+                              <td className="px-4 py-3 font-mono font-bold text-slate-900">
+                                {formatINR(item.grossAmount)}
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                                  item.status === 'Paid'
+                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                    : 'bg-amber-50 text-amber-700 border border-amber-200'
+                                }`}>
+                                  <span className={`w-1 h-1 rounded-full ${item.status === 'Paid' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                                  {item.status}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-right space-x-1.5">
+                                {item.status !== 'Paid' && item.clientEmail && (
+                                  <button
+                                    onClick={() => handleSendReminder(item)}
+                                    className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs"
+                                    title="Send reminder email"
+                                  >
+                                    <Mail className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+
                                 <button
-                                  onClick={() => handleSendReminder(item)}
-                                  className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs"
-                                  title="Send reminder email"
+                                  onClick={() => copyLink(item.id)}
+                                  className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg text-xs transition"
                                 >
-                                  <Mail className="w-3.5 h-3.5" />
+                                  {copiedId === item.id ? 'Copied' : 'Copy'}
                                 </button>
-                              )}
 
-                              <button
-                                onClick={() => copyLink(item.id)}
-                                className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg text-xs transition"
-                              >
-                                {copiedId === item.id ? 'Copied' : 'Copy'}
-                              </button>
+                                <Link
+                                  href={`/d/${item.id}`}
+                                  target="_blank"
+                                  className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg inline-block text-xs transition"
+                                  title="Open Portal"
+                                >
+                                  <ExternalLink className="w-3.5 h-3.5" />
+                                </Link>
 
-                              <Link
-                                href={`/d/${item.id}`}
-                                target="_blank"
-                                className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg inline-block text-xs transition"
-                                title="Open Portal"
-                              >
-                                <ExternalLink className="w-3.5 h-3.5" />
-                              </Link>
-
-                              <button
-                                onClick={() => handleDelete(item.id)}
-                                className="p-1.5 hover:text-rose-600 text-slate-400 transition"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ======================= VIEW: DELIVERIES MANIFEST ======================= */}
-        {currentView === 'deliveries' && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-lg font-bold text-slate-900">All Deliverables</h1>
-                <p className="text-xs text-slate-500">Manifest of all encrypted handoff portals.</p>
-              </div>
-              <button 
-                onClick={() => { setCurrentView('create'); setWizardStep(1); }}
-                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl"
-              >
-                + New Drop
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {deliveries.map(item => (
-                <div key={item.id} className="p-4 bg-white border border-slate-200 rounded-xl shadow-sm space-y-2.5">
-                  <div className="flex justify-between items-start">
-                    <div className="min-w-0 flex-1 pr-2">
-                      <span className="text-[10px] font-mono text-blue-600 bg-blue-50 px-2 py-0.5 rounded font-semibold inline-block">
-                        {item.clientName}
-                      </span>
-                      <h3 className="text-xs font-semibold text-slate-900 mt-1 truncate">{item.title}</h3>
-                    </div>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold shrink-0 ${
-                      item.status === 'Paid' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
-                    }`}>
-                      {item.status}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between items-center pt-2.5 border-t border-slate-100 text-xs">
-                    <div>
-                      <span className="text-slate-400 block text-[10px] uppercase font-mono">Invoice</span>
-                      <span className="font-bold text-slate-900 font-mono">{formatINR(item.grossAmount)}</span>
-                    </div>
-
-                    <div className="flex items-center gap-1.5">
-                      <button onClick={() => copyLink(item.id)} className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg text-xs">
-                        {copiedId === item.id ? 'Copied' : 'Share'}
-                      </button>
-                      <Link href={`/d/${item.id}`} target="_blank" className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg">
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </Link>
-                      <button onClick={() => handleDelete(item.id)} className="p-1.5 hover:text-rose-600 text-slate-400">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ======================= VIEW: INQUIRIES & MESSAGES ======================= */}
-        {currentView === 'messages' && (
-          <div className="space-y-4">
-            <h1 className="text-lg font-bold text-slate-900">Client Inquiries & Revisions</h1>
-            
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-              <div className="lg:col-span-5 space-y-1.5">
-                {deliveries.map(d => (
-                  <button
-                    key={d.id}
-                    onClick={() => setSelectedDeliveryChat(d)}
-                    className={`w-full p-3.5 rounded-xl border text-left text-xs transition ${
-                      selectedDeliveryChat?.id === d.id ? 'bg-blue-50 border-blue-500' : 'bg-white border-slate-200 hover:border-slate-300'
-                    }`}
-                  >
-                    <div className="font-semibold text-slate-900">{d.title}</div>
-                    <div className="text-slate-500 mt-0.5">Client: {d.clientName}</div>
-                    <div className="text-blue-600 font-medium text-[10px] mt-1">{d.messages?.length || 0} messages</div>
-                  </button>
-                ))}
-              </div>
-
-              <div className="lg:col-span-7 bg-white border border-slate-200 rounded-xl p-4 flex flex-col h-[400px] shadow-sm">
-                {selectedDeliveryChat ? (
-                  <>
-                    <div className="border-b border-slate-100 pb-2.5">
-                      <h3 className="text-xs font-bold text-slate-900">{selectedDeliveryChat.title}</h3>
-                      <span className="text-[11px] text-slate-400">{selectedDeliveryChat.clientName}</span>
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto py-3 space-y-2">
-                      {(selectedDeliveryChat.messages || []).length === 0 ? (
-                        <div className="text-center py-12 text-xs text-slate-400">No client messages or feedback yet.</div>
-                      ) : (
-                        selectedDeliveryChat.messages.map((m, i) => (
-                          <div key={i} className={`flex flex-col ${m.sender === 'creator' ? 'items-end' : 'items-start'}`}>
-                            <div className={`p-2.5 rounded-xl text-xs max-w-sm ${
-                              m.sender === 'creator' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-800'
-                            }`}>
-                              {m.text}
-                            </div>
-                            <span className="text-[9px] text-slate-400 mt-0.5">{new Date(m.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                          </div>
-                        ))
-                      )}
-                    </div>
-
-                    <div className="pt-2.5 border-t border-slate-100 flex gap-2">
-                      <input 
-                        type="text"
-                        placeholder="Reply to client..."
-                        value={replyText}
-                        onChange={e => setReplyText(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && handleSendReply(selectedDeliveryChat.id)}
-                        className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-900 focus:outline-none focus:border-blue-600"
-                      />
-                      <button 
-                        onClick={() => handleSendReply(selectedDeliveryChat.id)}
-                        className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs"
-                      >
-                        <Send className="w-3.5 h-3.5" />
-                      </button>
+                                <button
+                                  onClick={() => handleDelete(item.id)}
+                                  className="p-1.5 hover:text-rose-600 text-slate-400 transition"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   </>
-                ) : (
-                  <div className="m-auto text-xs text-slate-400">Select a project to inspect client inquiries.</div>
                 )}
               </div>
             </div>
-          </div>
-        )}
+          )}
+
+          {/* ======================= VIEW: DELIVERIES MANIFEST ======================= */}
+          {currentView === 'deliveries' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-lg font-bold text-slate-900">All Deliverables</h1>
+                  <p className="text-xs text-slate-500">Manifest of all encrypted handoff portals.</p>
+                </div>
+                <button 
+                  onClick={() => { setCurrentView('create'); setWizardStep(1); }}
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl"
+                >
+                  + New Drop
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {deliveries.map(item => (
+                  <div key={item.id} className="p-4 bg-white border border-slate-200 rounded-xl shadow-sm space-y-2.5">
+                    <div className="flex justify-between items-start">
+                      <div className="min-w-0 flex-1 pr-2">
+                        <span className="text-[10px] font-mono text-blue-600 bg-blue-50 px-2 py-0.5 rounded font-semibold inline-block">
+                          {item.clientName}
+                        </span>
+                        <h3 className="text-xs font-semibold text-slate-900 mt-1 truncate">{item.title}</h3>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold shrink-0 ${
+                        item.status === 'Paid' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+                      }`}>
+                        {item.status}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center pt-2.5 border-t border-slate-100 text-xs">
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase font-mono">Invoice</span>
+                        <span className="font-bold text-slate-900 font-mono">{formatINR(item.grossAmount)}</span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <button onClick={() => copyLink(item.id)} className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg text-xs">
+                          {copiedId === item.id ? 'Copied' : 'Share'}
+                        </button>
+                        <Link href={`/d/${item.id}`} target="_blank" className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg">
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </Link>
+                        <button onClick={() => handleDelete(item.id)} className="p-1.5 hover:text-rose-600 text-slate-400">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ======================= VIEW: WHATSAPP-STYLE MESSAGES ======================= */}
+          {currentView === 'messages' && (
+            <div className="space-y-4">
+              <div>
+                <h1 className="text-lg font-bold text-slate-900">Client Inquiries & Revisions</h1>
+                <p className="text-xs text-slate-500">Real-time two-way communication thread with your clients.</p>
+              </div>
+              
+              {/* WhatsApp Web 2-Pane Container */}
+              <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm grid grid-cols-1 md:grid-cols-12 h-[560px]">
+                
+                {/* Left Pane: Contacts & Deliveries List */}
+                <div className="md:col-span-4 border-r border-slate-200 flex flex-col h-full bg-slate-50/40">
+                  <div className="p-3 border-b border-slate-200 bg-white">
+                    <span className="text-xs font-bold text-slate-700 uppercase tracking-wider font-mono">Conversations</span>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
+                    {deliveries.length === 0 ? (
+                      <div className="p-6 text-center text-xs text-slate-400">No active delivery projects found.</div>
+                    ) : (
+                      deliveries.map(d => {
+                        const lastMsg = d.messages?.[d.messages.length - 1]
+                        const isSelected = activeChatDelivery?.id === d.id
+
+                        return (
+                          <button
+                            key={d.id}
+                            onClick={() => setSelectedChatId(d.id)}
+                            className={`w-full p-3.5 text-left flex items-start gap-3 transition ${
+                              isSelected ? 'bg-blue-50/80 border-l-4 border-blue-600' : 'hover:bg-slate-100/60'
+                            }`}
+                          >
+                            <div className="w-9 h-9 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center shrink-0">
+                              {d.clientName?.slice(0, 2).toUpperCase() || 'CL'}
+                            </div>
+
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-slate-900 truncate">{d.clientName}</span>
+                                {lastMsg && (
+                                  <span className="text-[10px] text-slate-400 font-mono">
+                                    {new Date(lastMsg.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[11px] text-blue-600 truncate font-medium">{d.title}</div>
+                              <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                                {lastMsg ? `${lastMsg.sender === 'creator' ? 'You: ' : ''}${lastMsg.text}` : 'No messages yet'}
+                              </p>
+                            </div>
+                          </button>
+                        )
+                      })
+                    )}
+                  </div>
+                </div>
+
+                {/* Right Pane: WhatsApp-Style Chat Viewport */}
+                <div className="md:col-span-8 flex flex-col h-full bg-white">
+                  {activeChatDelivery ? (
+                    <>
+                      {/* Active Chat Header */}
+                      <div className="p-3.5 border-b border-slate-200 bg-slate-50/50 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-slate-900 text-white font-bold text-xs flex items-center justify-center">
+                            {activeChatDelivery.clientName?.slice(0, 2).toUpperCase() || 'CL'}
+                          </div>
+                          <div>
+                            <h3 className="text-xs font-bold text-slate-900">{activeChatDelivery.clientName}</h3>
+                            <span className="text-[10px] text-slate-500 font-medium">Project: {activeChatDelivery.title}</span>
+                          </div>
+                        </div>
+
+                        <Link 
+                          href={`/d/${activeChatDelivery.id}`} 
+                          target="_blank"
+                          className="px-2.5 py-1 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg text-xs text-slate-700 font-medium flex items-center gap-1 shadow-xs"
+                        >
+                          <span>Open Portal</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </Link>
+                      </div>
+
+                      {/* Chat Bubbles Container */}
+                      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#F8FAFC]">
+                        {(activeChatDelivery.messages || []).length === 0 ? (
+                          <div className="h-full flex flex-col items-center justify-center text-center p-6">
+                            <MessageSquare className="w-8 h-8 text-slate-300 mb-2" />
+                            <span className="text-xs font-semibold text-slate-600">No communication recorded yet.</span>
+                            <p className="text-[11px] text-slate-400 mt-0.5 max-w-xs">
+                              Messages and change requests submitted from the client's delivery portal will appear here in real time.
+                            </p>
+                          </div>
+                        ) : (
+                          activeChatDelivery.messages.map((m, idx) => {
+                            const isCreator = m.sender === 'creator'
+                            return (
+                              <div key={idx} className={`flex flex-col ${isCreator ? 'items-end' : 'items-start'}`}>
+                                <div className={`p-3 rounded-2xl text-xs max-w-sm shadow-xs ${
+                                  isCreator 
+                                    ? 'bg-blue-600 text-white rounded-br-xs' 
+                                    : 'bg-white border border-slate-200 text-slate-800 rounded-bl-xs'
+                                }`}>
+                                  <p className="leading-relaxed whitespace-pre-wrap">{m.text}</p>
+                                </div>
+                                <span className="text-[9px] text-slate-400 font-mono mt-1 px-1">
+                                  {new Date(m.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+                            )
+                          })
+                        )}
+                      </div>
+
+                      {/* Chat Composer Bar */}
+                      <div className="p-3 border-t border-slate-200 bg-white flex items-center gap-2">
+                        <input 
+                          type="text"
+                          placeholder="Type reply or update to client..."
+                          value={replyText}
+                          onChange={e => setReplyText(e.target.value)}
+                          onKeyDown={e => e.key === 'Enter' && handleSendReply(activeChatDelivery.id)}
+                          className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-600"
+                        />
+                        <button 
+                          onClick={() => handleSendReply(activeChatDelivery.id)}
+                          className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs transition"
+                        >
+                          <Send className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-xs text-slate-400">
+                      Select a conversation on the left to review client messages.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
         </main>
       </div>
 
-      {/* Mobile Slide-Out Drawer */}
+      {/* Mobile Drawer */}
       {mobileSidebarOpen && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex lg:hidden">
           <div className="w-64 bg-white h-full p-5 flex flex-col justify-between shadow-xl">
@@ -1101,7 +1189,7 @@ export default function Dashboard() {
                   onClick={() => { setCurrentView('messages'); setMobileSidebarOpen(false); }}
                   className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold text-slate-600"
                 >
-                  <MessageSquare className="w-4 h-4" /> Inquiries
+                  <MessageSquare className="w-4 h-4" /> Messages
                 </button>
               </nav>
             </div>
