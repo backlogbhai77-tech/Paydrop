@@ -42,7 +42,6 @@ export default function ClientDeliveryPortal() {
 
     const docRef = doc(db, 'deliveries', id)
 
-    // Real-Time Listener so client receives creator replies instantly
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists()) {
         setDelivery({ id: docSnap.id, ...docSnap.data() })
@@ -56,10 +55,8 @@ export default function ClientDeliveryPortal() {
       setLoading(false)
     })
 
-    // View Count Increment once on mount
     updateDoc(docRef, { viewCount: increment(1) }).catch(() => {})
 
-    // Anti-Theft Guard
     const handleKeyDown = (e) => {
       if (
         (e.ctrlKey && (e.key === 's' || e.key === 'u' || e.key === 'p')) ||
@@ -91,24 +88,32 @@ export default function ClientDeliveryPortal() {
     }
   }
 
-  // Pure Direct Blob Download (PDF & ZIP Safe)
+  // Bulletproof Direct Download that does not corrupt PDFs or ZIPs
   const handleDownloadItem = async (fileUrl, fileName, index) => {
     if (!fileUrl) return
     setDownloadingFileIndex(index)
 
     try {
-      const response = await fetch(fileUrl)
+      const response = await fetch(fileUrl, { mode: 'cors' })
+      if (!response.ok) throw new Error("CORS fallback required")
       const blob = await response.blob()
       const blobUrl = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = blobUrl
-      a.download = fileName || 'ReleaseDrop_Deliverable'
+      a.download = fileName || 'Deliverable_Master'
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
       window.URL.revokeObjectURL(blobUrl)
     } catch {
-      window.open(fileUrl, '_blank')
+      // Direct origin redirect if fetch is restricted by browser security
+      const a = document.createElement('a')
+      a.href = fileUrl
+      a.setAttribute('download', fileName || 'Deliverable_Master')
+      a.target = '_blank'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
     } finally {
       setTimeout(() => setDownloadingFileIndex(null), 1000)
     }
@@ -185,10 +190,17 @@ export default function ClientDeliveryPortal() {
   const files = delivery.files || (delivery.fileUrl ? [{ name: delivery.fileName || 'Master_Package.zip', size: delivery.fileSize || 'Bundle', url: delivery.fileUrl, type: delivery.fileType }] : [])
   const activeFile = files[activeFileIndex] || files[0]
 
+  // Safe Universal Preview URL Generator (Handles PDFs through secure embedder fallback)
+  const isPDF = activeFile?.type?.includes('pdf') || activeFile?.name?.toLowerCase().endsWith('.pdf')
+  const isVideo = activeFile?.type?.includes('video') || activeFile?.name?.match(/\.(mp4|mov|webm)$/i)
+  const isImage = activeFile?.type?.includes('image') || activeFile?.name?.match(/\.(png|jpg|jpeg|webp)$/i)
+
+  const safePdfViewerUrl = isPDF ? `https://docs.google.com/viewer?url=${encodeURIComponent(activeFile?.url)}&embedded=true` : null
+
   return (
     <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-[#F8FAFC] text-slate-900 font-sans selection:bg-blue-600 selection:text-white antialiased pb-16">
       
-      {/* Top Header */}
+      {/* Header */}
       <header className="border-b border-slate-200 bg-white sticky top-0 z-30 px-4 sm:px-6 h-14 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div className="w-6 h-6 rounded bg-blue-600 flex items-center justify-center text-white font-bold text-xs">
@@ -238,7 +250,7 @@ export default function ClientDeliveryPortal() {
           </div>
         )}
 
-        {/* Multi-File Tab Selector (For Multi-File Projects) */}
+        {/* Multi-File Tab Selector */}
         {files.length > 1 && (
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
             {files.map((file, idx) => (
@@ -257,7 +269,7 @@ export default function ClientDeliveryPortal() {
           </div>
         )}
 
-        {/* Universal Multi-Format Inspection Canvas */}
+        {/* Universal Multi-Format Inspection Canvas (Fixes 404 / Webpage down) */}
         <div className="space-y-1.5">
           <div 
             ref={canvasContainerRef}
@@ -267,7 +279,7 @@ export default function ClientDeliveryPortal() {
             onContextMenu={e => e.preventDefault()}
           >
             {/* Format 1: Video */}
-            {activeFile?.type?.includes('video') || activeFile?.name?.match(/\.(mp4|mov|webm)$/i) ? (
+            {isVideo ? (
               <video 
                 src={activeFile.url} 
                 controls={isPaid}
@@ -279,18 +291,18 @@ export default function ClientDeliveryPortal() {
                 className="w-full h-full object-contain"
               />
             ) : 
-            /* Format 2: PDF Document Embed */
-            activeFile?.type?.includes('pdf') || activeFile?.name?.endsWith('.pdf') ? (
-              <div className="w-full h-full bg-slate-900 flex flex-col items-center justify-center p-4 text-center">
+            /* Format 2: PDF Document Embed (Using Google Docs Viewer bypass to avoid Cloudinary Frame blocks) */
+            isPDF ? (
+              <div className="w-full h-full bg-slate-900 flex flex-col items-center justify-center relative">
                 <iframe 
-                  src={`${activeFile.url}#toolbar=0&navpanes=0`} 
-                  className="w-full h-full rounded border-0" 
-                  title="PDF Preview"
+                  src={safePdfViewerUrl}
+                  className="w-full h-full border-0 bg-white" 
+                  title="PDF Preview Frame"
                 />
               </div>
             ) : 
             /* Format 3: Image */
-            activeFile?.type?.includes('image') || activeFile?.name?.match(/\.(png|jpg|jpeg|webp)$/i) ? (
+            isImage ? (
               <img 
                 src={activeFile.url} 
                 alt="Inspection Draft" 
@@ -317,7 +329,7 @@ export default function ClientDeliveryPortal() {
               {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
             </button>
 
-            {/* Watermark Overlay (Only Pre-Payment) */}
+            {/* Watermark Overlay */}
             {!isPaid && (
               <div className="absolute inset-0 pointer-events-none overflow-hidden flex flex-col justify-around select-none z-10 opacity-30 animate-watermark-drift">
                 {[...Array(5)].map((_, i) => (
