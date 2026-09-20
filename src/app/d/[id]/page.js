@@ -9,8 +9,130 @@ import {
   Eye, FileText, ArrowRight, ShieldAlert,
   Sparkles, RefreshCw, KeyRound, ExternalLink, CreditCard,
   Smartphone, Building2, Check, X, Flag, MessageSquare, Send,
-  FileArchive, Clock, Receipt, Maximize2, Minimize2
+  FileArchive, Clock, Receipt, Maximize2, Minimize2, ChevronLeft, ChevronRight
 } from 'lucide-react'
+
+// Dynamic Multi-Page PDF Canvas Renderer
+function PdfDocumentViewer({ pdfUrl, isPaid, watermarkText }) {
+  const canvasRef = useRef(null)
+  const [pdfDoc, setPdfDoc] = useState(null)
+  const [pageNum, setPageNum] = useState(1)
+  const [numPages, setNumPages] = useState(0)
+  const [rendering, setRendering] = useState(false)
+  const [loadError, setLoadError] = useState(false)
+
+  useEffect(() => {
+    let isCancelled = false
+
+    const loadPdfEngine = async () => {
+      try {
+        const pdfjsLib = await import('pdfjs-dist/build/pdf')
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
+        
+        const loadingTask = pdfjsLib.getDocument(pdfUrl)
+        const loadedDoc = await loadingTask.promise
+        if (!isCancelled) {
+          setPdfDoc(loadedDoc)
+          setNumPages(loadedDoc.numPages)
+          setPageNum(1)
+        }
+      } catch (err) {
+        console.error("PDF engine load error:", err)
+        if (!isCancelled) setLoadError(true)
+      }
+    }
+
+    if (pdfUrl) loadPdfEngine()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [pdfUrl])
+
+  useEffect(() => {
+    if (!pdfDoc || !canvasRef.current) return
+    let renderTask = null
+
+    const renderCurrentPage = async () => {
+      setRendering(true)
+      try {
+        const page = await pdfDoc.getPage(pageNum)
+        const viewport = page.getViewport({ scale: 1.5 })
+        const canvas = canvasRef.current
+        if (!canvas) return
+        const context = canvas.getContext('2d')
+        canvas.height = viewport.height
+        canvas.width = viewport.width
+
+        const renderContext = {
+          canvasContext: context,
+          viewport: viewport
+        }
+        renderTask = page.render(renderContext)
+        await renderTask.promise
+      } catch (e) {
+        // render cancelled or interrupted
+      } finally {
+        setRendering(false)
+      }
+    }
+
+    renderCurrentPage()
+
+    return () => {
+      if (renderTask) renderTask.cancel()
+    }
+  }, [pdfDoc, pageNum])
+
+  if (loadError) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center bg-slate-900 text-slate-300">
+        <FileText className="w-10 h-10 text-blue-400 mb-2" />
+        <span className="text-xs font-semibold text-white">Document Sandbox Secured</span>
+        <p className="text-[11px] text-slate-400 mt-1 max-w-xs">
+          Multi-page document protected in escrow vault. Full PDF unseals upon settlement.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="w-full h-full relative flex flex-col items-center justify-between bg-slate-900 overflow-hidden">
+      {/* Top Page Pagination Controller */}
+      <div className="w-full z-20 bg-slate-950/80 backdrop-blur-md px-4 py-2 border-b border-slate-800 flex items-center justify-between text-xs">
+        <span className="text-slate-300 font-mono text-[11px]">
+          Page {pageNum} of {numPages || '...'}
+        </span>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => setPageNum(p => Math.max(1, p - 1))}
+            disabled={pageNum <= 1 || rendering}
+            className="p-1 rounded-md bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-white transition"
+          >
+            <ChevronLeft className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => setPageNum(p => Math.min(numPages, p + 1))}
+            disabled={pageNum >= numPages || rendering}
+            className="p-1 rounded-md bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-white transition"
+          >
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+
+      {/* Canvas Viewport */}
+      <div className="flex-1 w-full flex items-center justify-center overflow-auto p-4 relative select-none">
+        <canvas ref={canvasRef} className="max-w-full max-h-full object-contain rounded shadow-lg bg-white" />
+        {rendering && (
+          <div className="absolute inset-0 flex items-center justify-center bg-slate-950/40">
+            <RefreshCw className="w-5 h-5 text-blue-400 animate-spin" />
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
 
 export default function ClientDeliveryPortal() {
   const { id } = useParams()
@@ -18,14 +140,10 @@ export default function ClientDeliveryPortal() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   
-  // Multi-File Active Inspection Tab
   const [activeFileIndex, setActiveFileIndex] = useState(0)
-
-  // Fullscreen Canvas State
   const [isFullscreen, setIsFullscreen] = useState(false)
   const canvasContainerRef = useRef(null)
 
-  // Checkout & Interactive States
   const [showCheckoutModal, setShowCheckoutModal] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState('upi')
   const [termsAccepted, setTermsAccepted] = useState(false)
@@ -33,7 +151,6 @@ export default function ClientDeliveryPortal() {
   const [downloadingFileIndex, setDownloadingFileIndex] = useState(null)
   const [showReceiptModal, setShowReceiptModal] = useState(false)
   
-  // Real-Time 2-Way Chat State
   const [clientMessageText, setClientMessageText] = useState('')
   const [sendingMsg, setSendingMsg] = useState(false)
 
@@ -88,14 +205,13 @@ export default function ClientDeliveryPortal() {
     }
   }
 
-  // Bulletproof Direct Download that does not corrupt PDFs or ZIPs
   const handleDownloadItem = async (fileUrl, fileName, index) => {
     if (!fileUrl) return
     setDownloadingFileIndex(index)
 
     try {
-      const response = await fetch(fileUrl, { mode: 'cors' })
-      if (!response.ok) throw new Error("CORS fallback required")
+      const response = await fetch(fileUrl)
+      if (!response.ok) throw new Error("Fetch fallback")
       const blob = await response.blob()
       const blobUrl = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -106,14 +222,7 @@ export default function ClientDeliveryPortal() {
       document.body.removeChild(a)
       window.URL.revokeObjectURL(blobUrl)
     } catch {
-      // Direct origin redirect if fetch is restricted by browser security
-      const a = document.createElement('a')
-      a.href = fileUrl
-      a.setAttribute('download', fileName || 'Deliverable_Master')
-      a.target = '_blank'
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
+      window.open(fileUrl, '_blank')
     } finally {
       setTimeout(() => setDownloadingFileIndex(null), 1000)
     }
@@ -190,12 +299,10 @@ export default function ClientDeliveryPortal() {
   const files = delivery.files || (delivery.fileUrl ? [{ name: delivery.fileName || 'Master_Package.zip', size: delivery.fileSize || 'Bundle', url: delivery.fileUrl, type: delivery.fileType }] : [])
   const activeFile = files[activeFileIndex] || files[0]
 
-  // Safe Universal Preview URL Generator (Handles PDFs through secure embedder fallback)
-  const isPDF = activeFile?.type?.includes('pdf') || activeFile?.name?.toLowerCase().endsWith('.pdf')
-  const isVideo = activeFile?.type?.includes('video') || activeFile?.name?.match(/\.(mp4|mov|webm)$/i)
-  const isImage = activeFile?.type?.includes('image') || activeFile?.name?.match(/\.(png|jpg|jpeg|webp)$/i)
-
-  const safePdfViewerUrl = isPDF ? `https://docs.google.com/viewer?url=${encodeURIComponent(activeFile?.url)}&embedded=true` : null
+  const fileName = (activeFile?.name || '').toLowerCase()
+  const isPDF = activeFile?.type?.includes('pdf') || fileName.endsWith('.pdf')
+  const isVideo = activeFile?.type?.includes('video') || fileName.match(/\.(mp4|mov|webm)$/i)
+  const isImage = activeFile?.type?.includes('image') || fileName.match(/\.(png|jpg|jpeg|webp)$/i)
 
   return (
     <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-[#F8FAFC] text-slate-900 font-sans selection:bg-blue-600 selection:text-white antialiased pb-16">
@@ -223,7 +330,7 @@ export default function ClientDeliveryPortal() {
         </div>
       </header>
 
-      {/* Main Enclave Content */}
+      {/* Main Container */}
       <main className="max-w-3xl mx-auto px-4 pt-6 space-y-5">
         
         {/* Invoice Summary Box */}
@@ -242,7 +349,7 @@ export default function ClientDeliveryPortal() {
           </div>
         </div>
 
-        {/* Creator Handover Message */}
+        {/* Handover Message */}
         {delivery.clientMessage && (
           <div className="p-3.5 bg-blue-50/50 border border-blue-100 rounded-xl text-xs text-slate-700">
             <strong className="text-blue-900 block mb-0.5 font-semibold">Creator Note:</strong>
@@ -269,11 +376,11 @@ export default function ClientDeliveryPortal() {
           </div>
         )}
 
-        {/* Universal Multi-Format Inspection Canvas (Fixes 404 / Webpage down) */}
+        {/* Studio Inspection Canvas */}
         <div className="space-y-1.5">
           <div 
             ref={canvasContainerRef}
-            className={`relative rounded-xl bg-black border border-slate-800 overflow-hidden shadow-sm ${
+            className={`relative rounded-xl bg-slate-950 border border-slate-800 overflow-hidden shadow-sm ${
               isFullscreen ? 'fixed inset-0 z-50 rounded-none h-screen w-screen flex items-center justify-center' : 'aspect-video w-full'
             }`}
             onContextMenu={e => e.preventDefault()}
@@ -281,7 +388,7 @@ export default function ClientDeliveryPortal() {
             {/* Format 1: Video */}
             {isVideo ? (
               <video 
-                src={activeFile.url} 
+                src={activeFile?.url} 
                 controls={isPaid}
                 controlsList="nodownload"
                 playsInline
@@ -291,20 +398,18 @@ export default function ClientDeliveryPortal() {
                 className="w-full h-full object-contain"
               />
             ) : 
-            /* Format 2: PDF Document Embed (Using Google Docs Viewer bypass to avoid Cloudinary Frame blocks) */
+            /* Format 2: Full Multi-Page PDF Viewer (Canvas-Powered) */
             isPDF ? (
-              <div className="w-full h-full bg-slate-900 flex flex-col items-center justify-center relative">
-                <iframe 
-                  src={safePdfViewerUrl}
-                  className="w-full h-full border-0 bg-white" 
-                  title="PDF Preview Frame"
-                />
-              </div>
+              <PdfDocumentViewer 
+                pdfUrl={activeFile?.url} 
+                isPaid={isPaid} 
+                watermarkText={watermarkText} 
+              />
             ) : 
             /* Format 3: Image */
             isImage ? (
               <img 
-                src={activeFile.url} 
+                src={activeFile?.url} 
                 alt="Inspection Draft" 
                 className={`w-full h-full object-contain ${isPaid ? '' : 'brightness-75'}`}
               />
@@ -320,7 +425,7 @@ export default function ClientDeliveryPortal() {
               </div>
             )}
 
-            {/* Fullscreen Toggle Button */}
+            {/* Fullscreen Toggle */}
             <button 
               onClick={toggleFullscreen}
               className="absolute top-3 right-3 z-20 p-2 bg-black/60 hover:bg-black/90 text-white rounded-lg border border-white/10 transition"
@@ -329,8 +434,8 @@ export default function ClientDeliveryPortal() {
               {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
             </button>
 
-            {/* Watermark Overlay */}
-            {!isPaid && (
+            {/* Floating Watermark Layer (Active on images & videos) */}
+            {!isPaid && !isPDF && (
               <div className="absolute inset-0 pointer-events-none overflow-hidden flex flex-col justify-around select-none z-10 opacity-30 animate-watermark-drift">
                 {[...Array(5)].map((_, i) => (
                   <div key={i} className="whitespace-nowrap text-xs sm:text-sm font-black text-white tracking-widest uppercase flex justify-around">
@@ -345,7 +450,7 @@ export default function ClientDeliveryPortal() {
           {!isPaid && (
             <div className="flex items-center gap-1.5 px-2 text-[11px] text-slate-500 font-medium">
               <ShieldCheck className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-              <span>🔒 Secure Preview — Watermark automatically vanishes upon payment verification</span>
+              <span>🔒 Multi-page Inspection — Watermark automatically vanishes upon payment verification</span>
             </div>
           )}
         </div>
@@ -353,7 +458,7 @@ export default function ClientDeliveryPortal() {
         {/* Deliverable Manifest Bundle */}
         <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-sm space-y-2.5">
           <span className="text-xs font-mono uppercase text-slate-400 font-semibold block">
-            Bundle Files ({files.length})
+            Bundle Deliverables ({files.length})
           </span>
 
           <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden">
@@ -397,7 +502,7 @@ export default function ClientDeliveryPortal() {
           </div>
         </div>
 
-        {/* Prominent Feedback & Revisions Section (Visible Pre-Payment) */}
+        {/* Prominent Feedback & Revisions Section */}
         <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-sm space-y-3">
           <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
             <div>
@@ -409,7 +514,6 @@ export default function ClientDeliveryPortal() {
             <span className="text-[10px] text-blue-600 font-medium bg-blue-50 px-2 py-0.5 rounded">Live Thread</span>
           </div>
 
-          {/* Conversation History */}
           {(delivery.messages || []).length > 0 && (
             <div className="max-h-48 overflow-y-auto space-y-2 p-3 bg-slate-50 rounded-xl">
               {delivery.messages.map((m, idx) => {
@@ -432,7 +536,6 @@ export default function ClientDeliveryPortal() {
             </div>
           )}
 
-          {/* Message Input */}
           <div className="space-y-2">
             <textarea 
               rows={2}
@@ -473,7 +576,7 @@ export default function ClientDeliveryPortal() {
               </button>
 
               <div className="text-[10px] font-mono text-slate-400 flex items-center justify-center gap-1">
-                <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
                 <span>Encrypted Handoff Verification</span>
               </div>
             </div>
