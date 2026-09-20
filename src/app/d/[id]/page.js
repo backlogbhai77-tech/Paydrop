@@ -9,130 +9,8 @@ import {
   Eye, FileText, ArrowRight, ShieldAlert,
   Sparkles, RefreshCw, KeyRound, ExternalLink, CreditCard,
   Smartphone, Building2, Check, X, Flag, MessageSquare, Send,
-  FileArchive, Clock, Receipt, Maximize2, Minimize2, ChevronLeft, ChevronRight
+  FileArchive, Clock, Receipt, Maximize2, Minimize2
 } from 'lucide-react'
-
-// Dynamic Multi-Page PDF Canvas Renderer
-function PdfDocumentViewer({ pdfUrl, isPaid, watermarkText }) {
-  const canvasRef = useRef(null)
-  const [pdfDoc, setPdfDoc] = useState(null)
-  const [pageNum, setPageNum] = useState(1)
-  const [numPages, setNumPages] = useState(0)
-  const [rendering, setRendering] = useState(false)
-  const [loadError, setLoadError] = useState(false)
-
-  useEffect(() => {
-    let isCancelled = false
-
-    const loadPdfEngine = async () => {
-      try {
-        const pdfjsLib = await import('pdfjs-dist/build/pdf')
-        pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
-        
-        const loadingTask = pdfjsLib.getDocument(pdfUrl)
-        const loadedDoc = await loadingTask.promise
-        if (!isCancelled) {
-          setPdfDoc(loadedDoc)
-          setNumPages(loadedDoc.numPages)
-          setPageNum(1)
-        }
-      } catch (err) {
-        console.error("PDF engine load error:", err)
-        if (!isCancelled) setLoadError(true)
-      }
-    }
-
-    if (pdfUrl) loadPdfEngine()
-
-    return () => {
-      isCancelled = true
-    }
-  }, [pdfUrl])
-
-  useEffect(() => {
-    if (!pdfDoc || !canvasRef.current) return
-    let renderTask = null
-
-    const renderCurrentPage = async () => {
-      setRendering(true)
-      try {
-        const page = await pdfDoc.getPage(pageNum)
-        const viewport = page.getViewport({ scale: 1.5 })
-        const canvas = canvasRef.current
-        if (!canvas) return
-        const context = canvas.getContext('2d')
-        canvas.height = viewport.height
-        canvas.width = viewport.width
-
-        const renderContext = {
-          canvasContext: context,
-          viewport: viewport
-        }
-        renderTask = page.render(renderContext)
-        await renderTask.promise
-      } catch (e) {
-        // render cancelled or interrupted
-      } finally {
-        setRendering(false)
-      }
-    }
-
-    renderCurrentPage()
-
-    return () => {
-      if (renderTask) renderTask.cancel()
-    }
-  }, [pdfDoc, pageNum])
-
-  if (loadError) {
-    return (
-      <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center bg-slate-900 text-slate-300">
-        <FileText className="w-10 h-10 text-blue-400 mb-2" />
-        <span className="text-xs font-semibold text-white">Document Sandbox Secured</span>
-        <p className="text-[11px] text-slate-400 mt-1 max-w-xs">
-          Multi-page document protected in escrow vault. Full PDF unseals upon settlement.
-        </p>
-      </div>
-    )
-  }
-
-  return (
-    <div className="w-full h-full relative flex flex-col items-center justify-between bg-slate-900 overflow-hidden">
-      {/* Top Page Pagination Controller */}
-      <div className="w-full z-20 bg-slate-950/80 backdrop-blur-md px-4 py-2 border-b border-slate-800 flex items-center justify-between text-xs">
-        <span className="text-slate-300 font-mono text-[11px]">
-          Page {pageNum} of {numPages || '...'}
-        </span>
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={() => setPageNum(p => Math.max(1, p - 1))}
-            disabled={pageNum <= 1 || rendering}
-            className="p-1 rounded-md bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-white transition"
-          >
-            <ChevronLeft className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={() => setPageNum(p => Math.min(numPages, p + 1))}
-            disabled={pageNum >= numPages || rendering}
-            className="p-1 rounded-md bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-white transition"
-          >
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      </div>
-
-      {/* Canvas Viewport */}
-      <div className="flex-1 w-full flex items-center justify-center overflow-auto p-4 relative select-none">
-        <canvas ref={canvasRef} className="max-w-full max-h-full object-contain rounded shadow-lg bg-white" />
-        {rendering && (
-          <div className="absolute inset-0 flex items-center justify-center bg-slate-950/40">
-            <RefreshCw className="w-5 h-5 text-blue-400 animate-spin" />
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
 
 export default function ClientDeliveryPortal() {
   const { id } = useParams()
@@ -140,10 +18,14 @@ export default function ClientDeliveryPortal() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   
+  // Multi-File Tab
   const [activeFileIndex, setActiveFileIndex] = useState(0)
+
+  // Fullscreen State
   const [isFullscreen, setIsFullscreen] = useState(false)
   const canvasContainerRef = useRef(null)
 
+  // Checkout & States
   const [showCheckoutModal, setShowCheckoutModal] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState('upi')
   const [termsAccepted, setTermsAccepted] = useState(false)
@@ -151,6 +33,7 @@ export default function ClientDeliveryPortal() {
   const [downloadingFileIndex, setDownloadingFileIndex] = useState(null)
   const [showReceiptModal, setShowReceiptModal] = useState(false)
   
+  // Client Revision Messaging
   const [clientMessageText, setClientMessageText] = useState('')
   const [sendingMsg, setSendingMsg] = useState(false)
 
@@ -205,22 +88,20 @@ export default function ClientDeliveryPortal() {
     }
   }
 
+  // Safe Universal Downloader (Bypasses Cloudinary raw blocks)
   const handleDownloadItem = async (fileUrl, fileName, index) => {
     if (!fileUrl) return
     setDownloadingFileIndex(index)
 
     try {
-      const response = await fetch(fileUrl)
-      if (!response.ok) throw new Error("Fetch fallback")
-      const blob = await response.blob()
-      const blobUrl = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
-      a.href = blobUrl
+      a.href = fileUrl
       a.download = fileName || 'Deliverable_Master'
+      a.target = '_blank'
+      a.rel = 'noopener noreferrer'
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
-      window.URL.revokeObjectURL(blobUrl)
     } catch {
       window.open(fileUrl, '_blank')
     } finally {
@@ -303,6 +184,11 @@ export default function ClientDeliveryPortal() {
   const isPDF = activeFile?.type?.includes('pdf') || fileName.endsWith('.pdf')
   const isVideo = activeFile?.type?.includes('video') || fileName.match(/\.(mp4|mov|webm)$/i)
   const isImage = activeFile?.type?.includes('image') || fileName.match(/\.(png|jpg|jpeg|webp)$/i)
+
+  // 100% Reliable Multi-Page PDF Viewer Link via Google Docs Viewer
+  const googleDocsViewerUrl = isPDF && activeFile?.url 
+    ? `https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(activeFile.url)}`
+    : null
 
   return (
     <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-[#F8FAFC] text-slate-900 font-sans selection:bg-blue-600 selection:text-white antialiased pb-16">
@@ -398,13 +284,16 @@ export default function ClientDeliveryPortal() {
                 className="w-full h-full object-contain"
               />
             ) : 
-            /* Format 2: Full Multi-Page PDF Viewer (Canvas-Powered) */
+            /* Format 2: Multi-Page PDF Viewer via Google Docs Embed (Bypasses Cloudinary Frame Restrictions) */
             isPDF ? (
-              <PdfDocumentViewer 
-                pdfUrl={activeFile?.url} 
-                isPaid={isPaid} 
-                watermarkText={watermarkText} 
-              />
+              <div className="w-full h-full relative bg-slate-100 flex items-center justify-center">
+                <iframe 
+                  src={googleDocsViewerUrl}
+                  className="w-full h-full border-0"
+                  title="Multi-page PDF Preview"
+                  loading="lazy"
+                />
+              </div>
             ) : 
             /* Format 3: Image */
             isImage ? (
@@ -434,7 +323,7 @@ export default function ClientDeliveryPortal() {
               {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
             </button>
 
-            {/* Floating Watermark Layer (Active on images & videos) */}
+            {/* Anti-Theft Watermark Overlay */}
             {!isPaid && !isPDF && (
               <div className="absolute inset-0 pointer-events-none overflow-hidden flex flex-col justify-around select-none z-10 opacity-30 animate-watermark-drift">
                 {[...Array(5)].map((_, i) => (
@@ -450,7 +339,7 @@ export default function ClientDeliveryPortal() {
           {!isPaid && (
             <div className="flex items-center gap-1.5 px-2 text-[11px] text-slate-500 font-medium">
               <ShieldCheck className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-              <span>🔒 Multi-page Inspection — Watermark automatically vanishes upon payment verification</span>
+              <span>🔒 Secure Preview — Full master files decrypt immediately upon payment verification</span>
             </div>
           )}
         </div>
@@ -502,7 +391,7 @@ export default function ClientDeliveryPortal() {
           </div>
         </div>
 
-        {/* Prominent Feedback & Revisions Section */}
+        {/* Feedback & Revision Thread */}
         <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-sm space-y-3">
           <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
             <div>
