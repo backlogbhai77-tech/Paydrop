@@ -1,27 +1,15 @@
 import { NextResponse } from 'next/server'
 import nodemailer from 'nodemailer'
-import Razorpay from 'razorpay'
 import crypto from 'crypto'
 import { db } from '../../../lib/firebase'
 import { doc, updateDoc } from 'firebase/firestore'
-
-// Safe Razorpay instance init
-const getRazorpayInstance = () => {
-  const key_id = process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY
-  const key_secret = process.env.RAZORPAY_KEY_SECRET
-
-  if (!key_id || !key_secret) return null
-  return new Razorpay({ key_id, key_secret })
-}
 
 export async function POST(req) {
   try {
     const body = await req.json()
     const { action } = body
 
-    // -------------------------------------------------------------
-    // ACTION 1: CREATE PAYMENT ORDER (Razorpay Test/Live)
-    // -------------------------------------------------------------
+    // 1. CREATE PAYMENT ORDER (Direct REST API - Zero NPM Package Required)
     if (action === 'create-order') {
       const { deliveryId, amount } = body
 
@@ -29,10 +17,11 @@ export async function POST(req) {
         return NextResponse.json({ success: false, error: 'deliveryId and amount are required' }, { status: 400 })
       }
 
-      const razorpay = getRazorpayInstance()
+      const key_id = process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY
+      const key_secret = process.env.RAZORPAY_KEY_SECRET
 
-      // Sandbox Mock Fallback if Keys aren't configured in .env yet
-      if (!razorpay) {
+      // Sandbox Mock Fallback (Agar keys set nahi hain toh UI crash nahi hoga)
+      if (!key_id || !key_secret) {
         return NextResponse.json({
           success: true,
           orderId: `order_mock_${Date.now()}`,
@@ -42,14 +31,28 @@ export async function POST(req) {
         })
       }
 
-      const options = {
-        amount: Math.round(Number(amount) * 100), // Amount in paise
-        currency: 'INR',
-        receipt: `rcpt_${deliveryId.slice(0, 10)}_${Date.now().toString().slice(-6)}`,
-        notes: { deliveryId }
+      const authHeader = Buffer.from(`${key_id}:${key_secret}`).toString('base64')
+      
+      const rzpRes = await fetch('https://api.razorpay.com/v1/orders', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${authHeader}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          amount: Math.round(Number(amount) * 100),
+          currency: 'INR',
+          receipt: `rcpt_${deliveryId.slice(0, 10)}`,
+          notes: { deliveryId }
+        })
+      })
+
+      const order = await rzpRes.json()
+
+      if (!rzpRes.ok) {
+        return NextResponse.json({ success: false, error: order.error?.description || 'Razorpay order failed' }, { status: 400 })
       }
 
-      const order = await razorpay.orders.create(options)
       return NextResponse.json({
         success: true,
         orderId: order.id,
@@ -59,9 +62,7 @@ export async function POST(req) {
       })
     }
 
-    // -------------------------------------------------------------
-    // ACTION 2: VERIFY PAYMENT SIGNATURE & UNLOCK FILES
-    // -------------------------------------------------------------
+    // 2. VERIFY PAYMENT SIGNATURE & UNLOCK FILES
     if (action === 'verify-payment') {
       const { deliveryId, razorpay_order_id, razorpay_payment_id, razorpay_signature, isMock } = body
 
@@ -69,29 +70,27 @@ export async function POST(req) {
         return NextResponse.json({ success: false, error: 'deliveryId is missing' }, { status: 400 })
       }
 
-      // If simulated sandbox mode
+      // Sandbox Verification
       if (isMock) {
         const docRef = doc(db, 'deliveries', deliveryId)
         await updateDoc(docRef, {
           status: 'Paid',
           paidAt: new Date().toISOString(),
-          paymentGatewayId: 'MOCK_TEST_PAID'
+          paymentGatewayId: 'MOCK_SANDBOX_SUCCESS'
         })
         return NextResponse.json({ success: true, verified: true, mode: 'sandbox' })
       }
 
-      // Live Cryptographic Verification
       const secret = process.env.RAZORPAY_KEY_SECRET || ''
-      const generatedSignature = crypto
+      const expectedSignature = crypto
         .createHmac('sha256', secret)
         .update(`${razorpay_order_id}|${razorpay_payment_id}`)
         .digest('hex')
 
-      if (generatedSignature !== razorpay_signature) {
-        return NextResponse.json({ success: false, error: 'Invalid payment signature' }, { status: 400 })
+      if (expectedSignature !== razorpay_signature) {
+        return NextResponse.json({ success: false, error: 'Invalid signature' }, { status: 400 })
       }
 
-      // Safe Server-Side status update
       const docRef = doc(db, 'deliveries', deliveryId)
       await updateDoc(docRef, {
         status: 'Paid',
@@ -102,9 +101,7 @@ export async function POST(req) {
       return NextResponse.json({ success: true, verified: true })
     }
 
-    // -------------------------------------------------------------
-    // ACTION 3: DISPATCH CLIENT HANDOVER EMAIL
-    // -------------------------------------------------------------
+    // 3. DISPATCH CLIENT HANDOVER EMAIL
     const { clientEmail, clientName, creatorName, projectTitle, amount, deliveryUrl, isReminder } = body
 
     if (!clientEmail) {
@@ -117,7 +114,7 @@ export async function POST(req) {
     if (!smtpUser || !smtpPass) {
       return NextResponse.json({
         success: true,
-        message: 'Mock dispatch success (Configure SMTP_USER & SMTP_PASS for inbox delivery)',
+        message: 'Mock email success (configure SMTP_USER/PASS for live dispatch)',
         deliveryUrl
       })
     }
@@ -129,32 +126,21 @@ export async function POST(req) {
 
     const subject = isReminder
       ? `Payment Reminder: ${projectTitle} Deliverables Awaiting Release`
-      : `Vault Sealed: ${projectTitle} Deliverables from ${creatorName || 'Your Creator'}`
+      : `Vault Ready: ${projectTitle} Deliverables from ${creatorName || 'Creator'}`
 
     const htmlContent = `
-      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 580px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden;">
-        <div style="background: #0f172a; padding: 28px; text-align: center; color: #ffffff;">
-          <h2 style="margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.5px;">PayDrop Vault</h2>
-          <p style="margin: 4px 0 0 0; font-size: 11px; opacity: 0.75; font-family: monospace;">PAYMENT-LOCKED ESCROW HANDOVER</p>
+      <div style="font-family: sans-serif; max-width: 580px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 24px;">
+        <h2 style="color: #0f172a; margin-top: 0;">PayDrop Vault</h2>
+        <p>Hello <strong>${clientName}</strong>,</p>
+        <p>${creatorName || 'Your creator'} has uploaded deliverables for <strong>${projectTitle}</strong>.</p>
+        <div style="background: #f8fafc; border-radius: 12px; padding: 16px; text-align: center; margin: 20px 0;">
+          <span style="font-size: 11px; color: #64748b;">TOTAL DUE</span>
+          <div style="font-size: 24px; font-weight: 800; color: #0f172a;">₹${Number(amount || 0).toLocaleString('en-IN')}</div>
         </div>
-        <div style="padding: 32px; color: #1e293b;">
-          <p style="font-size: 14px; margin-top: 0;">Hello <strong>${clientName}</strong>,</p>
-          <p style="font-size: 13px; line-height: 1.6; color: #475569;">
-            ${creatorName || 'The creator'} has uploaded the final deliverables for <strong>${projectTitle}</strong>. 
-            You can inspect watermarked drafts in your browser and automatically unlock master files upon payment clearance.
-          </p>
-          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 18px; margin: 24px 0; text-align: center;">
-            <span style="font-size: 11px; color: #64748b; text-transform: uppercase; font-family: monospace; font-weight: bold;">Settlement Due</span>
-            <div style="font-size: 28px; font-weight: 900; color: #0f172a; margin-top: 2px;">₹${Number(amount || 0).toLocaleString('en-IN')}</div>
-          </div>
-          <div style="text-align: center; margin: 28px 0;">
-            <a href="${deliveryUrl}" style="background: #2563eb; color: #ffffff; text-decoration: none; padding: 13px 32px; font-size: 13px; font-weight: bold; border-radius: 12px; display: inline-block;">
-              Inspect & Unlock Deliverables →
-            </a>
-          </div>
-          <p style="font-size: 11px; color: #94a3b8; text-align: center; margin-bottom: 0;">
-            Secured via PayDrop Escrow. Zero registration required for clients.
-          </p>
+        <div style="text-align: center;">
+          <a href="${deliveryUrl}" style="background: #2563eb; color: #ffffff; text-decoration: none; padding: 12px 28px; font-weight: bold; border-radius: 10px; display: inline-block;">
+            Inspect & Unlock Deliverables →
+          </a>
         </div>
       </div>
     `
@@ -166,9 +152,8 @@ export async function POST(req) {
       html: htmlContent
     })
 
-    return NextResponse.json({ success: true, message: 'Email dispatched successfully' })
+    return NextResponse.json({ success: true, message: 'Email dispatched' })
   } catch (error) {
-    console.error('API send-delivery error:', error)
     return NextResponse.json({ success: false, error: error.message }, { status: 500 })
   }
 }
