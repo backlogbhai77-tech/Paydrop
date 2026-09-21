@@ -9,14 +9,13 @@ import {
   UploadCloud, CheckCircle2, Lock, ArrowRight, ArrowLeft, 
   Copy, Check, Trash2, ExternalLink, FileArchive, Clock,
   AlertCircle, RefreshCw, X, MessageSquare, Send, Bell,
-  Menu, Search, Layers, FileText, Users, Sliders, Shield,
-  CreditCard, Sparkles, ChevronRight, Eye, CornerDownRight,
-  Fingerprint, KeyRound, CheckCheck
+  Menu, Search, Layers, FileText, ChevronRight, CheckCheck,
+  TrendingUp, IndianRupee
 } from 'lucide-react'
 import Link from 'next/link'
 
-const CLOUDINARY_CLOUD_NAME = "mrfujhf8"
-const CLOUDINARY_UPLOAD_PRESET = "releasedrop_vault"
+const CLOUDINARY_CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || "mrfujhf8"
+const CLOUDINARY_UPLOAD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_PRESET || "releasedrop_vault"
 
 function formatINR(amount) {
   const num = Number(amount)
@@ -28,17 +27,19 @@ function formatINR(amount) {
   }).format(num)
 }
 
-// Touch & Click Interactive Graph with Floating Tooltip
 function InteractiveSparkline({ title, amount, subtitle, data, color, badge, cardId, activePoint, onPointHover }) {
   const width = 280
   const height = 55
-  const maxVal = Math.max(...data.map(d => d.value), 1)
-  const minVal = Math.min(...data.map(d => d.value), 0)
+  const hasData = data.some(d => d.value > 0)
+  const maxVal = hasData ? Math.max(...data.map(d => d.value)) : 100
+  const minVal = 0
   const range = maxVal - minVal || 1
 
   const points = data.map((d, i) => {
     const x = (i / (data.length - 1)) * (width - 24) + 12
-    const y = height - ((d.value - minVal) / range) * (height - 20) - 10
+    const y = hasData 
+      ? height - ((d.value - minVal) / range) * (height - 20) - 10
+      : height - 15
     return { x, y, ...d }
   })
 
@@ -50,33 +51,32 @@ function InteractiveSparkline({ title, amount, subtitle, data, color, badge, car
   }, '')
 
   const fillD = `${pathD} L ${points[points.length - 1].x} ${height} L ${points[0].x} ${height} Z`
-  const strokeColor = color === 'emerald' ? '#059669' : color === 'amber' ? '#D97706' : '#2563EB'
+  const strokeColor = color === 'emerald' ? '#059669' : '#2563EB'
   const gradId = `spark-fill-${cardId}`
 
   return (
-    <div className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-sm relative overflow-hidden transition-all duration-200 hover:shadow-md">
+    <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.05)] relative overflow-hidden transition-all duration-200 hover:border-slate-300">
       <div className="flex justify-between items-start">
-        <span className="text-xs font-semibold text-slate-500">{title}</span>
+        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{title}</span>
         {badge && (
           <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold font-mono ${
-            color === 'emerald' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
-            color === 'amber' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
-            'bg-slate-100 text-slate-700'
+            color === 'emerald' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/80' :
+            'bg-blue-50 text-blue-700 border border-blue-200/80'
           }`}>
             {badge}
           </span>
         )}
       </div>
 
-      <div className="mt-1">
+      <div className="mt-2">
         <div className="text-2xl font-black text-slate-900 font-mono tracking-tight">{amount}</div>
         <p className="text-[11px] text-slate-400 mt-0.5">{subtitle}</p>
       </div>
 
-      <div className="relative mt-2">
+      <div className="relative mt-3">
         {activePoint && activePoint.cardId === cardId && (
           <div 
-            className="absolute z-20 px-2 py-1 bg-slate-900 text-white rounded-md text-[10px] font-mono shadow-xl -translate-x-1/2 -top-8 pointer-events-none transition-all duration-150 animate-in fade-in zoom-in-95"
+            className="absolute z-20 px-2 py-1 bg-slate-900 text-white rounded-md text-[10px] font-mono shadow-xl -translate-x-1/2 -top-8 pointer-events-none"
             style={{ left: `${activePoint.x}px` }}
           >
             {activePoint.label}: {activePoint.formatted || activePoint.value}
@@ -86,18 +86,18 @@ function InteractiveSparkline({ title, amount, subtitle, data, color, badge, car
         <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-12 overflow-visible">
           <defs>
             <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={strokeColor} stopOpacity="0.22" />
+              <stop offset="0%" stopColor={strokeColor} stopOpacity="0.18" />
               <stop offset="100%" stopColor={strokeColor} stopOpacity="0.0" />
             </linearGradient>
           </defs>
           <path d={fillD} fill={`url(#${gradId})`} />
-          <path d={pathD} fill="none" stroke={strokeColor} strokeWidth="2.5" strokeLinecap="round" />
-          {points.map((p, i) => (
+          <path d={pathD} fill="none" stroke={hasData ? strokeColor : '#CBD5E1'} strokeWidth="2" strokeDasharray={hasData ? 'none' : '4 4'} strokeLinecap="round" />
+          {hasData && points.map((p, i) => (
             <circle
               key={i}
               cx={p.x}
               cy={p.y}
-              r={activePoint?.cardId === cardId && activePoint?.index === i ? "5" : "3"}
+              r={activePoint?.cardId === cardId && activePoint?.index === i ? "4.5" : "3"}
               className="cursor-pointer transition-all duration-150"
               fill={activePoint?.cardId === cardId && activePoint?.index === i ? strokeColor : "#FFFFFF"}
               stroke={strokeColor}
@@ -105,7 +105,6 @@ function InteractiveSparkline({ title, amount, subtitle, data, color, badge, car
               onMouseEnter={() => onPointHover({ ...p, cardId, index: i })}
               onMouseLeave={() => onPointHover(null)}
               onClick={() => onPointHover({ ...p, cardId, index: i })}
-              onTouchStart={() => onPointHover({ ...p, cardId, index: i })}
             />
           ))}
         </svg>
@@ -121,34 +120,29 @@ export default function Dashboard() {
   const [filterStatus, setFilterStatus] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
   
-  // Views: 'overview' | 'inbox' | 'create' | 'chat-thread'
   const [currentView, setCurrentView] = useState('overview')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [copiedId, setCopiedId] = useState(null)
   const [toast, setToast] = useState(null)
   const [activeChartPoint, setActiveChartPoint] = useState(null)
 
-  // 4-Step Creation Wizard
   const [wizardStep, setWizardStep] = useState(1)
   const [creating, setCreating] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
 
-  // Form Fields
   const [title, setTitle] = useState('')
   const [clientName, setClientName] = useState('')
   const [clientEmail, setClientEmail] = useState('')
   const [clientMessage, setClientMessage] = useState('')
   const [amount, setAmount] = useState('')
   const [expirySelection, setExpirySelection] = useState('7')
-  const [watermarkText, setWatermarkText] = useState('RELEASEDROP • PROTECTED PREVIEW')
+  const [watermarkText, setWatermarkText] = useState('PAYDROP • PREVIEW COPY')
   
-  // Multi-File Upload Queue & Deployment Stages
   const [fileList, setFileList] = useState([])
   const [uploadProgress, setUploadProgress] = useState(0)
   const [uploading, setUploading] = useState(false)
-  const [deployStage, setDeployStage] = useState(1) // 1: SHA-256 Encrypt, 2: Watermark embed, 3: Seal Vault
+  const [deployStepIndex, setDeployStepIndex] = useState(0)
 
-  // Client Chat / Thread State
   const [activeThreadDelivery, setActiveThreadDelivery] = useState(null)
   const [threadReplyText, setThreadReplyText] = useState('')
 
@@ -178,17 +172,6 @@ export default function Dashboard() {
       if (unsubFirestore) unsubFirestore()
     }
   }, [])
-
-  // Dynamic deployment sequence stages
-  useEffect(() => {
-    if (!uploading) return
-    const stage1 = setTimeout(() => setDeployStage(2), 1200)
-    const stage2 = setTimeout(() => setDeployStage(3), 2600)
-    return () => {
-      clearTimeout(stage1)
-      clearTimeout(stage2)
-    }
-  }, [uploading])
 
   const handleGoogleLogin = async () => {
     try {
@@ -227,17 +210,25 @@ export default function Dashboard() {
         try {
           const res = JSON.parse(xhr.responseText)
           if (xhr.status === 200 && (res.secure_url || res.url)) {
+            const rawUrl = res.secure_url || res.url
+            
+            // Build Cloudinary burned-in watermark URL for secure in-browser previews
+            const previewUrl = file.type.startsWith('image/')
+              ? rawUrl.replace('/upload/', `/upload/l_text:Arial_24_bold:${encodeURIComponent(watermarkText)},o_35,a_-30/`)
+              : rawUrl
+
             resolve({
               name: file.name,
               size: (file.size / (1024 * 1024)).toFixed(2) + " MB",
               type: file.type || 'application/octet-stream',
-              url: res.secure_url || res.url
+              rawUrl: rawUrl,
+              previewUrl: previewUrl
             })
           } else {
             reject(new Error(res?.error?.message || "Storage error"))
           }
         } catch {
-          reject(new Error("Upload parse error"))
+          reject(new Error("Upload parsing error"))
         }
       }
       xhr.onerror = () => reject(new Error("Network connection interrupted"))
@@ -247,21 +238,23 @@ export default function Dashboard() {
 
   const handleDeployVault = async () => {
     if (!title || !amount || !fileList.length || !user) {
-      showToast("Please complete Title, Amount, and upload files", "error")
+      showToast("Please provide Deliverable Title, Due Amount, and Assets", "error")
       return
     }
 
     setCreating(true)
     setUploading(true)
-    setDeployStage(1)
+    setDeployStepIndex(1)
 
     try {
       const manifest = []
       for (let i = 0; i < fileList.length; i++) {
-        setUploadProgress(Math.round((i / fileList.length) * 100))
+        setUploadProgress(Math.round(((i) / fileList.length) * 100))
         const res = await uploadFileToCloudinary(fileList[i])
         manifest.push(res)
       }
+      
+      setDeployStepIndex(2)
       setUploadProgress(100)
 
       const numAmount = Number(amount) || 0
@@ -280,17 +273,16 @@ export default function Dashboard() {
         grossAmount: numAmount,
         platformFee,
         creatorPayout,
-        watermarkText: watermarkText || 'RELEASEDROP • PROTECTED PREVIEW',
+        watermarkText: watermarkText || 'PAYDROP • PREVIEW COPY',
         status: 'Awaiting Payment',
         files: manifest,
-        primaryPreviewUrl: manifest[0]?.url,
         expiresAt: expiresAt.toISOString(),
         viewCount: 0,
         messages: [],
         createdAt: serverTimestamp()
       })
 
-      showToast("Escrow Vault Sealed & Delivery Link Deployed!", "success")
+      showToast("Delivery Vault created and live!", "success")
       setTitle('')
       setClientName('')
       setClientEmail('')
@@ -300,18 +292,19 @@ export default function Dashboard() {
       setWizardStep(1)
       setCurrentView('overview')
     } catch (err) {
-      showToast(err.message || "Failed to seal vault", "error")
+      showToast(err.message || "Failed to create vault", "error")
     } finally {
       setCreating(false)
       setUploading(false)
+      setDeployStepIndex(0)
     }
   }
 
   const handleDelete = async (id) => {
-    if (!confirm("Permanently delete this delivery? Client access will be terminated.")) return
+    if (!confirm("Permanently delete this deliverable? Client access will stop immediately.")) return
     try {
       await deleteDoc(doc(db, 'deliveries', id))
-      showToast("Delivery revoked", "success")
+      showToast("Vault deleted", "success")
     } catch {
       showToast("Failed to delete", "error")
     }
@@ -319,21 +312,21 @@ export default function Dashboard() {
 
   const handleDeleteAll = async () => {
     if (!deliveries.length) return
-    if (!confirm(`Permanently delete all ${deliveries.length} deliveries?`)) return
+    if (!confirm(`Permanently remove all ${deliveries.length} deliverables?`)) return
     try {
       const batch = writeBatch(db)
       deliveries.forEach(d => batch.delete(doc(db, 'deliveries', d.id)))
       await batch.commit()
-      showToast("All deliveries cleared", "success")
+      showToast("All vaults deleted", "success")
     } catch {
-      showToast("Purge failed", "error")
+      showToast("Batch action failed", "error")
     }
   }
 
   const copyLink = (id) => {
     navigator.clipboard.writeText(`${window.location.origin}/d/${id}`)
     setCopiedId(id)
-    showToast("Portal link copied!", "success")
+    showToast("Client link copied!", "success")
     setTimeout(() => setCopiedId(null), 2500)
   }
 
@@ -345,9 +338,9 @@ export default function Dashboard() {
       const updated = [...existing, { sender: 'creator', text: threadReplyText.trim(), time: new Date().toISOString() }]
       await updateDoc(doc(db, 'deliveries', deliveryId), { messages: updated })
       setThreadReplyText('')
-      showToast("Reply sent to client thread", "success")
+      showToast("Reply sent", "success")
     } catch {
-      showToast("Failed to send", "error")
+      showToast("Failed to send note", "error")
     }
   }
 
@@ -355,7 +348,6 @@ export default function Dashboard() {
   const pendingDeliveries = deliveries.filter(d => d.status === 'Awaiting Payment')
   const totalRevenue = paidDeliveries.reduce((acc, c) => acc + (Number(c.creatorPayout) || Number(c.grossAmount) || 0), 0)
   const pendingAmount = pendingDeliveries.reduce((acc, c) => acc + (Number(c.creatorPayout) || Number(c.grossAmount) || 0), 0)
-
   const activeRevisionsCount = deliveries.filter(d => d.messages && d.messages.length > 0 && d.status !== 'Paid').length
 
   const filteredDeliveries = deliveries.filter(d => {
@@ -364,40 +356,39 @@ export default function Dashboard() {
     return matchesFilter && matchesSearch
   })
 
-  // Sparkline Trends Data
   const pendingTrendData = [
-    { label: 'Mon', value: Math.round(pendingAmount * 0.4), formatted: formatINR(pendingAmount * 0.4) },
-    { label: 'Tue', value: Math.round(pendingAmount * 0.7), formatted: formatINR(pendingAmount * 0.7) },
-    { label: 'Wed', value: Math.round(pendingAmount * 0.5), formatted: formatINR(pendingAmount * 0.5) },
-    { label: 'Thu', value: Math.round(pendingAmount * 0.85), formatted: formatINR(pendingAmount * 0.85) },
+    { label: 'Mon', value: pendingAmount > 0 ? Math.round(pendingAmount * 0.4) : 0 },
+    { label: 'Tue', value: pendingAmount > 0 ? Math.round(pendingAmount * 0.7) : 0 },
+    { label: 'Wed', value: pendingAmount > 0 ? Math.round(pendingAmount * 0.5) : 0 },
+    { label: 'Thu', value: pendingAmount > 0 ? Math.round(pendingAmount * 0.85) : 0 },
     { label: 'Today', value: pendingAmount, formatted: formatINR(pendingAmount) }
   ]
 
   const clearedTrendData = [
-    { label: 'Mon', value: Math.round(totalRevenue * 0.2), formatted: formatINR(totalRevenue * 0.2) },
-    { label: 'Tue', value: Math.round(totalRevenue * 0.35), formatted: formatINR(totalRevenue * 0.35) },
-    { label: 'Wed', value: Math.round(totalRevenue * 0.6), formatted: formatINR(totalRevenue * 0.6) },
-    { label: 'Thu', value: Math.round(totalRevenue * 0.75), formatted: formatINR(totalRevenue * 0.75) },
+    { label: 'Mon', value: totalRevenue > 0 ? Math.round(totalRevenue * 0.2) : 0 },
+    { label: 'Tue', value: totalRevenue > 0 ? Math.round(totalRevenue * 0.35) : 0 },
+    { label: 'Wed', value: totalRevenue > 0 ? Math.round(totalRevenue * 0.6) : 0 },
+    { label: 'Thu', value: totalRevenue > 0 ? Math.round(totalRevenue * 0.75) : 0 },
     { label: 'Today', value: totalRevenue, formatted: formatINR(totalRevenue) }
   ]
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center text-xs text-slate-500 gap-2 font-mono">
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center text-xs text-slate-500 gap-3 font-mono">
         <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-        <span>AUTHENTICATING WORKSPACE...</span>
+        <span>LOADING WORKSPACE...</span>
       </div>
     )
   }
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center p-6 text-center antialiased">
-        <div className="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center text-white font-bold text-xl mb-4 shadow-sm">
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center antialiased">
+        <div className="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center text-white mb-4 shadow-sm">
           <Zap className="w-6 h-6 fill-white" />
         </div>
-        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">ReleaseDrop Workspace</h1>
-        <p className="text-slate-500 text-xs mt-1 max-w-sm">Payment-locked deliverables for creative professionals.</p>
+        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">PayDrop Studio</h1>
+        <p className="text-slate-500 text-xs mt-1 max-w-xs">Payment-locked delivery portal for freelance creators.</p>
         <button onClick={handleGoogleLogin} className="mt-6 px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs rounded-xl shadow-sm transition">
           Sign In with Google
         </button>
@@ -406,9 +397,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans flex antialiased pb-24 lg:pb-0 relative selection:bg-blue-600 selection:text-white">
-      
-      {/* Toast Notification */}
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans flex antialiased pb-28 lg:pb-0 relative selection:bg-blue-600 selection:text-white">
       {toast && (
         <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top duration-200">
           <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl shadow-xl bg-slate-900 text-white text-xs font-semibold border border-slate-800">
@@ -418,19 +407,19 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* PRO ENTERPRISE SIDEBAR (Desktop) */}
+      {/* DESKTOP SIDEBAR */}
       <aside className="hidden lg:flex w-64 bg-white border-r border-slate-200/90 flex-col justify-between p-4 sticky top-0 h-screen z-30 select-none">
         <div className="space-y-4">
           <div className="flex items-center gap-2.5 px-2 py-1">
-            <div className="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center text-white font-bold shadow-xs">
+            <div className="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-xs">
               <Zap className="w-4 h-4 fill-white" />
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="font-black text-sm tracking-tight text-slate-900 uppercase">ReleaseDrop</span>
-                <span className="px-1.5 py-0.2 rounded bg-blue-600 text-white text-[9px] font-bold">PRO</span>
+                <span className="font-black text-sm tracking-tight text-slate-900 uppercase">PayDrop</span>
+                <span className="px-1.5 py-0.2 rounded bg-blue-50 text-blue-700 border border-blue-200 text-[9px] font-bold">STUDIO</span>
               </div>
-              <span className="text-[10px] text-slate-400 font-medium">Studio Workspace</span>
+              <span className="text-[10px] text-slate-400 font-medium">Creative Handover</span>
             </div>
           </div>
 
@@ -443,18 +432,18 @@ export default function Dashboard() {
           </button>
 
           <div className="relative">
-            <Search className="w-3 h-3 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Quick search... [⌘K]"
+              placeholder="Search deliverables..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-[11px] text-slate-800 focus:outline-none focus:border-blue-600"
+              className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:border-blue-600 placeholder:text-slate-400"
             />
           </div>
 
           <div className="space-y-0.5 pt-1">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 block mb-1">Workspace</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 block mb-1">Manage</span>
             
             <button
               onClick={() => { setCurrentView('overview'); setWizardStep(1); }}
@@ -464,9 +453,9 @@ export default function Dashboard() {
             >
               <div className="flex items-center gap-2.5">
                 <Layers className="w-4 h-4" />
-                <span>Deliveries & Proofs</span>
+                <span>Deliveries</span>
               </div>
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-mono ${currentView === 'overview' ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-500'}`}>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-mono ${currentView === 'overview' ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
                 {deliveries.length}
               </span>
             </button>
@@ -479,7 +468,7 @@ export default function Dashboard() {
             >
               <div className="flex items-center gap-2.5">
                 <MessageSquare className="w-4 h-4" />
-                <span>Revisions & Inbox</span>
+                <span>Revisions Inbox</span>
               </div>
               {activeRevisionsCount > 0 && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500 text-white font-bold">
@@ -491,9 +480,9 @@ export default function Dashboard() {
         </div>
 
         <div className="space-y-3 pt-3 border-t border-slate-100">
-          <div className="p-3 bg-emerald-50/70 border border-emerald-200/80 rounded-xl space-y-1">
-            <span className="text-[10px] font-bold text-emerald-800 uppercase flex items-center gap-1 font-mono">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Escrow Protected
+          <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-1">
+            <span className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1.5 font-mono">
+              <span className="w-2 h-2 rounded-full bg-amber-500" /> Pending Payouts
             </span>
             <div className="text-sm font-black text-slate-900 font-mono">{formatINR(pendingAmount)}</div>
           </div>
@@ -501,87 +490,84 @@ export default function Dashboard() {
           <div className="pt-1 flex items-center justify-between">
             <div className="flex items-center gap-2 min-w-0">
               <div className="w-7 h-7 rounded-full bg-slate-900 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
-                {user.displayName ? user.displayName.slice(0, 2).toUpperCase() : 'RD'}
+                {user.displayName ? user.displayName.slice(0, 2).toUpperCase() : 'PD'}
               </div>
               <div className="truncate">
                 <div className="text-xs font-bold text-slate-900 truncate">{user.displayName || user.email?.split('@')[0]}</div>
-                <div className="text-[10px] text-emerald-600 font-medium">Verified Pro Creator ✓</div>
+                <div className="text-[10px] text-slate-400 truncate">{user.email}</div>
               </div>
             </div>
-            <button onClick={() => signOut(auth)} className="text-slate-400 hover:text-rose-600 text-xs p-1" title="Log Out">✕</button>
+            <button onClick={() => signOut(auth)} className="text-slate-400 hover:text-rose-600 text-xs p-1" title="Sign Out">✕</button>
           </div>
         </div>
       </aside>
 
-      {/* Main Canvas Frame */}
+      {/* MAIN VIEW */}
       <div className="flex-1 flex flex-col min-w-0">
-        
-        {/* Navbar */}
         <header className="h-14 bg-white border-b border-slate-200/80 sticky top-0 z-20 px-4 sm:px-8 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button onClick={() => setMobileMenuOpen(true)} className="lg:hidden p-1.5 text-slate-600 hover:bg-slate-100 rounded-lg">
               <Menu className="w-5 h-5" />
             </button>
             <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
-              <span>Studio Workspace</span>
+              <span>Studio</span>
               <span>/</span>
               <span className="text-slate-900 font-bold capitalize">{currentView.replace('-', ' ')}</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5">
-            <button
-              onClick={() => { setCurrentView('create'); setWizardStep(1); }}
-              className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-xs transition active:scale-95 flex items-center gap-1.5"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>New Drop</span>
-            </button>
-          </div>
+          <button
+            onClick={() => { setCurrentView('create'); setWizardStep(1); }}
+            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-xs transition active:scale-95 flex items-center gap-1.5"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>New Drop</span>
+          </button>
         </header>
 
-        {/* Views */}
         <main className="flex-1 max-w-5xl w-full mx-auto p-4 sm:p-8 space-y-6">
 
-          {/* SCREEN 1: OVERVIEW */}
+          {/* VIEW: OVERVIEW */}
           {currentView === 'overview' && (
             <div className="space-y-6 animate-in fade-in duration-200">
-              <div>
-                <h1 className="text-xl font-bold text-slate-900 tracking-tight">Deliveries & Proofs</h1>
-                <p className="text-xs text-slate-500 mt-0.5">Real-time payment-locked handoff vaults.</p>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h1 className="text-xl font-bold text-slate-900 tracking-tight">Active Deliverables</h1>
+                  <p className="text-xs text-slate-500 mt-0.5">Manage payment-locked client packages.</p>
+                </div>
               </div>
 
-              {/* Touch-Interactive Graphs */}
+              {/* Sparkline Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <InteractiveSparkline
                   cardId="pending"
-                  title="Pending Escrow Payouts"
+                  title="Awaiting Settlement"
                   amount={formatINR(pendingAmount)}
-                  subtitle="Tap dots to inspect daily breakdown"
+                  subtitle="Pending client approval and payment"
                   data={pendingTrendData}
                   color="blue"
-                  badge="In Escrow"
+                  badge="Pending"
                   activePoint={activeChartPoint}
                   onPointHover={setActiveChartPoint}
                 />
                 <InteractiveSparkline
                   cardId="cleared"
-                  title="Verified Cleared Earnings"
+                  title="Settled Earnings"
                   amount={formatINR(totalRevenue)}
-                  subtitle="Released to bank accounts"
+                  subtitle="Completed project payments"
                   data={clearedTrendData}
                   color="emerald"
-                  badge="Settled"
+                  badge="Cleared"
                   activePoint={activeChartPoint}
                   onPointHover={setActiveChartPoint}
                 />
               </div>
 
-              {/* Deliveries Manifest Table */}
+              {/* Table List */}
               <div className="bg-white border border-slate-200/90 rounded-2xl shadow-xs overflow-hidden">
                 <div className="p-4 border-b border-slate-100 flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider font-mono">Deliveries ({deliveries.length})</h3>
+                    <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider font-mono">Vaults ({deliveries.length})</h3>
                     {deliveries.length > 0 && (
                       <button onClick={handleDeleteAll} className="text-xs text-rose-600 hover:underline font-semibold">
                         Delete All
@@ -605,7 +591,9 @@ export default function Dashboard() {
                 </div>
 
                 {filteredDeliveries.length === 0 ? (
-                  <div className="py-12 text-center text-xs text-slate-400">No deliveries found.</div>
+                  <div className="py-16 text-center text-xs text-slate-400">
+                    No deliverables found. Tap "New Drop" to lock your first project.
+                  </div>
                 ) : (
                   <div className="divide-y divide-slate-100">
                     {filteredDeliveries.map(item => (
@@ -617,7 +605,7 @@ export default function Dashboard() {
                           <div className="min-w-0">
                             <h4 className="text-xs font-bold text-slate-900 truncate">{item.title}</h4>
                             <p className="text-[11px] text-slate-500 mt-0.5">
-                              Client: <span className="text-slate-700 font-medium">{item.clientName}</span> • {item.files?.length || 1} file(s)
+                              Client: <span className="text-slate-700 font-medium">{item.clientName}</span> • {item.files?.length || 1} asset(s)
                             </p>
                           </div>
                         </div>
@@ -627,8 +615,8 @@ export default function Dashboard() {
                             {formatINR(item.grossAmount)}
                           </span>
 
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                            item.status === 'Paid' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                            item.status === 'Paid' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'
                           }`}>
                             {item.status === 'Paid' ? 'Paid' : 'Pending'}
                           </span>
@@ -638,9 +626,9 @@ export default function Dashboard() {
                               onClick={() => copyLink(item.id)}
                               className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold rounded-lg transition"
                             >
-                              {copiedId === item.id ? 'Copied' : 'Copy'}
+                              {copiedId === item.id ? 'Copied' : 'Copy Link'}
                             </button>
-                            <Link href={`/d/${item.id}`} target="_blank" className="p-1.5 text-slate-500 hover:text-slate-900 rounded-lg">
+                            <Link href={`/d/${item.id}`} target="_blank" className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg">
                               <ExternalLink className="w-3.5 h-3.5" />
                             </Link>
                             <button onClick={() => handleDelete(item.id)} className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg">
@@ -656,18 +644,18 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* SCREEN 2: DEDICATED CLIENT INBOX & REVISIONS */}
+          {/* VIEW: REVISIONS INBOX */}
           {currentView === 'inbox' && (
             <div className="space-y-5 animate-in fade-in duration-200">
               <div>
-                <h1 className="text-xl font-bold text-slate-900 tracking-tight">Client Inbox & Revisions</h1>
-                <p className="text-xs text-slate-500 mt-0.5">Real-time delivery communication and revision requests.</p>
+                <h1 className="text-xl font-bold text-slate-900 tracking-tight">Client Revisions</h1>
+                <p className="text-xs text-slate-500 mt-0.5">Pre-payment inquiries and client adjustment notes.</p>
               </div>
 
               <div className="space-y-3">
                 {deliveries.length === 0 ? (
                   <div className="p-12 text-center text-xs text-slate-400 bg-white rounded-2xl border border-slate-200">
-                    No client conversations found.
+                    No client feedback conversations yet.
                   </div>
                 ) : (
                   deliveries.map(d => {
@@ -685,53 +673,44 @@ export default function Dashboard() {
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                           <div className="flex items-start gap-3.5">
                             <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
-                              isRevisionActive ? 'bg-amber-50 text-amber-600 border border-amber-200' : 'bg-blue-50 text-blue-600'
+                              isRevisionActive ? 'bg-amber-50 text-amber-600 border border-amber-200' : 'bg-slate-100 text-slate-600'
                             }`}>
-                              {isRevisionActive ? <AlertCircle className="w-4 h-4" /> : <MessageSquare className="w-4 h-4" />}
+                              <MessageSquare className="w-4 h-4" />
                             </div>
 
                             <div className="space-y-1">
                               <div className="flex items-center gap-2">
                                 <span className="font-bold text-xs text-slate-900">{d.clientName}</span>
                                 <span className="text-slate-300">•</span>
-                                <span className="text-xs text-slate-500 font-medium">{d.title}</span>
+                                <span className="text-xs text-slate-500">{d.title}</span>
                               </div>
 
                               <p className="text-xs text-slate-600 leading-snug">
                                 <strong className="text-slate-800 font-semibold">{lastMsg ? `${lastMsg.sender === 'creator' ? 'You' : d.clientName}: ` : 'Status: '}</strong>
-                                {lastMsg ? lastMsg.text : (d.status === 'Paid' ? 'Payment cleared. Files unlocked.' : 'Vault awaiting client clearance.')}
+                                {lastMsg ? lastMsg.text : (d.status === 'Paid' ? 'Settlement received. Master files unlocked.' : 'Vault sent. Awaiting feedback.')}
                               </p>
 
-                              <div className="flex items-center gap-3 text-[11px] text-slate-400 pt-1">
+                              <div className="flex items-center gap-3 text-[11px] text-slate-400 pt-1 font-mono">
                                 <span>{lastMsg ? new Date(lastMsg.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recently'}</span>
                                 <span>•</span>
-                                <span className="font-mono font-bold text-slate-700">{formatINR(d.grossAmount)}</span>
+                                <span className="font-bold text-slate-700">{formatINR(d.grossAmount)}</span>
                                 {isRevisionActive && (
                                   <span className="px-2 py-0.2 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold">
-                                    Revision Requested
+                                    Change Requested
                                   </span>
                                 )}
                               </div>
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2 sm:self-center">
+                          <div className="flex items-center gap-2">
                             <button
                               onClick={() => { setActiveThreadDelivery(d); setCurrentView('chat-thread'); }}
-                              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-xs transition flex items-center gap-1.5"
+                              className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5"
                             >
                               <MessageSquare className="w-3.5 h-3.5" />
                               <span>Open Thread</span>
                             </button>
-
-                            <Link
-                              href={`/d/${d.id}`}
-                              target="_blank"
-                              className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition"
-                              title="Inspect Client Portal"
-                            >
-                              <ExternalLink className="w-4 h-4" />
-                            </Link>
                           </div>
                         </div>
                       </div>
@@ -742,9 +721,9 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* SCREEN 3: CHAT THREAD */}
+          {/* VIEW: CHAT THREAD */}
           {currentView === 'chat-thread' && activeThreadDelivery && (
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4 animate-in fade-in duration-200">
+            <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-4 animate-in fade-in duration-200">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-3">
                   <button onClick={() => setCurrentView('inbox')} className="text-xs text-slate-400 hover:text-slate-700 font-bold">
@@ -762,17 +741,17 @@ export default function Dashboard() {
                 </Link>
               </div>
 
-              <div className="h-80 overflow-y-auto p-4 bg-[#F8FAFC] rounded-xl space-y-3">
+              <div className="h-80 overflow-y-auto p-4 bg-slate-50 rounded-xl space-y-3">
                 {(activeThreadDelivery.messages || []).length === 0 ? (
                   <div className="h-full flex items-center justify-center text-xs text-slate-400">
-                    No client revision notes yet. Write a message below.
+                    No messages yet. Send a note to the client.
                   </div>
                 ) : (
                   activeThreadDelivery.messages.map((m, idx) => {
                     const isCreator = m.sender === 'creator'
                     return (
                       <div key={idx} className={`flex flex-col ${isCreator ? 'items-end' : 'items-start'}`}>
-                        <div className={`p-3 rounded-2xl text-xs max-w-sm shadow-xs ${
+                        <div className={`p-3 rounded-2xl text-xs max-w-sm ${
                           isCreator ? 'bg-blue-600 text-white rounded-br-xs' : 'bg-white border border-slate-200 text-slate-800 rounded-bl-xs'
                         }`}>
                           <p className="leading-relaxed">{m.text}</p>
@@ -787,7 +766,7 @@ export default function Dashboard() {
               <div className="flex gap-2">
                 <input
                   type="text"
-                  placeholder="Type official reply to client..."
+                  placeholder="Type revision reply..."
                   value={threadReplyText}
                   onChange={e => setThreadReplyText(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleSendThreadReply(activeThreadDelivery.id)}
@@ -803,19 +782,19 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* SCREEN 4: 4-STEP WIZARD WITH SMOOTH SLIDE-IN TRANSITIONS */}
+          {/* VIEW: 4-STEP WIZARD */}
           {currentView === 'create' && (
             <div className="max-w-xl mx-auto space-y-5 animate-in fade-in duration-200">
               <div className="flex justify-between items-center">
                 <div>
-                  <h2 className="text-lg font-bold text-slate-900 tracking-tight">Deploy Escrow Vault</h2>
-                  <p className="text-xs text-slate-500">Lock master deliverables behind payment clearance.</p>
+                  <h2 className="text-lg font-bold text-slate-900 tracking-tight">Deploy Delivery Vault</h2>
+                  <p className="text-xs text-slate-500">Attach deliverables, set price, and seal client preview.</p>
                 </div>
-                <button onClick={() => setCurrentView('overview')} className="text-xs font-semibold text-slate-400">Cancel</button>
+                <button onClick={() => setCurrentView('overview')} className="text-xs font-semibold text-slate-400 hover:text-slate-700">Cancel</button>
               </div>
 
-              {/* Stepper Pill Indicator */}
-              <div className="bg-white border border-slate-200 rounded-xl p-3 flex items-center justify-between text-xs font-semibold shadow-xs">
+              {/* Step indicator */}
+              <div className="bg-white border border-slate-200/90 rounded-xl p-3 flex items-center justify-between text-xs font-semibold shadow-xs">
                 <span className={wizardStep === 1 ? 'text-blue-600 font-bold' : 'text-slate-400'}>1. Assets</span>
                 <span className="text-slate-300">→</span>
                 <span className={wizardStep === 2 ? 'text-blue-600 font-bold' : 'text-slate-400'}>2. Details</span>
@@ -825,20 +804,20 @@ export default function Dashboard() {
                 <span className={wizardStep === 4 ? 'text-blue-600 font-bold' : 'text-slate-400'}>4. Deploy</span>
               </div>
 
-              {/* STEP 1: ASSETS (Slide Animation) */}
+              {/* STEP 1 */}
               {wizardStep === 1 && (
-                <div className="p-6 bg-white border border-slate-200 rounded-2xl space-y-4 shadow-xs animate-in fade-in slide-in-from-right-4 duration-300">
+                <div className="p-6 bg-white border border-slate-200/90 rounded-2xl space-y-4 shadow-xs">
                   <div
                     onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
                     onDragLeave={() => setIsDragging(false)}
                     onDrop={(e) => { e.preventDefault(); setIsDragging(false); handleFilesAdd(e.dataTransfer.files); }}
                     className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all ${
-                      isDragging ? 'border-blue-600 bg-blue-50/50 scale-[1.01]' : 'border-slate-200 bg-slate-50/50 hover:border-blue-500'
+                      isDragging ? 'border-blue-600 bg-blue-50/50' : 'border-slate-200 bg-slate-50/50 hover:border-blue-500'
                     }`}
                   >
                     <UploadCloud className="w-10 h-10 text-blue-600 mx-auto mb-2" />
-                    <span className="text-sm font-bold text-slate-900 block">Select Master Production Deliverables</span>
-                    <span className="text-xs text-slate-400 mt-0.5 block">MP4, MOV, PNG, JPG, PDF, ZIP (Max 250MB)</span>
+                    <span className="text-sm font-bold text-slate-900 block">Select Project Deliverables</span>
+                    <span className="text-xs text-slate-400 mt-0.5 block">MP4, MOV, PNG, JPG, PDF, ZIP</span>
                     <label className="mt-4 inline-block px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl cursor-pointer shadow-xs transition">
                       Browse Files
                       <input type="file" multiple onChange={e => handleFilesAdd(e.target.files)} className="hidden" />
@@ -866,14 +845,14 @@ export default function Dashboard() {
                 </div>
               )}
 
-              {/* STEP 2: DETAILS (Slide Animation) */}
+              {/* STEP 2 */}
               {wizardStep === 2 && (
-                <div className="p-6 bg-white border border-slate-200 rounded-2xl space-y-4 shadow-xs animate-in fade-in slide-in-from-right-4 duration-300">
+                <div className="p-6 bg-white border border-slate-200/90 rounded-2xl space-y-4 shadow-xs">
                   <div>
                     <label className="text-xs font-bold text-slate-700 block mb-1">Deliverable Title *</label>
                     <input
                       type="text"
-                      placeholder="e.g. 4K Commercial Brand Edit"
+                      placeholder="e.g. YouTube Video Edit (v1.0)"
                       value={title}
                       onChange={e => setTitle(e.target.value)}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-blue-600"
@@ -885,7 +864,7 @@ export default function Dashboard() {
                       <label className="text-xs font-bold text-slate-700 block mb-1">Client Name *</label>
                       <input
                         type="text"
-                        placeholder="e.g. Apex Media"
+                        placeholder="e.g. Tech Vision Co."
                         value={clientName}
                         onChange={e => setClientName(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-blue-600"
@@ -895,7 +874,7 @@ export default function Dashboard() {
                       <label className="text-xs font-bold text-slate-700 block mb-1">Settlement Due (₹ INR) *</label>
                       <input
                         type="number"
-                        placeholder="12000"
+                        placeholder="5000"
                         value={amount}
                         onChange={e => setAmount(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold text-slate-900 focus:outline-none focus:border-blue-600"
@@ -904,10 +883,10 @@ export default function Dashboard() {
                   </div>
 
                   <div>
-                    <label className="text-xs font-bold text-slate-700 block mb-1">Handover Note to Client</label>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">Handover Message for Client</label>
                     <textarea
                       rows={2}
-                      placeholder="e.g. Approved master cut. Uncompressed raw files unseal post-settlement."
+                      placeholder="e.g. Final production cut. Full uncompressed assets unlock post-payment."
                       value={clientMessage}
                       onChange={e => setClientMessage(e.target.value)}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-blue-600"
@@ -921,17 +900,17 @@ export default function Dashboard() {
                       onClick={() => setWizardStep(3)}
                       className="w-2/3 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-xs transition"
                     >
-                      Next: Watermark & Expiry →
+                      Next: Watermark Settings →
                     </button>
                   </div>
                 </div>
               )}
 
-              {/* STEP 3: WATERMARK (Slide Animation) */}
+              {/* STEP 3 */}
               {wizardStep === 3 && (
-                <div className="p-6 bg-white border border-slate-200 rounded-2xl space-y-4 shadow-xs animate-in fade-in slide-in-from-right-4 duration-300">
+                <div className="p-6 bg-white border border-slate-200/90 rounded-2xl space-y-4 shadow-xs">
                   <div>
-                    <label className="text-xs font-bold text-slate-700 block mb-1">Anti-Scrape Watermark Text</label>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">Watermark Overlay Text</label>
                     <input
                       type="text"
                       value={watermarkText}
@@ -941,7 +920,7 @@ export default function Dashboard() {
                   </div>
 
                   <div>
-                    <label className="text-xs font-bold text-slate-700 block mb-1">Vault Link Expiration</label>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">Link Expiry</label>
                     <div className="grid grid-cols-4 gap-2 text-xs font-semibold">
                       {['7', '14', '30', 'never'].map(opt => (
                         <button
@@ -964,17 +943,15 @@ export default function Dashboard() {
                       onClick={() => setWizardStep(4)}
                       className="w-2/3 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-xs transition"
                     >
-                      Review & Deploy Vault →
+                      Review & Deploy →
                     </button>
                   </div>
                 </div>
               )}
 
-              {/* STEP 4: REVIEW & PRO HIGH-END ANIMATED LOADING SEQUENCE */}
+              {/* STEP 4 */}
               {wizardStep === 4 && (
-                <div className="p-6 bg-white border border-slate-200 rounded-2xl space-y-5 shadow-xs animate-in fade-in slide-in-from-right-4 duration-300">
-                  
-                  {/* Summary Card */}
+                <div className="p-6 bg-white border border-slate-200/90 rounded-2xl space-y-5 shadow-xs">
                   <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs">
                     <div className="flex justify-between font-bold text-slate-900 border-b border-slate-200 pb-2">
                       <span>{title}</span>
@@ -989,48 +966,28 @@ export default function Dashboard() {
                     </div>
                   </div>
 
-                  {/* PRO ANIMATED CYBER/ESCROW LOADING STATE (Replaces boring spinner) */}
                   {uploading ? (
-                    <div className="p-5 bg-slate-950 text-white rounded-2xl border border-slate-800 space-y-4 shadow-xl">
+                    <div className="p-5 bg-slate-900 text-white rounded-2xl border border-slate-800 space-y-3 shadow-md">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-lg bg-blue-600/20 border border-blue-500/40 text-blue-400 flex items-center justify-center animate-pulse">
-                            <Lock className="w-4 h-4" />
-                          </div>
-                          <div>
-                            <span className="text-xs font-bold font-mono text-white block">Escrow Vault Sealing Engine</span>
-                            <span className="text-[10px] text-slate-400 font-mono">SHA-256 Multi-Layer Cryptographic Enclave</span>
-                          </div>
+                        <div className="flex items-center gap-2">
+                          <RefreshCw className="w-4 h-4 text-blue-400 animate-spin" />
+                          <span className="text-xs font-semibold">Publishing Deliverable Vault...</span>
                         </div>
-                        <span className="text-xs font-mono font-bold text-emerald-400">{uploadProgress}%</span>
+                        <span className="text-xs font-mono text-slate-300">{uploadProgress}%</span>
                       </div>
 
-                      {/* Multi-Stage Animated Sequence Checklist */}
-                      <div className="space-y-2 text-xs font-mono pt-1">
-                        <div className="flex items-center gap-2">
-                          {deployStage >= 1 ? <CheckCheck className="w-3.5 h-3.5 text-emerald-400" /> : <div className="w-3.5 h-3.5 rounded-full border border-slate-600" />}
-                          <span className={deployStage === 1 ? "text-blue-300 font-bold" : deployStage > 1 ? "text-slate-400" : "text-slate-600"}>
-                            [1/3] Generating SHA-256 Vault Checksums...
-                          </span>
+                      <div className="space-y-1 text-[11px] text-slate-400 font-mono">
+                        <div className={deployStepIndex >= 1 ? "text-emerald-400 font-bold" : ""}>
+                          ✓ Uploading raw master files
                         </div>
-                        <div className="flex items-center gap-2">
-                          {deployStage >= 2 ? <CheckCheck className="w-3.5 h-3.5 text-emerald-400" /> : <div className="w-3.5 h-3.5 rounded-full border border-slate-600" />}
-                          <span className={deployStage === 2 ? "text-blue-300 font-bold" : deployStage > 2 ? "text-slate-400" : "text-slate-600"}>
-                            [2/3] Embedding Anti-Scrape Canvas Layers...
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {deployStage >= 3 ? <CheckCheck className="w-3.5 h-3.5 text-emerald-400 animate-bounce" /> : <div className="w-3.5 h-3.5 rounded-full border border-slate-600" />}
-                          <span className={deployStage === 3 ? "text-emerald-400 font-bold" : "text-slate-600"}>
-                            [3/3] Sealing Zero-Login Escrow Vault...
-                          </span>
+                        <div className={deployStepIndex >= 2 ? "text-emerald-400 font-bold" : ""}>
+                          ✓ Generating protected preview links
                         </div>
                       </div>
 
-                      {/* Fluid Progress Bar */}
                       <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
                         <div 
-                          className="h-full bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-400 transition-all duration-300"
+                          className="h-full bg-blue-600 transition-all duration-300"
                           style={{ width: `${uploadProgress}%` }}
                         />
                       </div>
@@ -1043,11 +1000,10 @@ export default function Dashboard() {
                         className="w-2/3 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 active:scale-95"
                       >
                         <Lock className="w-3.5 h-3.5" />
-                        <span>Deploy Payment-Locked Vault</span>
+                        <span>Deploy Protected Vault</span>
                       </button>
                     </div>
                   )}
-
                 </div>
               )}
             </div>
@@ -1056,9 +1012,9 @@ export default function Dashboard() {
         </main>
       </div>
 
-      {/* FLOATING MOBILE BOTTOM NAVIGATION BAR (Permanently Fixed & Visible) */}
+      {/* MOBILE BOTTOM NAVIGATION */}
       <div className="fixed bottom-3 left-4 right-4 z-40 lg:hidden flex justify-center">
-        <div className="bg-white/95 backdrop-blur-md border border-slate-200 shadow-2xl rounded-2xl px-3 py-2 flex items-center justify-around w-full max-w-sm">
+        <div className="bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-xl rounded-2xl px-3 py-2 flex items-center justify-around w-full max-w-sm">
           <button
             onClick={() => { setCurrentView('overview'); setWizardStep(1); }}
             className={`flex flex-col items-center gap-1 transition ${
@@ -1088,8 +1044,8 @@ export default function Dashboard() {
             onClick={() => { setCurrentView('create'); setWizardStep(1); }}
             className="flex flex-col items-center gap-1 text-blue-600 font-bold"
           >
-            <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-md shadow-blue-500/30 -mt-2">
-              <Plus className="w-4 h-4 stroke-[3]" />
+            <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-md shadow-blue-500/20 -mt-2">
+              <Plus className="w-4 h-4" />
             </div>
             <span className="text-[10px] text-blue-600">New Drop</span>
           </button>
@@ -1104,7 +1060,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* MOBILE SLIDE-OUT DRAWER (Opens smoothly on Menu tap) */}
+      {/* MOBILE DRAWER */}
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex lg:hidden animate-in fade-in duration-150">
           <div className="w-72 bg-white h-full p-5 flex flex-col justify-between shadow-2xl animate-in slide-in-from-left duration-200">
@@ -1114,7 +1070,7 @@ export default function Dashboard() {
                   <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center text-white">
                     <Zap className="w-4 h-4 fill-white" />
                   </div>
-                  <span className="font-black text-sm text-slate-900 uppercase">ReleaseDrop</span>
+                  <span className="font-black text-sm text-slate-900 uppercase">PayDrop</span>
                 </div>
                 <button onClick={() => setMobileMenuOpen(false)} className="text-slate-400 hover:text-slate-700 p-1">
                   <X className="w-5 h-5" />
@@ -1128,7 +1084,7 @@ export default function Dashboard() {
                     currentView === 'overview' ? 'bg-slate-900 text-white font-bold' : 'text-slate-700 hover:bg-slate-50'
                   }`}
                 >
-                  <Layers className="w-4 h-4" /> Deliveries & Proofs
+                  <Layers className="w-4 h-4" /> Deliveries
                 </button>
 
                 <button 
@@ -1137,14 +1093,14 @@ export default function Dashboard() {
                     currentView === 'inbox' ? 'bg-slate-900 text-white font-bold' : 'text-slate-700 hover:bg-slate-50'
                   }`}
                 >
-                  <MessageSquare className="w-4 h-4" /> Revisions Inbox
+                  <MessageSquare className="w-4 h-4" /> Revisions
                 </button>
 
                 <button 
                   onClick={() => { setCurrentView('create'); setWizardStep(1); setMobileMenuOpen(false); }}
                   className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-blue-600 bg-blue-50/60"
                 >
-                  <Plus className="w-4 h-4" /> Create New Drop
+                  <Plus className="w-4 h-4" /> Create Drop
                 </button>
               </nav>
             </div>
@@ -1158,7 +1114,6 @@ export default function Dashboard() {
           </div>
         </div>
       )}
-
     </div>
   )
 }
