@@ -10,7 +10,8 @@ import {
   Copy, Check, Trash2, ExternalLink, FileArchive, Clock,
   AlertCircle, RefreshCw, X, MessageSquare, Send, Bell,
   Menu, Search, Layers, FileText, Users, Sliders, Shield,
-  CreditCard, Sparkles, ChevronRight, Eye, CornerDownRight
+  CreditCard, Sparkles, ChevronRight, Eye, CornerDownRight,
+  Fingerprint, KeyRound, CheckCheck
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -27,7 +28,7 @@ function formatINR(amount) {
   }).format(num)
 }
 
-// Touch-Interactive SVG Sparkline with Tooltip
+// Touch & Click Interactive Graph with Floating Tooltip
 function InteractiveSparkline({ title, amount, subtitle, data, color, badge, cardId, activePoint, onPointHover }) {
   const width = 280
   const height = 55
@@ -53,7 +54,7 @@ function InteractiveSparkline({ title, amount, subtitle, data, color, badge, car
   const gradId = `spark-fill-${cardId}`
 
   return (
-    <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm relative overflow-hidden transition hover:shadow-md">
+    <div className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-sm relative overflow-hidden transition-all duration-200 hover:shadow-md">
       <div className="flex justify-between items-start">
         <span className="text-xs font-semibold text-slate-500">{title}</span>
         {badge && (
@@ -75,7 +76,7 @@ function InteractiveSparkline({ title, amount, subtitle, data, color, badge, car
       <div className="relative mt-2">
         {activePoint && activePoint.cardId === cardId && (
           <div 
-            className="absolute z-20 px-2 py-1 bg-slate-900 text-white rounded-md text-[10px] font-mono shadow-lg -translate-x-1/2 -top-7 pointer-events-none"
+            className="absolute z-20 px-2 py-1 bg-slate-900 text-white rounded-md text-[10px] font-mono shadow-xl -translate-x-1/2 -top-8 pointer-events-none transition-all duration-150 animate-in fade-in zoom-in-95"
             style={{ left: `${activePoint.x}px` }}
           >
             {activePoint.label}: {activePoint.formatted || activePoint.value}
@@ -85,7 +86,7 @@ function InteractiveSparkline({ title, amount, subtitle, data, color, badge, car
         <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-12 overflow-visible">
           <defs>
             <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={strokeColor} stopOpacity="0.25" />
+              <stop offset="0%" stopColor={strokeColor} stopOpacity="0.22" />
               <stop offset="100%" stopColor={strokeColor} stopOpacity="0.0" />
             </linearGradient>
           </defs>
@@ -96,13 +97,14 @@ function InteractiveSparkline({ title, amount, subtitle, data, color, badge, car
               key={i}
               cx={p.x}
               cy={p.y}
-              r={activePoint?.cardId === cardId && activePoint?.index === i ? "4.5" : "2.5"}
-              className="cursor-pointer transition-all"
+              r={activePoint?.cardId === cardId && activePoint?.index === i ? "5" : "3"}
+              className="cursor-pointer transition-all duration-150"
               fill={activePoint?.cardId === cardId && activePoint?.index === i ? strokeColor : "#FFFFFF"}
               stroke={strokeColor}
               strokeWidth="2"
               onMouseEnter={() => onPointHover({ ...p, cardId, index: i })}
               onMouseLeave={() => onPointHover(null)}
+              onClick={() => onPointHover({ ...p, cardId, index: i })}
               onTouchStart={() => onPointHover({ ...p, cardId, index: i })}
             />
           ))}
@@ -126,7 +128,7 @@ export default function Dashboard() {
   const [toast, setToast] = useState(null)
   const [activeChartPoint, setActiveChartPoint] = useState(null)
 
-  // 4-Step Animated Creation Wizard
+  // 4-Step Creation Wizard
   const [wizardStep, setWizardStep] = useState(1)
   const [creating, setCreating] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
@@ -140,11 +142,11 @@ export default function Dashboard() {
   const [expirySelection, setExpirySelection] = useState('7')
   const [watermarkText, setWatermarkText] = useState('RELEASEDROP • PROTECTED PREVIEW')
   
-  // Multi-File Upload Queue
+  // Multi-File Upload Queue & Deployment Stages
   const [fileList, setFileList] = useState([])
   const [uploadProgress, setUploadProgress] = useState(0)
   const [uploading, setUploading] = useState(false)
-  const [loaderStepText, setLoaderStepText] = useState('Encrypting assets...')
+  const [deployStage, setDeployStage] = useState(1) // 1: SHA-256 Encrypt, 2: Watermark embed, 3: Seal Vault
 
   // Client Chat / Thread State
   const [activeThreadDelivery, setActiveThreadDelivery] = useState(null)
@@ -177,19 +179,15 @@ export default function Dashboard() {
     }
   }, [])
 
+  // Dynamic deployment sequence stages
   useEffect(() => {
     if (!uploading) return
-    const steps = [
-      'Encrypting assets via SHA-256...',
-      'Applying dynamic anti-theft watermark...',
-      'Binding escrow smart settlement link...'
-    ]
-    let i = 0
-    const interval = setInterval(() => {
-      i = (i + 1) % steps.length
-      setLoaderStepText(steps[i])
-    }, 1400)
-    return () => clearInterval(interval)
+    const stage1 = setTimeout(() => setDeployStage(2), 1200)
+    const stage2 = setTimeout(() => setDeployStage(3), 2600)
+    return () => {
+      clearTimeout(stage1)
+      clearTimeout(stage2)
+    }
   }, [uploading])
 
   const handleGoogleLogin = async () => {
@@ -242,7 +240,7 @@ export default function Dashboard() {
           reject(new Error("Upload parse error"))
         }
       }
-      xhr.onerror = () => reject(new Error("Network failed"))
+      xhr.onerror = () => reject(new Error("Network connection interrupted"))
       xhr.send(formData)
     })
   }
@@ -255,6 +253,7 @@ export default function Dashboard() {
 
     setCreating(true)
     setUploading(true)
+    setDeployStage(1)
 
     try {
       const manifest = []
@@ -291,7 +290,7 @@ export default function Dashboard() {
         createdAt: serverTimestamp()
       })
 
-      showToast("Delivery Vault created successfully!", "success")
+      showToast("Escrow Vault Sealed & Delivery Link Deployed!", "success")
       setTitle('')
       setClientName('')
       setClientEmail('')
@@ -301,7 +300,7 @@ export default function Dashboard() {
       setWizardStep(1)
       setCurrentView('overview')
     } catch (err) {
-      showToast(err.message || "Failed to create vault", "error")
+      showToast(err.message || "Failed to seal vault", "error")
     } finally {
       setCreating(false)
       setUploading(false)
@@ -309,7 +308,7 @@ export default function Dashboard() {
   }
 
   const handleDelete = async (id) => {
-    if (!confirm("Permanently delete this delivery? Client access will be revoked.")) return
+    if (!confirm("Permanently delete this delivery? Client access will be terminated.")) return
     try {
       await deleteDoc(doc(db, 'deliveries', id))
       showToast("Delivery revoked", "success")
@@ -407,11 +406,11 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans flex antialiased">
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans flex antialiased pb-24 lg:pb-0 relative selection:bg-blue-600 selection:text-white">
       
       {/* Toast Notification */}
       {toast && (
-        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50">
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top duration-200">
           <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl shadow-xl bg-slate-900 text-white text-xs font-semibold border border-slate-800">
             <Check className="w-3.5 h-3.5 text-emerald-400" />
             <span>{toast.message}</span>
@@ -419,10 +418,9 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* PRO ENTERPRISE SIDEBAR (From Reference Screenshot) */}
+      {/* PRO ENTERPRISE SIDEBAR (Desktop) */}
       <aside className="hidden lg:flex w-64 bg-white border-r border-slate-200/90 flex-col justify-between p-4 sticky top-0 h-screen z-30 select-none">
         <div className="space-y-4">
-          {/* Logo & Workspace Title */}
           <div className="flex items-center gap-2.5 px-2 py-1">
             <div className="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center text-white font-bold shadow-xs">
               <Zap className="w-4 h-4 fill-white" />
@@ -432,11 +430,10 @@ export default function Dashboard() {
                 <span className="font-black text-sm tracking-tight text-slate-900 uppercase">ReleaseDrop</span>
                 <span className="px-1.5 py-0.2 rounded bg-blue-600 text-white text-[9px] font-bold">PRO</span>
               </div>
-              <span className="text-[10px] text-slate-400 font-medium">Studio Craft Agency</span>
+              <span className="text-[10px] text-slate-400 font-medium">Studio Workspace</span>
             </div>
           </div>
 
-          {/* Primary Action Button */}
           <button
             onClick={() => { setCurrentView('create'); setWizardStep(1); }}
             className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-sm transition active:scale-95 flex items-center justify-center gap-2"
@@ -445,19 +442,17 @@ export default function Dashboard() {
             <span>Create Protected Drop</span>
           </button>
 
-          {/* Search Jump Box */}
           <div className="relative">
             <Search className="w-3 h-3 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Quick jump / search... [⌘K]"
+              placeholder="Quick search... [⌘K]"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-[11px] text-slate-800 focus:outline-none focus:border-blue-600"
             />
           </div>
 
-          {/* Navigation Section */}
           <div className="space-y-0.5 pt-1">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 block mb-1">Workspace</span>
             
@@ -492,79 +487,18 @@ export default function Dashboard() {
                 </span>
               )}
             </button>
-
-            <button
-              onClick={() => { setCurrentView('overview'); showToast("Escrow cleared payouts balance: " + formatINR(totalRevenue), "success"); }}
-              className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50 transition"
-            >
-              <div className="flex items-center gap-2.5">
-                <CreditCard className="w-4 h-4" />
-                <span>Escrow & Payouts</span>
-              </div>
-              <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-            </button>
-
-            <button
-              onClick={() => showToast("Client CRM ready: " + deliveries.length + " clients onboarded.", "success")}
-              className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50 transition"
-            >
-              <div className="flex items-center gap-2.5">
-                <Users className="w-4 h-4" />
-                <span>Clients CRM</span>
-              </div>
-              <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-            </button>
-
-            <button
-              onClick={() => { setCurrentView('create'); setWizardStep(3); }}
-              className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50 transition"
-            >
-              <div className="flex items-center gap-2.5">
-                <Sliders className="w-4 h-4" />
-                <span>Watermark Studio</span>
-              </div>
-              <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-            </button>
-
-            <button
-              onClick={() => showToast("Security & Audit Logs: SHA-256 Vault Encryption Active", "success")}
-              className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50 transition"
-            >
-              <div className="flex items-center gap-2.5">
-                <Shield className="w-4 h-4" />
-                <span>Security & Audit Logs</span>
-              </div>
-              <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-            </button>
           </div>
         </div>
 
-        {/* Bottom Sidebar Widgets (Screenshot Matching) */}
         <div className="space-y-3 pt-3 border-t border-slate-100">
-          {/* Escrow Protected Pill Card */}
-          <div className="p-3 bg-emerald-50/70 border border-emerald-200/80 rounded-xl space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold text-emerald-800 uppercase flex items-center gap-1 font-mono">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Escrow Protected
-              </span>
-              <span className="text-[10px] font-bold text-blue-600 hover:underline cursor-pointer">Payouts →</span>
-            </div>
+          <div className="p-3 bg-emerald-50/70 border border-emerald-200/80 rounded-xl space-y-1">
+            <span className="text-[10px] font-bold text-emerald-800 uppercase flex items-center gap-1 font-mono">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Escrow Protected
+            </span>
             <div className="text-sm font-black text-slate-900 font-mono">{formatINR(pendingAmount)}</div>
           </div>
 
-          {/* Storage Bar */}
-          <div className="px-1 space-y-1">
-            <div className="flex justify-between text-[10px] text-slate-400 font-mono font-medium">
-              <span>Private Storage</span>
-              <span>28.4 / 100 GB</span>
-            </div>
-            <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
-              <div className="w-1/4 h-full bg-blue-600 rounded-full" />
-            </div>
-          </div>
-
-          {/* Creator Profile */}
-          <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+          <div className="pt-1 flex items-center justify-between">
             <div className="flex items-center gap-2 min-w-0">
               <div className="w-7 h-7 rounded-full bg-slate-900 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
                 {user.displayName ? user.displayName.slice(0, 2).toUpperCase() : 'RD'}
@@ -579,17 +513,17 @@ export default function Dashboard() {
         </div>
       </aside>
 
-      {/* Main App Canvas */}
+      {/* Main Canvas Frame */}
       <div className="flex-1 flex flex-col min-w-0">
         
-        {/* Top Navbar */}
+        {/* Navbar */}
         <header className="h-14 bg-white border-b border-slate-200/80 sticky top-0 z-20 px-4 sm:px-8 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button onClick={() => setMobileMenuOpen(true)} className="lg:hidden p-1.5 text-slate-600 hover:bg-slate-100 rounded-lg">
               <Menu className="w-5 h-5" />
             </button>
             <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
-              <span>Studio Craft Agency</span>
+              <span>Studio Workspace</span>
               <span>/</span>
               <span className="text-slate-900 font-bold capitalize">{currentView.replace('-', ' ')}</span>
             </div>
@@ -601,29 +535,29 @@ export default function Dashboard() {
               className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-xs transition active:scale-95 flex items-center gap-1.5"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>New Delivery</span>
+              <span>New Drop</span>
             </button>
           </div>
         </header>
 
-        {/* Dynamic Screens */}
+        {/* Views */}
         <main className="flex-1 max-w-5xl w-full mx-auto p-4 sm:p-8 space-y-6">
 
-          {/* SCREEN 1: OVERVIEW & DELIVERIES */}
+          {/* SCREEN 1: OVERVIEW */}
           {currentView === 'overview' && (
-            <div className="space-y-6">
+            <div className="space-y-6 animate-in fade-in duration-200">
               <div>
                 <h1 className="text-xl font-bold text-slate-900 tracking-tight">Deliveries & Proofs</h1>
                 <p className="text-xs text-slate-500 mt-0.5">Real-time payment-locked handoff vaults.</p>
               </div>
 
-              {/* Sparkline Cards (Touch-interactive) */}
+              {/* Touch-Interactive Graphs */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <InteractiveSparkline
                   cardId="pending"
                   title="Pending Escrow Payouts"
                   amount={formatINR(pendingAmount)}
-                  subtitle="Locked in active client drops"
+                  subtitle="Tap dots to inspect daily breakdown"
                   data={pendingTrendData}
                   color="blue"
                   badge="In Escrow"
@@ -643,7 +577,7 @@ export default function Dashboard() {
                 />
               </div>
 
-              {/* Deliveries Table Card */}
+              {/* Deliveries Manifest Table */}
               <div className="bg-white border border-slate-200/90 rounded-2xl shadow-xs overflow-hidden">
                 <div className="p-4 border-b border-slate-100 flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -722,38 +656,14 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* SCREEN 2: DEDICATED CLIENT INBOX & REVISIONS (Matching Reference Screenshot) */}
+          {/* SCREEN 2: DEDICATED CLIENT INBOX & REVISIONS */}
           {currentView === 'inbox' && (
-            <div className="space-y-5">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <h1 className="text-xl font-bold text-slate-900 tracking-tight">Client Inbox & Revisions</h1>
-                  <p className="text-xs text-slate-500 mt-0.5">Real-time delivery communication and revision request triage.</p>
-                </div>
-
-                <div className="relative w-64">
-                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder="Search messages, clients..."
-                    className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-blue-600"
-                  />
-                </div>
+            <div className="space-y-5 animate-in fade-in duration-200">
+              <div>
+                <h1 className="text-xl font-bold text-slate-900 tracking-tight">Client Inbox & Revisions</h1>
+                <p className="text-xs text-slate-500 mt-0.5">Real-time delivery communication and revision requests.</p>
               </div>
 
-              {/* Triage Tabs */}
-              <div className="flex items-center gap-2">
-                <button className="px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-bold flex items-center gap-1.5">
-                  <span>All Conversations</span>
-                  <span className="px-1.5 py-0.2 rounded-full bg-slate-800 text-[10px]">{deliveries.length}</span>
-                </button>
-                <button className="px-3 py-1.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-bold flex items-center gap-1.5">
-                  <span>Active Revisions</span>
-                  <span className="px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold">{activeRevisionsCount}</span>
-                </button>
-              </div>
-
-              {/* List of Client Message Cards (Exact Reference Design) */}
               <div className="space-y-3">
                 {deliveries.length === 0 ? (
                   <div className="p-12 text-center text-xs text-slate-400 bg-white rounded-2xl border border-slate-200">
@@ -832,9 +742,9 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* SCREEN 3: INDIVIDUAL CLIENT CHAT THREAD VIEW */}
+          {/* SCREEN 3: CHAT THREAD */}
           {currentView === 'chat-thread' && activeThreadDelivery && (
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4">
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4 animate-in fade-in duration-200">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-3">
                   <button onClick={() => setCurrentView('inbox')} className="text-xs text-slate-400 hover:text-slate-700 font-bold">
@@ -852,7 +762,6 @@ export default function Dashboard() {
                 </Link>
               </div>
 
-              {/* Chat Stream */}
               <div className="h-80 overflow-y-auto p-4 bg-[#F8FAFC] rounded-xl space-y-3">
                 {(activeThreadDelivery.messages || []).length === 0 ? (
                   <div className="h-full flex items-center justify-center text-xs text-slate-400">
@@ -875,7 +784,6 @@ export default function Dashboard() {
                 )}
               </div>
 
-              {/* Input composer */}
               <div className="flex gap-2">
                 <input
                   type="text"
@@ -895,9 +803,9 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* SCREEN 4: 4-STEP DELIVERY CREATION WIZARD (Intact & Fully Restored) */}
+          {/* SCREEN 4: 4-STEP WIZARD WITH SMOOTH SLIDE-IN TRANSITIONS */}
           {currentView === 'create' && (
-            <div className="max-w-xl mx-auto space-y-5">
+            <div className="max-w-xl mx-auto space-y-5 animate-in fade-in duration-200">
               <div className="flex justify-between items-center">
                 <div>
                   <h2 className="text-lg font-bold text-slate-900 tracking-tight">Deploy Escrow Vault</h2>
@@ -906,7 +814,7 @@ export default function Dashboard() {
                 <button onClick={() => setCurrentView('overview')} className="text-xs font-semibold text-slate-400">Cancel</button>
               </div>
 
-              {/* Step Navigation Pill */}
+              {/* Stepper Pill Indicator */}
               <div className="bg-white border border-slate-200 rounded-xl p-3 flex items-center justify-between text-xs font-semibold shadow-xs">
                 <span className={wizardStep === 1 ? 'text-blue-600 font-bold' : 'text-slate-400'}>1. Assets</span>
                 <span className="text-slate-300">→</span>
@@ -917,9 +825,9 @@ export default function Dashboard() {
                 <span className={wizardStep === 4 ? 'text-blue-600 font-bold' : 'text-slate-400'}>4. Deploy</span>
               </div>
 
-              {/* STEP 1: DROPZONE WITH ANIMATION */}
+              {/* STEP 1: ASSETS (Slide Animation) */}
               {wizardStep === 1 && (
-                <div className="p-6 bg-white border border-slate-200 rounded-2xl space-y-4 shadow-xs">
+                <div className="p-6 bg-white border border-slate-200 rounded-2xl space-y-4 shadow-xs animate-in fade-in slide-in-from-right-4 duration-300">
                   <div
                     onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
                     onDragLeave={() => setIsDragging(false)}
@@ -958,9 +866,9 @@ export default function Dashboard() {
                 </div>
               )}
 
-              {/* STEP 2: DETAILS */}
+              {/* STEP 2: DETAILS (Slide Animation) */}
               {wizardStep === 2 && (
-                <div className="p-6 bg-white border border-slate-200 rounded-2xl space-y-4 shadow-xs">
+                <div className="p-6 bg-white border border-slate-200 rounded-2xl space-y-4 shadow-xs animate-in fade-in slide-in-from-right-4 duration-300">
                   <div>
                     <label className="text-xs font-bold text-slate-700 block mb-1">Deliverable Title *</label>
                     <input
@@ -1019,9 +927,9 @@ export default function Dashboard() {
                 </div>
               )}
 
-              {/* STEP 3: WATERMARK & EXPIRY */}
+              {/* STEP 3: WATERMARK (Slide Animation) */}
               {wizardStep === 3 && (
-                <div className="p-6 bg-white border border-slate-200 rounded-2xl space-y-4 shadow-xs">
+                <div className="p-6 bg-white border border-slate-200 rounded-2xl space-y-4 shadow-xs animate-in fade-in slide-in-from-right-4 duration-300">
                   <div>
                     <label className="text-xs font-bold text-slate-700 block mb-1">Anti-Scrape Watermark Text</label>
                     <input
@@ -1062,9 +970,11 @@ export default function Dashboard() {
                 </div>
               )}
 
-              {/* STEP 4: REVIEW & DEPLOY WITH STEP-LOADER */}
+              {/* STEP 4: REVIEW & PRO HIGH-END ANIMATED LOADING SEQUENCE */}
               {wizardStep === 4 && (
-                <div className="p-6 bg-white border border-slate-200 rounded-2xl space-y-4 shadow-xs">
+                <div className="p-6 bg-white border border-slate-200 rounded-2xl space-y-5 shadow-xs animate-in fade-in slide-in-from-right-4 duration-300">
+                  
+                  {/* Summary Card */}
                   <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs">
                     <div className="flex justify-between font-bold text-slate-900 border-b border-slate-200 pb-2">
                       <span>{title}</span>
@@ -1079,29 +989,65 @@ export default function Dashboard() {
                     </div>
                   </div>
 
-                  {uploading && (
-                    <div className="space-y-1.5 p-3 bg-blue-50/60 border border-blue-100 rounded-xl">
-                      <div className="flex justify-between text-xs text-blue-900 font-semibold">
-                        <span className="animate-pulse">{loaderStepText}</span>
-                        <span>{uploadProgress}%</span>
+                  {/* PRO ANIMATED CYBER/ESCROW LOADING STATE (Replaces boring spinner) */}
+                  {uploading ? (
+                    <div className="p-5 bg-slate-950 text-white rounded-2xl border border-slate-800 space-y-4 shadow-xl">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-lg bg-blue-600/20 border border-blue-500/40 text-blue-400 flex items-center justify-center animate-pulse">
+                            <Lock className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <span className="text-xs font-bold font-mono text-white block">Escrow Vault Sealing Engine</span>
+                            <span className="text-[10px] text-slate-400 font-mono">SHA-256 Multi-Layer Cryptographic Enclave</span>
+                          </div>
+                        </div>
+                        <span className="text-xs font-mono font-bold text-emerald-400">{uploadProgress}%</span>
                       </div>
-                      <div className="w-full h-1.5 bg-blue-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-blue-600 transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
+
+                      {/* Multi-Stage Animated Sequence Checklist */}
+                      <div className="space-y-2 text-xs font-mono pt-1">
+                        <div className="flex items-center gap-2">
+                          {deployStage >= 1 ? <CheckCheck className="w-3.5 h-3.5 text-emerald-400" /> : <div className="w-3.5 h-3.5 rounded-full border border-slate-600" />}
+                          <span className={deployStage === 1 ? "text-blue-300 font-bold" : deployStage > 1 ? "text-slate-400" : "text-slate-600"}>
+                            [1/3] Generating SHA-256 Vault Checksums...
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {deployStage >= 2 ? <CheckCheck className="w-3.5 h-3.5 text-emerald-400" /> : <div className="w-3.5 h-3.5 rounded-full border border-slate-600" />}
+                          <span className={deployStage === 2 ? "text-blue-300 font-bold" : deployStage > 2 ? "text-slate-400" : "text-slate-600"}>
+                            [2/3] Embedding Anti-Scrape Canvas Layers...
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {deployStage >= 3 ? <CheckCheck className="w-3.5 h-3.5 text-emerald-400 animate-bounce" /> : <div className="w-3.5 h-3.5 rounded-full border border-slate-600" />}
+                          <span className={deployStage === 3 ? "text-emerald-400 font-bold" : "text-slate-600"}>
+                            [3/3] Sealing Zero-Login Escrow Vault...
+                          </span>
+                        </div>
                       </div>
+
+                      {/* Fluid Progress Bar */}
+                      <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-400 transition-all duration-300"
+                          style={{ width: `${uploadProgress}%` }}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <button onClick={() => setWizardStep(3)} className="w-1/3 py-2.5 border border-slate-200 text-slate-600 text-xs font-bold rounded-xl">Back</button>
+                      <button
+                        onClick={handleDeployVault}
+                        className="w-2/3 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 active:scale-95"
+                      >
+                        <Lock className="w-3.5 h-3.5" />
+                        <span>Deploy Payment-Locked Vault</span>
+                      </button>
                     </div>
                   )}
 
-                  <div className="flex gap-2">
-                    <button disabled={creating} onClick={() => setWizardStep(3)} className="w-1/3 py-2.5 border border-slate-200 text-slate-600 text-xs font-bold rounded-xl">Back</button>
-                    <button
-                      disabled={creating || uploading}
-                      onClick={handleDeployVault}
-                      className="w-2/3 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-xs transition flex items-center justify-center gap-1.5"
-                    >
-                      <Lock className="w-3.5 h-3.5" />
-                      <span>{creating ? 'Sealing Vault...' : 'Deploy Payment-Locked Vault'}</span>
-                    </button>
-                  </div>
                 </div>
               )}
             </div>
@@ -1109,6 +1055,109 @@ export default function Dashboard() {
 
         </main>
       </div>
+
+      {/* FLOATING MOBILE BOTTOM NAVIGATION BAR (Permanently Fixed & Visible) */}
+      <div className="fixed bottom-3 left-4 right-4 z-40 lg:hidden flex justify-center">
+        <div className="bg-white/95 backdrop-blur-md border border-slate-200 shadow-2xl rounded-2xl px-3 py-2 flex items-center justify-around w-full max-w-sm">
+          <button
+            onClick={() => { setCurrentView('overview'); setWizardStep(1); }}
+            className={`flex flex-col items-center gap-1 transition ${
+              currentView === 'overview' ? 'text-blue-600 font-bold' : 'text-slate-500'
+            }`}
+          >
+            <Layers className="w-4 h-4" />
+            <span className="text-[10px]">Drops</span>
+          </button>
+
+          <button
+            onClick={() => { setCurrentView('inbox'); setWizardStep(1); }}
+            className={`flex flex-col items-center gap-1 transition relative ${
+              currentView === 'inbox' || currentView === 'chat-thread' ? 'text-blue-600 font-bold' : 'text-slate-500'
+            }`}
+          >
+            <div className="relative">
+              <MessageSquare className="w-4 h-4" />
+              {activeRevisionsCount > 0 && (
+                <span className="w-2 h-2 rounded-full bg-amber-500 absolute -top-0.5 -right-1" />
+              )}
+            </div>
+            <span className="text-[10px]">Revisions</span>
+          </button>
+
+          <button
+            onClick={() => { setCurrentView('create'); setWizardStep(1); }}
+            className="flex flex-col items-center gap-1 text-blue-600 font-bold"
+          >
+            <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-md shadow-blue-500/30 -mt-2">
+              <Plus className="w-4 h-4 stroke-[3]" />
+            </div>
+            <span className="text-[10px] text-blue-600">New Drop</span>
+          </button>
+
+          <button
+            onClick={() => setMobileMenuOpen(true)}
+            className="flex flex-col items-center gap-1 text-slate-500 hover:text-slate-800"
+          >
+            <Menu className="w-4 h-4" />
+            <span className="text-[10px]">Menu</span>
+          </button>
+        </div>
+      </div>
+
+      {/* MOBILE SLIDE-OUT DRAWER (Opens smoothly on Menu tap) */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex lg:hidden animate-in fade-in duration-150">
+          <div className="w-72 bg-white h-full p-5 flex flex-col justify-between shadow-2xl animate-in slide-in-from-left duration-200">
+            <div className="space-y-5">
+              <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center text-white">
+                    <Zap className="w-4 h-4 fill-white" />
+                  </div>
+                  <span className="font-black text-sm text-slate-900 uppercase">ReleaseDrop</span>
+                </div>
+                <button onClick={() => setMobileMenuOpen(false)} className="text-slate-400 hover:text-slate-700 p-1">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <nav className="space-y-1">
+                <button 
+                  onClick={() => { setCurrentView('overview'); setMobileMenuOpen(false); }}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold ${
+                    currentView === 'overview' ? 'bg-slate-900 text-white font-bold' : 'text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  <Layers className="w-4 h-4" /> Deliveries & Proofs
+                </button>
+
+                <button 
+                  onClick={() => { setCurrentView('inbox'); setMobileMenuOpen(false); }}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold ${
+                    currentView === 'inbox' ? 'bg-slate-900 text-white font-bold' : 'text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  <MessageSquare className="w-4 h-4" /> Revisions Inbox
+                </button>
+
+                <button 
+                  onClick={() => { setCurrentView('create'); setWizardStep(1); setMobileMenuOpen(false); }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-blue-600 bg-blue-50/60"
+                >
+                  <Plus className="w-4 h-4" /> Create New Drop
+                </button>
+              </nav>
+            </div>
+
+            <div className="border-t border-slate-100 pt-3 space-y-2">
+              <div className="text-xs font-bold text-slate-900 truncate">{user.displayName || user.email?.split('@')[0]}</div>
+              <button onClick={() => signOut(auth)} className="text-xs text-rose-600 font-bold py-1">
+                Sign Out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   )
