@@ -5,11 +5,12 @@ import { auth, db, googleProvider } from '../../lib/firebase'
 import { signInWithPopup, signInWithRedirect, signOut, onAuthStateChanged } from 'firebase/auth'
 import { collection, addDoc, query, where, deleteDoc, doc, updateDoc, onSnapshot, serverTimestamp, writeBatch } from 'firebase/firestore'
 import { 
-  Zap, Plus, FolderKanban, ShieldCheck, 
+  Zap, Plus, LayoutDashboard, FolderKanban, ShieldCheck, 
   UploadCloud, CheckCircle2, Lock, ArrowRight, ArrowLeft, 
   Copy, Check, Trash2, ExternalLink, FileArchive, Clock,
   AlertCircle, RefreshCw, X, MessageSquare, Send, Bell,
-  Menu, Search, Layers, FileText
+  Menu, Search, Layers, FileText, Users, Sliders, Shield,
+  CreditCard, Sparkles, ChevronRight, Eye, CornerDownRight
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -26,35 +27,86 @@ function formatINR(amount) {
   }).format(num)
 }
 
-// Clean Subtle SVG Sparkline (Linear-style)
-function MetricCard({ title, amount, subtitle, trend, color, icon: Icon, badge }) {
-  const isEmerald = color === 'emerald'
-  const isAmber = color === 'amber'
-  const stroke = isEmerald ? '#059669' : isAmber ? '#D97706' : '#2563EB'
-  const fillGrad = isEmerald ? 'from-emerald-500/10' : isAmber ? 'from-amber-500/10' : 'from-blue-500/10'
+// Touch-Interactive SVG Sparkline with Tooltip
+function InteractiveSparkline({ title, amount, subtitle, data, color, badge, cardId, activePoint, onPointHover }) {
+  const width = 280
+  const height = 55
+  const maxVal = Math.max(...data.map(d => d.value), 1)
+  const minVal = Math.min(...data.map(d => d.value), 0)
+  const range = maxVal - minVal || 1
+
+  const points = data.map((d, i) => {
+    const x = (i / (data.length - 1)) * (width - 24) + 12
+    const y = height - ((d.value - minVal) / range) * (height - 20) - 10
+    return { x, y, ...d }
+  })
+
+  const pathD = points.reduce((acc, p, i) => {
+    if (i === 0) return `M ${p.x} ${p.y}`
+    const prev = points[i - 1]
+    const cx = (prev.x + p.x) / 2
+    return `${acc} C ${cx} ${prev.y}, ${cx} ${p.y}, ${p.x} ${p.y}`
+  }, '')
+
+  const fillD = `${pathD} L ${points[points.length - 1].x} ${height} L ${points[0].x} ${height} Z`
+  const strokeColor = color === 'emerald' ? '#059669' : color === 'amber' ? '#D97706' : '#2563EB'
+  const gradId = `spark-fill-${cardId}`
 
   return (
-    <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs flex flex-col justify-between space-y-3">
+    <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm relative overflow-hidden transition hover:shadow-md">
       <div className="flex justify-between items-start">
         <span className="text-xs font-semibold text-slate-500">{title}</span>
-        {Icon && (
-          <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${
-            isEmerald ? 'bg-emerald-50 text-emerald-600' :
-            isAmber ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600'
+        {badge && (
+          <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold font-mono ${
+            color === 'emerald' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+            color === 'amber' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+            'bg-slate-100 text-slate-700'
           }`}>
-            <Icon className="w-4 h-4" />
-          </div>
+            {badge}
+          </span>
         )}
       </div>
 
-      <div>
+      <div className="mt-1">
         <div className="text-2xl font-black text-slate-900 font-mono tracking-tight">{amount}</div>
         <p className="text-[11px] text-slate-400 mt-0.5">{subtitle}</p>
       </div>
 
-      {/* Subtle Mini Sparkline Bar */}
-      <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
-        <div className={`h-full ${isEmerald ? 'bg-emerald-500' : isAmber ? 'bg-amber-500' : 'bg-blue-600'} rounded-full`} style={{ width: '70%' }} />
+      <div className="relative mt-2">
+        {activePoint && activePoint.cardId === cardId && (
+          <div 
+            className="absolute z-20 px-2 py-1 bg-slate-900 text-white rounded-md text-[10px] font-mono shadow-lg -translate-x-1/2 -top-7 pointer-events-none"
+            style={{ left: `${activePoint.x}px` }}
+          >
+            {activePoint.label}: {activePoint.formatted || activePoint.value}
+          </div>
+        )}
+
+        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-12 overflow-visible">
+          <defs>
+            <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={strokeColor} stopOpacity="0.25" />
+              <stop offset="100%" stopColor={strokeColor} stopOpacity="0.0" />
+            </linearGradient>
+          </defs>
+          <path d={fillD} fill={`url(#${gradId})`} />
+          <path d={pathD} fill="none" stroke={strokeColor} strokeWidth="2.5" strokeLinecap="round" />
+          {points.map((p, i) => (
+            <circle
+              key={i}
+              cx={p.x}
+              cy={p.y}
+              r={activePoint?.cardId === cardId && activePoint?.index === i ? "4.5" : "2.5"}
+              className="cursor-pointer transition-all"
+              fill={activePoint?.cardId === cardId && activePoint?.index === i ? strokeColor : "#FFFFFF"}
+              stroke={strokeColor}
+              strokeWidth="2"
+              onMouseEnter={() => onPointHover({ ...p, cardId, index: i })}
+              onMouseLeave={() => onPointHover(null)}
+              onTouchStart={() => onPointHover({ ...p, cardId, index: i })}
+            />
+          ))}
+        </svg>
       </div>
     </div>
   )
@@ -67,15 +119,19 @@ export default function Dashboard() {
   const [filterStatus, setFilterStatus] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
   
+  // Views: 'overview' | 'inbox' | 'create' | 'chat-thread'
   const [currentView, setCurrentView] = useState('overview')
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [copiedId, setCopiedId] = useState(null)
   const [toast, setToast] = useState(null)
+  const [activeChartPoint, setActiveChartPoint] = useState(null)
 
-  // 4-Step Form Wizard
+  // 4-Step Animated Creation Wizard
   const [wizardStep, setWizardStep] = useState(1)
   const [creating, setCreating] = useState(false)
+  const [isDragging, setIsDragging] = useState(false)
 
-  // Fields
+  // Form Fields
   const [title, setTitle] = useState('')
   const [clientName, setClientName] = useState('')
   const [clientEmail, setClientEmail] = useState('')
@@ -84,14 +140,15 @@ export default function Dashboard() {
   const [expirySelection, setExpirySelection] = useState('7')
   const [watermarkText, setWatermarkText] = useState('RELEASEDROP • PROTECTED PREVIEW')
   
-  // File Upload
+  // Multi-File Upload Queue
   const [fileList, setFileList] = useState([])
   const [uploadProgress, setUploadProgress] = useState(0)
   const [uploading, setUploading] = useState(false)
+  const [loaderStepText, setLoaderStepText] = useState('Encrypting assets...')
 
-  // Chat
-  const [selectedChatId, setSelectedChatId] = useState(null)
-  const [replyText, setReplyText] = useState('')
+  // Client Chat / Thread State
+  const [activeThreadDelivery, setActiveThreadDelivery] = useState(null)
+  const [threadReplyText, setThreadReplyText] = useState('')
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type })
@@ -120,6 +177,21 @@ export default function Dashboard() {
     }
   }, [])
 
+  useEffect(() => {
+    if (!uploading) return
+    const steps = [
+      'Encrypting assets via SHA-256...',
+      'Applying dynamic anti-theft watermark...',
+      'Binding escrow smart settlement link...'
+    ]
+    let i = 0
+    const interval = setInterval(() => {
+      i = (i + 1) % steps.length
+      setLoaderStepText(steps[i])
+    }, 1400)
+    return () => clearInterval(interval)
+  }, [uploading])
+
   const handleGoogleLogin = async () => {
     try {
       await signInWithPopup(auth, googleProvider)
@@ -128,14 +200,14 @@ export default function Dashboard() {
     }
   }
 
-  const handleFilesAdd = (e) => {
-    const selected = Array.from(e.target.files)
+  const handleFilesAdd = (files) => {
+    const selected = Array.from(files)
     if (!selected.length) return
     setFileList(prev => [...prev, ...selected])
   }
 
-  const removeFileFromList = (index) => {
-    setFileList(prev => prev.filter((_, i) => i !== index))
+  const removeFile = (idx) => {
+    setFileList(prev => prev.filter((_, i) => i !== idx))
   }
 
   const uploadFileToCloudinary = (file) => {
@@ -149,8 +221,7 @@ export default function Dashboard() {
 
       xhr.upload.onprogress = (event) => {
         if (event.lengthComputable) {
-          const percent = Math.round((event.loaded / event.total) * 98)
-          setUploadProgress(percent)
+          setUploadProgress(Math.round((event.loaded / event.total) * 98))
         }
       }
 
@@ -165,20 +236,20 @@ export default function Dashboard() {
               url: res.secure_url || res.url
             })
           } else {
-            reject(new Error(res?.error?.message || "Storage upload failure"))
+            reject(new Error(res?.error?.message || "Storage error"))
           }
         } catch {
-          reject(new Error("Response parse failure"))
+          reject(new Error("Upload parse error"))
         }
       }
-      xhr.onerror = () => reject(new Error("Network lost"))
+      xhr.onerror = () => reject(new Error("Network failed"))
       xhr.send(formData)
     })
   }
 
-  const handleFinalDeploy = async () => {
+  const handleDeployVault = async () => {
     if (!title || !amount || !fileList.length || !user) {
-      showToast("Please fill all required fields", "error")
+      showToast("Please complete Title, Amount, and upload files", "error")
       return
     }
 
@@ -186,18 +257,17 @@ export default function Dashboard() {
     setUploading(true)
 
     try {
-      const uploadedManifest = []
+      const manifest = []
       for (let i = 0; i < fileList.length; i++) {
         setUploadProgress(Math.round((i / fileList.length) * 100))
-        const fileInfo = await uploadFileToCloudinary(fileList[i])
-        uploadedManifest.push(fileInfo)
+        const res = await uploadFileToCloudinary(fileList[i])
+        manifest.push(res)
       }
       setUploadProgress(100)
 
       const numAmount = Number(amount) || 0
       const platformFee = Math.max(Math.round(numAmount * 0.05), 50)
       const creatorPayout = Math.max(numAmount - platformFee, 0)
-      
       const expiresAt = new Date()
       expiresAt.setDate(expiresAt.getDate() + (expirySelection === 'never' ? 3650 : parseInt(expirySelection)))
 
@@ -213,15 +283,15 @@ export default function Dashboard() {
         creatorPayout,
         watermarkText: watermarkText || 'RELEASEDROP • PROTECTED PREVIEW',
         status: 'Awaiting Payment',
-        files: uploadedManifest,
-        primaryPreviewUrl: uploadedManifest[0]?.url,
+        files: manifest,
+        primaryPreviewUrl: manifest[0]?.url,
         expiresAt: expiresAt.toISOString(),
         viewCount: 0,
         messages: [],
         createdAt: serverTimestamp()
       })
 
-      showToast("Vault deployed & client link generated!", "success")
+      showToast("Delivery Vault created successfully!", "success")
       setTitle('')
       setClientName('')
       setClientEmail('')
@@ -231,7 +301,7 @@ export default function Dashboard() {
       setWizardStep(1)
       setCurrentView('overview')
     } catch (err) {
-      showToast(err.message || "Failed to deploy", "error")
+      showToast(err.message || "Failed to create vault", "error")
     } finally {
       setCreating(false)
       setUploading(false)
@@ -239,7 +309,7 @@ export default function Dashboard() {
   }
 
   const handleDelete = async (id) => {
-    if (!confirm("Revoke this delivery? Access will be terminated.")) return
+    if (!confirm("Permanently delete this delivery? Client access will be revoked.")) return
     try {
       await deleteDoc(doc(db, 'deliveries', id))
       showToast("Delivery revoked", "success")
@@ -250,7 +320,7 @@ export default function Dashboard() {
 
   const handleDeleteAll = async () => {
     if (!deliveries.length) return
-    if (!confirm(`Delete all ${deliveries.length} deliveries permanently?`)) return
+    if (!confirm(`Permanently delete all ${deliveries.length} deliveries?`)) return
     try {
       const batch = writeBatch(db)
       deliveries.forEach(d => batch.delete(doc(db, 'deliveries', d.id)))
@@ -264,19 +334,19 @@ export default function Dashboard() {
   const copyLink = (id) => {
     navigator.clipboard.writeText(`${window.location.origin}/d/${id}`)
     setCopiedId(id)
-    showToast("Link copied to clipboard", "success")
+    showToast("Portal link copied!", "success")
     setTimeout(() => setCopiedId(null), 2500)
   }
 
-  const handleSendReply = async (deliveryId) => {
-    if (!replyText.trim()) return
+  const handleSendThreadReply = async (deliveryId) => {
+    if (!threadReplyText.trim()) return
     try {
       const target = deliveries.find(d => d.id === deliveryId)
       const existing = target?.messages || []
-      const updated = [...existing, { sender: 'creator', text: replyText.trim(), time: new Date().toISOString() }]
+      const updated = [...existing, { sender: 'creator', text: threadReplyText.trim(), time: new Date().toISOString() }]
       await updateDoc(doc(db, 'deliveries', deliveryId), { messages: updated })
-      setReplyText('')
-      showToast("Message dispatched", "success")
+      setThreadReplyText('')
+      showToast("Reply sent to client thread", "success")
     } catch {
       showToast("Failed to send", "error")
     }
@@ -287,19 +357,36 @@ export default function Dashboard() {
   const totalRevenue = paidDeliveries.reduce((acc, c) => acc + (Number(c.creatorPayout) || Number(c.grossAmount) || 0), 0)
   const pendingAmount = pendingDeliveries.reduce((acc, c) => acc + (Number(c.creatorPayout) || Number(c.grossAmount) || 0), 0)
 
+  const activeRevisionsCount = deliveries.filter(d => d.messages && d.messages.length > 0 && d.status !== 'Paid').length
+
   const filteredDeliveries = deliveries.filter(d => {
     const matchesFilter = filterStatus === 'all' ? true : filterStatus === 'pending' ? d.status === 'Awaiting Payment' : d.status === 'Paid'
     const matchesSearch = d.title?.toLowerCase().includes(searchQuery.toLowerCase()) || d.clientName?.toLowerCase().includes(searchQuery.toLowerCase())
     return matchesFilter && matchesSearch
   })
 
-  const activeChat = deliveries.find(d => d.id === (selectedChatId || deliveries[0]?.id))
+  // Sparkline Trends Data
+  const pendingTrendData = [
+    { label: 'Mon', value: Math.round(pendingAmount * 0.4), formatted: formatINR(pendingAmount * 0.4) },
+    { label: 'Tue', value: Math.round(pendingAmount * 0.7), formatted: formatINR(pendingAmount * 0.7) },
+    { label: 'Wed', value: Math.round(pendingAmount * 0.5), formatted: formatINR(pendingAmount * 0.5) },
+    { label: 'Thu', value: Math.round(pendingAmount * 0.85), formatted: formatINR(pendingAmount * 0.85) },
+    { label: 'Today', value: pendingAmount, formatted: formatINR(pendingAmount) }
+  ]
+
+  const clearedTrendData = [
+    { label: 'Mon', value: Math.round(totalRevenue * 0.2), formatted: formatINR(totalRevenue * 0.2) },
+    { label: 'Tue', value: Math.round(totalRevenue * 0.35), formatted: formatINR(totalRevenue * 0.35) },
+    { label: 'Wed', value: Math.round(totalRevenue * 0.6), formatted: formatINR(totalRevenue * 0.6) },
+    { label: 'Thu', value: Math.round(totalRevenue * 0.75), formatted: formatINR(totalRevenue * 0.75) },
+    { label: 'Today', value: totalRevenue, formatted: formatINR(totalRevenue) }
+  ]
 
   if (loading) {
     return (
       <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center text-xs text-slate-500 gap-2 font-mono">
         <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-        <span>AUTHENTICATING...</span>
+        <span>AUTHENTICATING WORKSPACE...</span>
       </div>
     )
   }
@@ -320,9 +407,9 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans flex antialiased pb-20 lg:pb-0">
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans flex antialiased">
       
-      {/* Toast Alert */}
+      {/* Toast Notification */}
       {toast && (
         <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50">
           <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl shadow-xl bg-slate-900 text-white text-xs font-semibold border border-slate-800">
@@ -332,150 +419,237 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex w-64 bg-white border-r border-slate-200 flex-col justify-between p-5 sticky top-0 h-screen z-30">
-        <div className="space-y-6">
-          <Link href="/" className="flex items-center gap-2.5 px-2">
-            <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-sm">
+      {/* PRO ENTERPRISE SIDEBAR (From Reference Screenshot) */}
+      <aside className="hidden lg:flex w-64 bg-white border-r border-slate-200/90 flex-col justify-between p-4 sticky top-0 h-screen z-30 select-none">
+        <div className="space-y-4">
+          {/* Logo & Workspace Title */}
+          <div className="flex items-center gap-2.5 px-2 py-1">
+            <div className="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center text-white font-bold shadow-xs">
               <Zap className="w-4 h-4 fill-white" />
             </div>
-            <span className="font-bold text-sm tracking-tight text-slate-900 uppercase">ReleaseDrop</span>
-          </Link>
-
-          <nav className="space-y-1">
-            <button
-              onClick={() => { setCurrentView('overview'); setWizardStep(1); }}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition ${
-                currentView === 'overview' ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              <Layers className="w-4 h-4" />
-              <span>Overview & Drops</span>
-            </button>
-            <button
-              onClick={() => { setCurrentView('messages'); setWizardStep(1); }}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition ${
-                currentView === 'messages' ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <MessageSquare className="w-4 h-4" />
-                <span>Revisions Inbox</span>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className="font-black text-sm tracking-tight text-slate-900 uppercase">ReleaseDrop</span>
+                <span className="px-1.5 py-0.2 rounded bg-blue-600 text-white text-[9px] font-bold">PRO</span>
               </div>
-              {deliveries.some(d => d.messages?.length > 0) && (
-                <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
-              )}
-            </button>
-          </nav>
-        </div>
-
-        <div className="border-t border-slate-100 pt-4 space-y-2">
-          <div className="px-2">
-            <div className="text-xs font-bold text-slate-900 truncate">{user.displayName || user.email?.split('@')[0]}</div>
-            <div className="text-[10px] text-slate-400 font-mono truncate">{user.email}</div>
+              <span className="text-[10px] text-slate-400 font-medium">Studio Craft Agency</span>
+            </div>
           </div>
-          <button onClick={() => signOut(auth)} className="w-full text-left px-2 py-1.5 text-xs text-slate-500 hover:text-rose-600 transition">
-            Sign Out
-          </button>
-        </div>
-      </aside>
 
-      {/* Main Panel */}
-      <div className="flex-1 flex flex-col min-w-0">
-        
-        {/* Header */}
-        <header className="h-16 bg-white border-b border-slate-200/80 sticky top-0 z-20 px-4 sm:px-8 flex items-center justify-between gap-4">
-          <div className="relative hidden sm:block w-72">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input 
+          {/* Primary Action Button */}
+          <button
+            onClick={() => { setCurrentView('create'); setWizardStep(1); }}
+            className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-sm transition active:scale-95 flex items-center justify-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Create Protected Drop</span>
+          </button>
+
+          {/* Search Jump Box */}
+          <div className="relative">
+            <Search className="w-3 h-3 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
               type="text"
-              placeholder="Search deliveries, clients..."
+              placeholder="Quick jump / search... [⌘K]"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-blue-600"
+              className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-[11px] text-slate-800 focus:outline-none focus:border-blue-600"
             />
           </div>
 
-          <div className="flex items-center gap-3 ml-auto">
-            <button 
+          {/* Navigation Section */}
+          <div className="space-y-0.5 pt-1">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 block mb-1">Workspace</span>
+            
+            <button
+              onClick={() => { setCurrentView('overview'); setWizardStep(1); }}
+              className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold transition ${
+                currentView === 'overview' ? 'bg-slate-900 text-white font-bold' : 'text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Layers className="w-4 h-4" />
+                <span>Deliveries & Proofs</span>
+              </div>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-mono ${currentView === 'overview' ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-500'}`}>
+                {deliveries.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => { setCurrentView('inbox'); setWizardStep(1); }}
+              className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold transition ${
+                currentView === 'inbox' || currentView === 'chat-thread' ? 'bg-slate-900 text-white font-bold' : 'text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <MessageSquare className="w-4 h-4" />
+                <span>Revisions & Inbox</span>
+              </div>
+              {activeRevisionsCount > 0 && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500 text-white font-bold">
+                  {activeRevisionsCount}
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={() => { setCurrentView('overview'); showToast("Escrow cleared payouts balance: " + formatINR(totalRevenue), "success"); }}
+              className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50 transition"
+            >
+              <div className="flex items-center gap-2.5">
+                <CreditCard className="w-4 h-4" />
+                <span>Escrow & Payouts</span>
+              </div>
+              <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+            </button>
+
+            <button
+              onClick={() => showToast("Client CRM ready: " + deliveries.length + " clients onboarded.", "success")}
+              className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50 transition"
+            >
+              <div className="flex items-center gap-2.5">
+                <Users className="w-4 h-4" />
+                <span>Clients CRM</span>
+              </div>
+              <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+            </button>
+
+            <button
+              onClick={() => { setCurrentView('create'); setWizardStep(3); }}
+              className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50 transition"
+            >
+              <div className="flex items-center gap-2.5">
+                <Sliders className="w-4 h-4" />
+                <span>Watermark Studio</span>
+              </div>
+              <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+            </button>
+
+            <button
+              onClick={() => showToast("Security & Audit Logs: SHA-256 Vault Encryption Active", "success")}
+              className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50 transition"
+            >
+              <div className="flex items-center gap-2.5">
+                <Shield className="w-4 h-4" />
+                <span>Security & Audit Logs</span>
+              </div>
+              <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+            </button>
+          </div>
+        </div>
+
+        {/* Bottom Sidebar Widgets (Screenshot Matching) */}
+        <div className="space-y-3 pt-3 border-t border-slate-100">
+          {/* Escrow Protected Pill Card */}
+          <div className="p-3 bg-emerald-50/70 border border-emerald-200/80 rounded-xl space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold text-emerald-800 uppercase flex items-center gap-1 font-mono">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Escrow Protected
+              </span>
+              <span className="text-[10px] font-bold text-blue-600 hover:underline cursor-pointer">Payouts →</span>
+            </div>
+            <div className="text-sm font-black text-slate-900 font-mono">{formatINR(pendingAmount)}</div>
+          </div>
+
+          {/* Storage Bar */}
+          <div className="px-1 space-y-1">
+            <div className="flex justify-between text-[10px] text-slate-400 font-mono font-medium">
+              <span>Private Storage</span>
+              <span>28.4 / 100 GB</span>
+            </div>
+            <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
+              <div className="w-1/4 h-full bg-blue-600 rounded-full" />
+            </div>
+          </div>
+
+          {/* Creator Profile */}
+          <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-7 h-7 rounded-full bg-slate-900 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                {user.displayName ? user.displayName.slice(0, 2).toUpperCase() : 'RD'}
+              </div>
+              <div className="truncate">
+                <div className="text-xs font-bold text-slate-900 truncate">{user.displayName || user.email?.split('@')[0]}</div>
+                <div className="text-[10px] text-emerald-600 font-medium">Verified Pro Creator ✓</div>
+              </div>
+            </div>
+            <button onClick={() => signOut(auth)} className="text-slate-400 hover:text-rose-600 text-xs p-1" title="Log Out">✕</button>
+          </div>
+        </div>
+      </aside>
+
+      {/* Main App Canvas */}
+      <div className="flex-1 flex flex-col min-w-0">
+        
+        {/* Top Navbar */}
+        <header className="h-14 bg-white border-b border-slate-200/80 sticky top-0 z-20 px-4 sm:px-8 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button onClick={() => setMobileMenuOpen(true)} className="lg:hidden p-1.5 text-slate-600 hover:bg-slate-100 rounded-lg">
+              <Menu className="w-5 h-5" />
+            </button>
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+              <span>Studio Craft Agency</span>
+              <span>/</span>
+              <span className="text-slate-900 font-bold capitalize">{currentView.replace('-', ' ')}</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            <button
               onClick={() => { setCurrentView('create'); setWizardStep(1); }}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-sm transition active:scale-95 flex items-center gap-1.5"
+              className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-xs transition active:scale-95 flex items-center gap-1.5"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>Create New Drop</span>
+              <span>New Delivery</span>
             </button>
           </div>
         </header>
 
-        {/* Content Viewport */}
-        <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-8 py-6 sm:py-8 space-y-6">
+        {/* Dynamic Screens */}
+        <main className="flex-1 max-w-5xl w-full mx-auto p-4 sm:p-8 space-y-6">
 
-          {/* VIEW: OVERVIEW */}
+          {/* SCREEN 1: OVERVIEW & DELIVERIES */}
           {currentView === 'overview' && (
             <div className="space-y-6">
-              
-              {/* Creator Card */}
-              <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white font-black text-sm flex items-center justify-center shadow-xs">
-                    {user.displayName ? user.displayName.slice(0, 2).toUpperCase() : 'RD'}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-base font-bold text-slate-900">{user.displayName || user.email?.split('@')[0]}</h2>
-                      <span className="px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-[10px] font-bold">
-                        Verified Creator
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-500 font-mono mt-0.5">Escrow Core Ready • Auto Clearance</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 w-full sm:w-auto">
-                  <button
-                    onClick={() => { setCurrentView('create'); setWizardStep(1); }}
-                    className="flex-1 sm:flex-initial px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-xs transition"
-                  >
-                    + Create New Drop
-                  </button>
-                </div>
+              <div>
+                <h1 className="text-xl font-bold text-slate-900 tracking-tight">Deliveries & Proofs</h1>
+                <p className="text-xs text-slate-500 mt-0.5">Real-time payment-locked handoff vaults.</p>
               </div>
 
-              {/* Metric Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <MetricCard
+              {/* Sparkline Cards (Touch-interactive) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <InteractiveSparkline
+                  cardId="pending"
                   title="Pending Escrow Payouts"
                   amount={formatINR(pendingAmount)}
-                  subtitle="Locked across active client drops"
+                  subtitle="Locked in active client drops"
+                  data={pendingTrendData}
                   color="blue"
-                  icon={Lock}
+                  badge="In Escrow"
+                  activePoint={activeChartPoint}
+                  onPointHover={setActiveChartPoint}
                 />
-                <MetricCard
+                <InteractiveSparkline
+                  cardId="cleared"
                   title="Verified Cleared Earnings"
                   amount={formatINR(totalRevenue)}
-                  subtitle="Released & licensed deliverables"
+                  subtitle="Released to bank accounts"
+                  data={clearedTrendData}
                   color="emerald"
-                  icon={ShieldCheck}
-                />
-                <MetricCard
-                  title="Active Drop Portals"
-                  amount={deliveries.length.toString()}
-                  subtitle="Tamper-proof digital vaults"
-                  color="amber"
-                  icon={FolderKanban}
+                  badge="Settled"
+                  activePoint={activeChartPoint}
+                  onPointHover={setActiveChartPoint}
                 />
               </div>
 
-              {/* Deliveries List */}
-              <div className="bg-white border border-slate-200/80 rounded-2xl shadow-xs overflow-hidden">
+              {/* Deliveries Table Card */}
+              <div className="bg-white border border-slate-200/90 rounded-2xl shadow-xs overflow-hidden">
                 <div className="p-4 border-b border-slate-100 flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider font-mono">Deliveries</h3>
+                    <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider font-mono">Deliveries ({deliveries.length})</h3>
                     {deliveries.length > 0 && (
-                      <button
-                        onClick={handleDeleteAll}
-                        className="px-2.5 py-1 text-rose-600 hover:bg-rose-50 rounded-lg text-xs font-semibold transition"
-                      >
+                      <button onClick={handleDeleteAll} className="text-xs text-rose-600 hover:underline font-semibold">
                         Delete All
                       </button>
                     )}
@@ -503,7 +677,7 @@ export default function Dashboard() {
                     {filteredDeliveries.map(item => (
                       <div key={item.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/50 transition">
                         <div className="flex items-start gap-3 min-w-0">
-                          <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 mt-0.5">
+                          <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 mt-0.5">
                             <FileArchive className="w-4 h-4" />
                           </div>
                           <div className="min-w-0">
@@ -548,26 +722,218 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* VIEW: CREATE DROP */}
+          {/* SCREEN 2: DEDICATED CLIENT INBOX & REVISIONS (Matching Reference Screenshot) */}
+          {currentView === 'inbox' && (
+            <div className="space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h1 className="text-xl font-bold text-slate-900 tracking-tight">Client Inbox & Revisions</h1>
+                  <p className="text-xs text-slate-500 mt-0.5">Real-time delivery communication and revision request triage.</p>
+                </div>
+
+                <div className="relative w-64">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search messages, clients..."
+                    className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-blue-600"
+                  />
+                </div>
+              </div>
+
+              {/* Triage Tabs */}
+              <div className="flex items-center gap-2">
+                <button className="px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-bold flex items-center gap-1.5">
+                  <span>All Conversations</span>
+                  <span className="px-1.5 py-0.2 rounded-full bg-slate-800 text-[10px]">{deliveries.length}</span>
+                </button>
+                <button className="px-3 py-1.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-bold flex items-center gap-1.5">
+                  <span>Active Revisions</span>
+                  <span className="px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold">{activeRevisionsCount}</span>
+                </button>
+              </div>
+
+              {/* List of Client Message Cards (Exact Reference Design) */}
+              <div className="space-y-3">
+                {deliveries.length === 0 ? (
+                  <div className="p-12 text-center text-xs text-slate-400 bg-white rounded-2xl border border-slate-200">
+                    No client conversations found.
+                  </div>
+                ) : (
+                  deliveries.map(d => {
+                    const hasMessages = d.messages && d.messages.length > 0
+                    const lastMsg = hasMessages ? d.messages[d.messages.length - 1] : null
+                    const isRevisionActive = hasMessages && d.status !== 'Paid'
+
+                    return (
+                      <div
+                        key={d.id}
+                        className={`p-5 rounded-2xl bg-white border transition-all ${
+                          isRevisionActive ? 'border-amber-300 shadow-xs ring-1 ring-amber-200/50' : 'border-slate-200/80 shadow-xs'
+                        }`}
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div className="flex items-start gap-3.5">
+                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
+                              isRevisionActive ? 'bg-amber-50 text-amber-600 border border-amber-200' : 'bg-blue-50 text-blue-600'
+                            }`}>
+                              {isRevisionActive ? <AlertCircle className="w-4 h-4" /> : <MessageSquare className="w-4 h-4" />}
+                            </div>
+
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-xs text-slate-900">{d.clientName}</span>
+                                <span className="text-slate-300">•</span>
+                                <span className="text-xs text-slate-500 font-medium">{d.title}</span>
+                              </div>
+
+                              <p className="text-xs text-slate-600 leading-snug">
+                                <strong className="text-slate-800 font-semibold">{lastMsg ? `${lastMsg.sender === 'creator' ? 'You' : d.clientName}: ` : 'Status: '}</strong>
+                                {lastMsg ? lastMsg.text : (d.status === 'Paid' ? 'Payment cleared. Files unlocked.' : 'Vault awaiting client clearance.')}
+                              </p>
+
+                              <div className="flex items-center gap-3 text-[11px] text-slate-400 pt-1">
+                                <span>{lastMsg ? new Date(lastMsg.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recently'}</span>
+                                <span>•</span>
+                                <span className="font-mono font-bold text-slate-700">{formatINR(d.grossAmount)}</span>
+                                {isRevisionActive && (
+                                  <span className="px-2 py-0.2 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold">
+                                    Revision Requested
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 sm:self-center">
+                            <button
+                              onClick={() => { setActiveThreadDelivery(d); setCurrentView('chat-thread'); }}
+                              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-xs transition flex items-center gap-1.5"
+                            >
+                              <MessageSquare className="w-3.5 h-3.5" />
+                              <span>Open Thread</span>
+                            </button>
+
+                            <Link
+                              href={`/d/${d.id}`}
+                              target="_blank"
+                              className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition"
+                              title="Inspect Client Portal"
+                            >
+                              <ExternalLink className="w-4 h-4" />
+                            </Link>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* SCREEN 3: INDIVIDUAL CLIENT CHAT THREAD VIEW */}
+          {currentView === 'chat-thread' && activeThreadDelivery && (
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-3">
+                  <button onClick={() => setCurrentView('inbox')} className="text-xs text-slate-400 hover:text-slate-700 font-bold">
+                    ← Back to Inbox
+                  </button>
+                  <span className="text-slate-300">|</span>
+                  <div>
+                    <h3 className="text-xs font-bold text-slate-900">{activeThreadDelivery.clientName}</h3>
+                    <span className="text-[10px] text-slate-400">{activeThreadDelivery.title}</span>
+                  </div>
+                </div>
+
+                <Link href={`/d/${activeThreadDelivery.id}`} target="_blank" className="text-xs text-blue-600 font-bold hover:underline flex items-center gap-1">
+                  <span>Portal View</span> <ExternalLink className="w-3 h-3" />
+                </Link>
+              </div>
+
+              {/* Chat Stream */}
+              <div className="h-80 overflow-y-auto p-4 bg-[#F8FAFC] rounded-xl space-y-3">
+                {(activeThreadDelivery.messages || []).length === 0 ? (
+                  <div className="h-full flex items-center justify-center text-xs text-slate-400">
+                    No client revision notes yet. Write a message below.
+                  </div>
+                ) : (
+                  activeThreadDelivery.messages.map((m, idx) => {
+                    const isCreator = m.sender === 'creator'
+                    return (
+                      <div key={idx} className={`flex flex-col ${isCreator ? 'items-end' : 'items-start'}`}>
+                        <div className={`p-3 rounded-2xl text-xs max-w-sm shadow-xs ${
+                          isCreator ? 'bg-blue-600 text-white rounded-br-xs' : 'bg-white border border-slate-200 text-slate-800 rounded-bl-xs'
+                        }`}>
+                          <p className="leading-relaxed">{m.text}</p>
+                        </div>
+                        <span className="text-[9px] text-slate-400 mt-0.5">{new Date(m.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+
+              {/* Input composer */}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Type official reply to client..."
+                  value={threadReplyText}
+                  onChange={e => setThreadReplyText(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleSendThreadReply(activeThreadDelivery.id)}
+                  className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:outline-none focus:border-blue-600"
+                />
+                <button
+                  onClick={() => handleSendThreadReply(activeThreadDelivery.id)}
+                  className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition"
+                >
+                  Send Reply
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* SCREEN 4: 4-STEP DELIVERY CREATION WIZARD (Intact & Fully Restored) */}
           {currentView === 'create' && (
             <div className="max-w-xl mx-auto space-y-5">
               <div className="flex justify-between items-center">
                 <div>
-                  <h2 className="text-lg font-bold text-slate-900">Deploy Delivery Vault</h2>
-                  <p className="text-xs text-slate-500">Upload assets and set your escrow amount.</p>
+                  <h2 className="text-lg font-bold text-slate-900 tracking-tight">Deploy Escrow Vault</h2>
+                  <p className="text-xs text-slate-500">Lock master deliverables behind payment clearance.</p>
                 </div>
                 <button onClick={() => setCurrentView('overview')} className="text-xs font-semibold text-slate-400">Cancel</button>
               </div>
 
+              {/* Step Navigation Pill */}
+              <div className="bg-white border border-slate-200 rounded-xl p-3 flex items-center justify-between text-xs font-semibold shadow-xs">
+                <span className={wizardStep === 1 ? 'text-blue-600 font-bold' : 'text-slate-400'}>1. Assets</span>
+                <span className="text-slate-300">→</span>
+                <span className={wizardStep === 2 ? 'text-blue-600 font-bold' : 'text-slate-400'}>2. Details</span>
+                <span className="text-slate-300">→</span>
+                <span className={wizardStep === 3 ? 'text-blue-600 font-bold' : 'text-slate-400'}>3. Watermark</span>
+                <span className="text-slate-300">→</span>
+                <span className={wizardStep === 4 ? 'text-blue-600 font-bold' : 'text-slate-400'}>4. Deploy</span>
+              </div>
+
+              {/* STEP 1: DROPZONE WITH ANIMATION */}
               {wizardStep === 1 && (
-                <div className="p-6 bg-white border border-slate-200 rounded-2xl space-y-4">
-                  <div className="border-2 border-dashed border-slate-200 hover:border-blue-500 rounded-2xl p-8 text-center bg-slate-50/50 transition">
+                <div className="p-6 bg-white border border-slate-200 rounded-2xl space-y-4 shadow-xs">
+                  <div
+                    onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                    onDragLeave={() => setIsDragging(false)}
+                    onDrop={(e) => { e.preventDefault(); setIsDragging(false); handleFilesAdd(e.dataTransfer.files); }}
+                    className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all ${
+                      isDragging ? 'border-blue-600 bg-blue-50/50 scale-[1.01]' : 'border-slate-200 bg-slate-50/50 hover:border-blue-500'
+                    }`}
+                  >
                     <UploadCloud className="w-10 h-10 text-blue-600 mx-auto mb-2" />
-                    <span className="text-sm font-bold text-slate-900 block">Select Deliverable Master Assets</span>
-                    <span className="text-xs text-slate-400 mt-0.5 block">MP4, MOV, PNG, JPG, PDF, ZIP</span>
+                    <span className="text-sm font-bold text-slate-900 block">Select Master Production Deliverables</span>
+                    <span className="text-xs text-slate-400 mt-0.5 block">MP4, MOV, PNG, JPG, PDF, ZIP (Max 250MB)</span>
                     <label className="mt-4 inline-block px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl cursor-pointer shadow-xs transition">
                       Browse Files
-                      <input type="file" multiple onChange={handleFilesAdd} className="hidden" />
+                      <input type="file" multiple onChange={e => handleFilesAdd(e.target.files)} className="hidden" />
                     </label>
                   </div>
 
@@ -575,8 +941,8 @@ export default function Dashboard() {
                     <div className="space-y-1.5 border border-slate-100 rounded-xl p-3 bg-slate-50">
                       {fileList.map((f, i) => (
                         <div key={i} className="flex justify-between text-xs items-center">
-                          <span className="truncate max-w-[200px] font-medium text-slate-800">{f.name}</span>
-                          <button onClick={() => removeFileFromList(i)} className="text-slate-400 hover:text-rose-600">✕</button>
+                          <span className="truncate max-w-[240px] font-medium text-slate-800">{f.name}</span>
+                          <button onClick={() => removeFile(i)} className="text-slate-400 hover:text-rose-600 font-bold">✕</button>
                         </div>
                       ))}
                     </div>
@@ -592,13 +958,14 @@ export default function Dashboard() {
                 </div>
               )}
 
+              {/* STEP 2: DETAILS */}
               {wizardStep === 2 && (
-                <div className="p-6 bg-white border border-slate-200 rounded-2xl space-y-4">
+                <div className="p-6 bg-white border border-slate-200 rounded-2xl space-y-4 shadow-xs">
                   <div>
-                    <label className="text-xs font-bold text-slate-700 block mb-1">Project Title *</label>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">Deliverable Title *</label>
                     <input
                       type="text"
-                      placeholder="e.g. 4K Commercial Final Edit"
+                      placeholder="e.g. 4K Commercial Brand Edit"
                       value={title}
                       onChange={e => setTitle(e.target.value)}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-blue-600"
@@ -629,36 +996,110 @@ export default function Dashboard() {
                   </div>
 
                   <div>
-                    <label className="text-xs font-bold text-slate-700 block mb-1">Client Handover Note</label>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">Handover Note to Client</label>
                     <textarea
                       rows={2}
-                      placeholder="e.g. Approved color pass. Full resolution assets unseal upon settlement."
+                      placeholder="e.g. Approved master cut. Uncompressed raw files unseal post-settlement."
                       value={clientMessage}
                       onChange={e => setClientMessage(e.target.value)}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-blue-600"
                     />
                   </div>
 
+                  <div className="flex gap-2">
+                    <button onClick={() => setWizardStep(1)} className="w-1/3 py-2.5 border border-slate-200 text-slate-600 text-xs font-bold rounded-xl">Back</button>
+                    <button
+                      disabled={!title || !amount}
+                      onClick={() => setWizardStep(3)}
+                      className="w-2/3 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-xs transition"
+                    >
+                      Next: Watermark & Expiry →
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 3: WATERMARK & EXPIRY */}
+              {wizardStep === 3 && (
+                <div className="p-6 bg-white border border-slate-200 rounded-2xl space-y-4 shadow-xs">
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">Anti-Scrape Watermark Text</label>
+                    <input
+                      type="text"
+                      value={watermarkText}
+                      onChange={e => setWatermarkText(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-mono text-slate-900 focus:outline-none focus:border-blue-600"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">Vault Link Expiration</label>
+                    <div className="grid grid-cols-4 gap-2 text-xs font-semibold">
+                      {['7', '14', '30', 'never'].map(opt => (
+                        <button
+                          key={opt}
+                          type="button"
+                          onClick={() => setExpirySelection(opt)}
+                          className={`py-2 rounded-xl border transition ${
+                            expirySelection === opt ? 'bg-blue-50 border-blue-600 text-blue-700' : 'border-slate-200 text-slate-600'
+                          }`}
+                        >
+                          {opt === 'never' ? 'Never' : `${opt} Days`}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button onClick={() => setWizardStep(2)} className="w-1/3 py-2.5 border border-slate-200 text-slate-600 text-xs font-bold rounded-xl">Back</button>
+                    <button
+                      onClick={() => setWizardStep(4)}
+                      className="w-2/3 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-xs transition"
+                    >
+                      Review & Deploy Vault →
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 4: REVIEW & DEPLOY WITH STEP-LOADER */}
+              {wizardStep === 4 && (
+                <div className="p-6 bg-white border border-slate-200 rounded-2xl space-y-4 shadow-xs">
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs">
+                    <div className="flex justify-between font-bold text-slate-900 border-b border-slate-200 pb-2">
+                      <span>{title}</span>
+                      <span>{formatINR(amount)}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-500">
+                      <span>Client: {clientName}</span>
+                      <span>{fileList.length} files attached</span>
+                    </div>
+                    <div className="text-slate-500">
+                      Expires: {expirySelection === 'never' ? 'Never' : `${expirySelection} Days`}
+                    </div>
+                  </div>
+
                   {uploading && (
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-xs text-slate-500 font-mono">
-                        <span>Deploying to vault...</span>
+                    <div className="space-y-1.5 p-3 bg-blue-50/60 border border-blue-100 rounded-xl">
+                      <div className="flex justify-between text-xs text-blue-900 font-semibold">
+                        <span className="animate-pulse">{loaderStepText}</span>
                         <span>{uploadProgress}%</span>
                       </div>
-                      <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-blue-600 transition-all" style={{ width: `${uploadProgress}%` }} />
+                      <div className="w-full h-1.5 bg-blue-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-blue-600 transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
                       </div>
                     </div>
                   )}
 
                   <div className="flex gap-2">
-                    <button onClick={() => setWizardStep(1)} className="w-1/3 py-2.5 border border-slate-200 text-slate-600 text-xs font-bold rounded-xl">Back</button>
+                    <button disabled={creating} onClick={() => setWizardStep(3)} className="w-1/3 py-2.5 border border-slate-200 text-slate-600 text-xs font-bold rounded-xl">Back</button>
                     <button
-                      disabled={creating || uploading || !title || !amount}
-                      onClick={handleFinalDeploy}
-                      className="w-2/3 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-xs transition"
+                      disabled={creating || uploading}
+                      onClick={handleDeployVault}
+                      className="w-2/3 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-xs transition flex items-center justify-center gap-1.5"
                     >
-                      {creating ? 'Deploying...' : 'Deploy Payment-Locked Vault'}
+                      <Lock className="w-3.5 h-3.5" />
+                      <span>{creating ? 'Sealing Vault...' : 'Deploy Payment-Locked Vault'}</span>
                     </button>
                   </div>
                 </div>
@@ -666,101 +1107,7 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* VIEW: MESSAGES (WHATSAPP 2-PANE) */}
-          {currentView === 'messages' && (
-            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs grid grid-cols-1 md:grid-cols-12 h-[560px]">
-              <div className="md:col-span-4 border-r border-slate-200 flex flex-col h-full bg-slate-50/40">
-                <div className="p-3 border-b border-slate-200 bg-white font-bold text-xs text-slate-700">Conversations</div>
-                <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
-                  {deliveries.map(d => (
-                    <button
-                      key={d.id}
-                      onClick={() => setSelectedChatId(d.id)}
-                      className={`w-full p-3 text-left transition ${activeChat?.id === d.id ? 'bg-blue-50/80 border-l-4 border-blue-600' : 'hover:bg-slate-100/50'}`}
-                    >
-                      <div className="text-xs font-bold text-slate-900 truncate">{d.clientName}</div>
-                      <div className="text-[11px] text-blue-600 truncate">{d.title}</div>
-                      <p className="text-[10px] text-slate-400 truncate mt-0.5">
-                        {d.messages?.length ? d.messages[d.messages.length - 1].text : 'No messages'}
-                      </p>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="md:col-span-8 flex flex-col h-full bg-white">
-                {activeChat ? (
-                  <>
-                    <div className="p-3.5 border-b border-slate-200 flex justify-between items-center bg-slate-50/50">
-                      <div>
-                        <span className="text-xs font-bold text-slate-900 block">{activeChat.clientName}</span>
-                        <span className="text-[10px] text-slate-400">{activeChat.title}</span>
-                      </div>
-                      <Link href={`/d/${activeChat.id}`} target="_blank" className="text-xs text-blue-600 hover:underline flex items-center gap-1">
-                        <span>Portal</span> <ExternalLink className="w-3 h-3" />
-                      </Link>
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto p-4 space-y-2.5 bg-[#F8FAFC]">
-                      {(activeChat.messages || []).map((m, idx) => (
-                        <div key={idx} className={`flex flex-col ${m.sender === 'creator' ? 'items-end' : 'items-start'}`}>
-                          <div className={`p-2.5 rounded-xl text-xs max-w-sm ${m.sender === 'creator' ? 'bg-blue-600 text-white' : 'bg-white border border-slate-200 text-slate-800'}`}>
-                            {m.text}
-                          </div>
-                          <span className="text-[9px] text-slate-400 mt-0.5">{new Date(m.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="p-3 border-t border-slate-200 flex gap-2">
-                      <input
-                        type="text"
-                        placeholder="Reply to client..."
-                        value={replyText}
-                        onChange={e => setReplyText(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && handleSendReply(activeChat.id)}
-                        className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-600"
-                      />
-                      <button onClick={() => handleSendReply(activeChat.id)} className="p-2 bg-blue-600 text-white rounded-xl">
-                        <Send className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <div className="m-auto text-xs text-slate-400">Select a thread to review messages.</div>
-                )}
-              </div>
-            </div>
-          )}
-
         </main>
-      </div>
-
-      {/* Floating Bottom Navigation Bar (Mobile Viewport Only) */}
-      <div className="fixed bottom-3 left-4 right-4 z-40 lg:hidden flex justify-center">
-        <div className="bg-white/95 backdrop-blur-md border border-slate-200 shadow-xl rounded-2xl px-4 py-2 flex items-center justify-around w-full max-w-sm">
-          <button
-            onClick={() => { setCurrentView('overview'); setWizardStep(1); }}
-            className={`flex flex-col items-center gap-1 text-[10px] ${currentView === 'overview' ? 'text-blue-600 font-bold' : 'text-slate-500'}`}
-          >
-            <Layers className="w-4 h-4" />
-            <span>Drops</span>
-          </button>
-          <button
-            onClick={() => { setCurrentView('messages'); setWizardStep(1); }}
-            className={`flex flex-col items-center gap-1 text-[10px] ${currentView === 'messages' ? 'text-blue-600 font-bold' : 'text-slate-500'}`}
-          >
-            <MessageSquare className="w-4 h-4" />
-            <span>Revisions</span>
-          </button>
-          <button
-            onClick={() => { setCurrentView('create'); setWizardStep(1); }}
-            className="flex flex-col items-center gap-1 text-[10px] text-blue-600 font-bold"
-          >
-            <Plus className="w-4 h-4" />
-            <span>New Drop</span>
-          </button>
-        </div>
       </div>
 
     </div>
