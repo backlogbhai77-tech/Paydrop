@@ -6,145 +6,10 @@ import { db } from '../../../lib/firebase'
 import { doc, getDoc, updateDoc, increment, onSnapshot } from 'firebase/firestore'
 import { 
   ShieldCheck, Lock, Unlock, Download, CheckCircle2, AlertTriangle, 
-  Eye, FileText, ArrowRight, ShieldAlert,
-  Sparkles, RefreshCw, KeyRound, ExternalLink, CreditCard,
-  Smartphone, Building2, Check, X, Flag, MessageSquare, Send,
-  FileArchive, Clock, Receipt, Maximize2, Minimize2, ChevronLeft, ChevronRight
+  FileText, ArrowRight, RefreshCw, ExternalLink,
+  Smartphone, Building2, Check, X, MessageSquare, Send,
+  FileArchive, Receipt, Maximize2, Minimize2, Sparkles
 } from 'lucide-react'
-
-// Multi-Page Canvas PDF Viewer Component
-function PdfDocumentViewer({ pdfUrl, isPaid, watermarkText }) {
-  const canvasRef = useRef(null)
-  const [pdfDoc, setPdfDoc] = useState(null)
-  const [pageNum, setPageNum] = useState(1)
-  const [numPages, setNumPages] = useState(0)
-  const [rendering, setRendering] = useState(false)
-  const [loadError, setLoadError] = useState(false)
-
-  useEffect(() => {
-    let isCancelled = false
-
-    const loadPdfEngine = async () => {
-      try {
-        const pdfjsLib = await import('pdfjs-dist/build/pdf')
-        pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
-        
-        const loadingTask = pdfjsLib.getDocument(pdfUrl)
-        const loadedDoc = await loadingTask.promise
-        if (!isCancelled) {
-          setPdfDoc(loadedDoc)
-          setNumPages(loadedDoc.numPages)
-          setPageNum(1)
-        }
-      } catch (err) {
-        console.error("PDF.js engine load error:", err)
-        if (!isCancelled) setLoadError(true)
-      }
-    }
-
-    if (pdfUrl) loadPdfEngine()
-
-    return () => {
-      isCancelled = true
-    }
-  }, [pdfUrl])
-
-  useEffect(() => {
-    if (!pdfDoc || !canvasRef.current) return
-    let renderTask = null
-
-    const renderCurrentPage = async () => {
-      setRendering(true)
-      try {
-        const page = await pdfDoc.getPage(pageNum)
-        const viewport = page.getViewport({ scale: 1.5 })
-        const canvas = canvasRef.current
-        if (!canvas) return
-        const context = canvas.getContext('2d')
-        canvas.height = viewport.height
-        canvas.width = viewport.width
-
-        const renderContext = {
-          canvasContext: context,
-          viewport: viewport
-        }
-        renderTask = page.render(renderContext)
-        await renderTask.promise
-      } catch (e) {
-        // Task cancelled or replaced
-      } finally {
-        setRendering(false)
-      }
-    }
-
-    renderCurrentPage()
-
-    return () => {
-      if (renderTask) renderTask.cancel()
-    }
-  }, [pdfDoc, pageNum])
-
-  if (loadError) {
-    return (
-      <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center bg-slate-900 text-slate-300">
-        <FileText className="w-10 h-10 text-blue-400 mb-2" />
-        <span className="text-xs font-semibold text-white">Document Sandbox Secured</span>
-        <p className="text-[11px] text-slate-400 mt-1 max-w-xs">
-          Multi-page document protected in escrow vault. Master PDF unseals upon settlement.
-        </p>
-      </div>
-    )
-  }
-
-  return (
-    <div className="w-full h-full relative flex flex-col items-center justify-between bg-slate-900 overflow-hidden select-none">
-      {/* Page Navigation Header */}
-      <div className="w-full z-20 bg-slate-950/80 backdrop-blur-md px-4 py-2 border-b border-slate-800 flex items-center justify-between text-xs">
-        <span className="text-slate-300 font-mono text-[11px]">
-          Page {pageNum} of {numPages || '...'}
-        </span>
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={() => setPageNum(p => Math.max(1, p - 1))}
-            disabled={pageNum <= 1 || rendering}
-            className="p-1 rounded-md bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-white transition"
-          >
-            <ChevronLeft className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={() => setPageNum(p => Math.min(numPages, p + 1))}
-            disabled={pageNum >= numPages || rendering}
-            className="p-1 rounded-md bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-white transition"
-          >
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      </div>
-
-      {/* Canvas Area */}
-      <div className="flex-1 w-full flex items-center justify-center overflow-auto p-4 relative">
-        <canvas ref={canvasRef} className="max-w-full max-h-full object-contain rounded shadow-lg bg-white" />
-        {rendering && (
-          <div className="absolute inset-0 flex items-center justify-center bg-slate-950/40">
-            <RefreshCw className="w-5 h-5 text-blue-400 animate-spin" />
-          </div>
-        )}
-
-        {/* Watermark Overlay on PDF Canvas */}
-        {!isPaid && (
-          <div className="absolute inset-0 pointer-events-none overflow-hidden flex flex-col justify-around opacity-30 select-none z-10 animate-watermark-drift">
-            {[...Array(5)].map((_, i) => (
-              <div key={i} className="whitespace-nowrap text-xs sm:text-sm font-black text-white tracking-widest uppercase flex justify-around">
-                <span>{watermarkText}</span>
-                <span>{watermarkText}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
 
 export default function ClientDeliveryPortal() {
   const { id } = useParams()
@@ -156,6 +21,10 @@ export default function ClientDeliveryPortal() {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const canvasContainerRef = useRef(null)
 
+  // Party Popper Confetti Celebration State
+  const [partyPopperActive, setPartyPopperActive] = useState(false)
+
+  // Checkout & Interactive States
   const [showCheckoutModal, setShowCheckoutModal] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState('upi')
   const [termsAccepted, setTermsAccepted] = useState(false)
@@ -163,6 +32,7 @@ export default function ClientDeliveryPortal() {
   const [downloadingFileIndex, setDownloadingFileIndex] = useState(null)
   const [showReceiptModal, setShowReceiptModal] = useState(false)
   
+  // Real-Time 2-Way Chat State
   const [clientMessageText, setClientMessageText] = useState('')
   const [sendingMsg, setSendingMsg] = useState(false)
 
@@ -186,26 +56,7 @@ export default function ClientDeliveryPortal() {
 
     updateDoc(docRef, { viewCount: increment(1) }).catch(() => {})
 
-    const handleKeyDown = (e) => {
-      if (
-        (e.ctrlKey && (e.key === 's' || e.key === 'u' || e.key === 'p')) ||
-        e.key === 'PrintScreen' ||
-        (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) ||
-        e.key === 'F12'
-      ) {
-        e.preventDefault()
-      }
-    }
-
-    const handleContextMenu = (e) => e.preventDefault()
-    window.addEventListener('keydown', handleKeyDown)
-    window.addEventListener('contextmenu', handleContextMenu)
-
-    return () => {
-      unsubscribe()
-      window.removeEventListener('keydown', handleKeyDown)
-      window.removeEventListener('contextmenu', handleContextMenu)
-    }
+    return () => unsubscribe()
   }, [id])
 
   const toggleFullscreen = () => {
@@ -217,14 +68,14 @@ export default function ClientDeliveryPortal() {
     }
   }
 
-  // Pure Direct Blob Download (Uncorrupted)
+  // Safe Universal Blob Downloader
   const handleDownloadItem = async (fileUrl, fileName, index) => {
     if (!fileUrl) return
     setDownloadingFileIndex(index)
 
     try {
       const response = await fetch(fileUrl)
-      if (!response.ok) throw new Error("Fetch fallback")
+      if (!response.ok) throw new Error("Fallback required")
       const blob = await response.blob()
       const blobUrl = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -241,6 +92,7 @@ export default function ClientDeliveryPortal() {
     }
   }
 
+  // Handle Payment with Party Popper / Confetti Burst
   const handleProcessPayment = async () => {
     if (!termsAccepted) {
       alert("Please accept the deliverable terms to unlock files.")
@@ -258,11 +110,15 @@ export default function ClientDeliveryPortal() {
         })
         setUnlocking(false)
         setShowCheckoutModal(false)
+
+        // Trigger Party Popper celebration burst
+        setPartyPopperActive(true)
+        setTimeout(() => setPartyPopperActive(false), 3500)
       } catch (err) {
-        alert("Payment sync failure: " + err.message)
+        alert("Payment verification failure: " + err.message)
         setUnlocking(false)
       }
-    }, 1500)
+    }, 1200)
   }
 
   const handlePostClientMessage = async () => {
@@ -271,15 +127,11 @@ export default function ClientDeliveryPortal() {
     try {
       const docRef = doc(db, 'deliveries', id)
       const existing = delivery.messages || []
-      const updated = [...existing, { 
-        sender: 'client', 
-        text: clientMessageText.trim(), 
-        time: new Date().toISOString() 
-      }]
+      const updated = [...existing, { sender: 'client', text: clientMessageText.trim(), time: new Date().toISOString() }]
       await updateDoc(docRef, { messages: updated })
       setClientMessageText('')
     } catch (err) {
-      alert("Failed to submit message: " + err.message)
+      alert("Failed to send note: " + err.message)
     } finally {
       setSendingMsg(false)
     }
@@ -287,9 +139,9 @@ export default function ClientDeliveryPortal() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center text-xs text-slate-500 gap-3 font-mono">
+      <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center text-xs text-slate-500 gap-2 font-mono">
         <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-        <span>INITIALIZING SECURE PORTAL...</span>
+        <span>MOUNTING ESCROW PORTAL...</span>
       </div>
     )
   }
@@ -307,7 +159,6 @@ export default function ClientDeliveryPortal() {
   }
 
   const isPaid = delivery.status === 'Paid'
-  const brandName = delivery.customBrand?.studioName || 'ReleaseDrop Workspace'
   const watermarkText = delivery.watermarkText || 'RELEASEDROP • PROTECTED PREVIEW'
   const files = delivery.files || (delivery.fileUrl ? [{ name: delivery.fileName || 'Master_Package.zip', size: delivery.fileSize || 'Bundle', url: delivery.fileUrl, type: delivery.fileType }] : [])
   const activeFile = files[activeFileIndex] || files[0]
@@ -317,9 +168,32 @@ export default function ClientDeliveryPortal() {
   const isVideo = activeFile?.type?.includes('video') || fileName.match(/\.(mp4|mov|webm)$/i)
   const isImage = activeFile?.type?.includes('image') || fileName.match(/\.(png|jpg|jpeg|webp)$/i)
 
+  const googleDocsViewerUrl = isPDF && activeFile?.url 
+    ? `https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(activeFile.url)}`
+    : null
+
   return (
-    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-[#F8FAFC] text-slate-900 font-sans selection:bg-blue-600 selection:text-white antialiased pb-16">
+    <div className="min-h-screen w-full bg-[#F8FAFC] text-slate-900 font-sans antialiased pb-16 relative">
       
+      {/* Celebration Confetti Burst on Payment */}
+      {partyPopperActive && (
+        <div className="fixed inset-0 z-50 pointer-events-none flex items-center justify-center overflow-hidden">
+          {[...Array(40)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute w-2 h-2 rounded-xs animate-bounce"
+              style={{
+                backgroundColor: ['#2563EB', '#10B981', '#F59E0B', '#EC4899', '#8B5CF6'][i % 5],
+                top: `${20 + Math.random() * 60}%`,
+                left: `${15 + Math.random() * 70}%`,
+                transform: `rotate(${Math.random() * 360}deg) scale(${0.8 + Math.random() * 0.8})`,
+                transition: 'all 1s ease-out'
+              }}
+            />
+          ))}
+        </div>
+      )}
+
       {/* Header */}
       <header className="border-b border-slate-200 bg-white sticky top-0 z-30 px-4 sm:px-6 h-14 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
@@ -327,45 +201,41 @@ export default function ClientDeliveryPortal() {
             RD
           </div>
           <div>
-            <span className="font-semibold text-xs text-slate-900 block">{brandName}</span>
-            <span className="text-[9px] text-slate-400 font-mono">SECURE ESCROW VAULT</span>
+            <span className="font-bold text-xs text-slate-900 block leading-tight">ReleaseDrop Vault</span>
+            <span className="text-[9px] text-slate-400 font-mono">SECURE ESCROW HANDOFF</span>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold font-mono border ${
-            isPaid 
-              ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
-              : 'bg-amber-50 text-amber-700 border-amber-200'
-          }`}>
-            {isPaid ? 'LICENSED & RELEASED' : 'PAYMENT-LOCKED'}
-          </span>
-        </div>
+        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono border ${
+          isPaid ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'
+        }`}>
+          {isPaid ? 'LICENSED & UNLOCKED ✓' : 'ESCROW LOCKED'}
+        </span>
       </header>
 
       {/* Main Container */}
       <main className="max-w-3xl mx-auto px-4 pt-6 space-y-5">
         
-        {/* Invoice Summary Box */}
-        <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        {/* Project Header Box */}
+        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <span className="text-[10px] font-mono text-blue-600 uppercase font-semibold">Deliverable</span>
-            <h1 className="text-base sm:text-lg font-bold text-slate-900 mt-0.5">{delivery.title}</h1>
-            <p className="text-xs text-slate-500 mt-0.5">Prepared for {delivery.clientName}</p>
+            <span className="text-[10px] font-mono text-blue-600 uppercase font-bold">Deliverable Proof</span>
+            <h1 className="text-lg font-bold text-slate-900 mt-0.5">{delivery.title}</h1>
+            <p className="text-xs text-slate-500 mt-0.5">Prepared for <strong className="text-slate-800">{delivery.clientName}</strong></p>
           </div>
 
           <div className="sm:text-right border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-100">
             <span className="text-[10px] text-slate-400 uppercase font-mono block">Settlement Due</span>
-            <span className="text-xl sm:text-2xl font-black text-slate-900 font-mono">
+            <span className="text-2xl font-black text-slate-900 font-mono">
               ₹{Number(delivery.grossAmount || 0).toLocaleString('en-IN')}
             </span>
           </div>
         </div>
 
-        {/* Creator Handover Message */}
+        {/* Handover Note */}
         {delivery.clientMessage && (
           <div className="p-3.5 bg-blue-50/50 border border-blue-100 rounded-xl text-xs text-slate-700">
-            <strong className="text-blue-900 block mb-0.5 font-semibold">Creator Note:</strong>
+            <strong className="text-blue-900 block mb-0.5 font-bold">Creator Handover Note:</strong>
             <p className="leading-relaxed">{delivery.clientMessage}</p>
           </div>
         )}
@@ -377,10 +247,8 @@ export default function ClientDeliveryPortal() {
               <button
                 key={idx}
                 onClick={() => setActiveFileIndex(idx)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition border ${
-                  activeFileIndex === idx 
-                    ? 'bg-blue-600 text-white border-blue-600 shadow-xs' 
-                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition border ${
+                  activeFileIndex === idx ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200'
                 }`}
               >
                 {file.name}
@@ -398,7 +266,6 @@ export default function ClientDeliveryPortal() {
             }`}
             onContextMenu={e => e.preventDefault()}
           >
-            {/* Format 1: Video */}
             {isVideo ? (
               <video 
                 src={activeFile?.url} 
@@ -410,44 +277,36 @@ export default function ClientDeliveryPortal() {
                 loop 
                 className="w-full h-full object-contain"
               />
-            ) : 
-            /* Format 2: Full Multi-Page Canvas PDF Viewer */
-            isPDF ? (
-              <PdfDocumentViewer 
-                pdfUrl={activeFile?.url} 
-                isPaid={isPaid} 
-                watermarkText={watermarkText} 
-              />
-            ) : 
-            /* Format 3: Image */
-            isImage ? (
+            ) : isPDF ? (
+              <div className="w-full h-full relative bg-slate-100 flex items-center justify-center">
+                <iframe 
+                  src={googleDocsViewerUrl}
+                  className="w-full h-full border-0"
+                  title="PDF Preview"
+                />
+              </div>
+            ) : isImage ? (
               <img 
                 src={activeFile?.url} 
-                alt="Inspection Draft" 
+                alt="Draft Inspection" 
                 className={`w-full h-full object-contain ${isPaid ? '' : 'brightness-75'}`}
               />
             ) : (
-            /* Format 4: ZIP / Archive / Code Package */
               <div className="w-full h-full bg-slate-950 flex flex-col items-center justify-center p-6 text-center text-slate-300">
-                <FileArchive className="w-12 h-12 text-blue-500 mb-2" />
+                <FileArchive className="w-10 h-10 text-blue-500 mb-2" />
                 <span className="text-sm font-bold text-white">{activeFile?.name}</span>
                 <span className="text-xs text-slate-400 mt-0.5">{activeFile?.size} • Encrypted Archive Bundle</span>
-                <p className="text-[11px] text-slate-500 mt-2 max-w-xs">
-                  Package contents and source files unpack immediately upon settlement verification.
-                </p>
               </div>
             )}
 
-            {/* Fullscreen Toggle */}
             <button 
               onClick={toggleFullscreen}
               className="absolute top-3 right-3 z-20 p-2 bg-black/60 hover:bg-black/90 text-white rounded-lg border border-white/10 transition"
-              title="Toggle Fullscreen"
+              title="Fullscreen"
             >
               {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
             </button>
 
-            {/* Floating Watermark Layer (Active on images & videos) */}
             {!isPaid && !isPDF && (
               <div className="absolute inset-0 pointer-events-none overflow-hidden flex flex-col justify-around select-none z-10 opacity-30 animate-watermark-drift">
                 {[...Array(5)].map((_, i) => (
@@ -463,14 +322,14 @@ export default function ClientDeliveryPortal() {
           {!isPaid && (
             <div className="flex items-center gap-1.5 px-2 text-[11px] text-slate-500 font-medium">
               <ShieldCheck className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-              <span>🔒 Multi-page Inspection — Watermark automatically vanishes upon payment verification</span>
+              <span>🔒 Multi-Page Inspection — Watermark automatically vanishes upon payment verification</span>
             </div>
           )}
         </div>
 
         {/* Deliverable Manifest Bundle */}
-        <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-sm space-y-2.5">
-          <span className="text-xs font-mono uppercase text-slate-400 font-semibold block">
+        <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-xs space-y-2.5">
+          <span className="text-xs font-mono uppercase text-slate-400 font-bold block">
             Bundle Deliverables ({files.length})
           </span>
 
@@ -490,7 +349,7 @@ export default function ClientDeliveryPortal() {
                     <button
                       onClick={() => handleDownloadItem(file.url, file.name, idx)}
                       disabled={downloadingFileIndex === idx}
-                      className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg transition flex items-center gap-1.5 shadow-sm active:scale-95"
+                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg transition flex items-center gap-1.5 shadow-xs"
                     >
                       {downloadingFileIndex === idx ? (
                         <>
@@ -515,16 +374,16 @@ export default function ClientDeliveryPortal() {
           </div>
         </div>
 
-        {/* Prominent Feedback & Revisions Section */}
-        <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-sm space-y-3">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+        {/* Feedback & Revision Box */}
+        <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-xs space-y-3">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
             <div>
               <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
                 <MessageSquare className="w-3.5 h-3.5 text-blue-600" /> Need Changes Before Paying?
               </span>
               <p className="text-[11px] text-slate-500">Communicate adjustments directly with the creator.</p>
             </div>
-            <span className="text-[10px] text-blue-600 font-medium bg-blue-50 px-2 py-0.5 rounded">Live Thread</span>
+            <span className="text-[10px] text-blue-600 font-bold bg-blue-50 px-2 py-0.5 rounded">Live Thread</span>
           </div>
 
           {(delivery.messages || []).length > 0 && (
@@ -534,12 +393,10 @@ export default function ClientDeliveryPortal() {
                 return (
                   <div key={idx} className={`flex flex-col ${isCreator ? 'items-start' : 'items-end'}`}>
                     <span className="text-[9px] text-slate-400 font-mono mb-0.5">
-                      {isCreator ? `${brandName} (Creator)` : 'You'} • {new Date(m.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {isCreator ? 'Creator' : 'You'} • {new Date(m.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
                     <div className={`p-2.5 rounded-xl text-xs max-w-sm ${
-                      isCreator 
-                        ? 'bg-blue-600 text-white rounded-bl-xs' 
-                        : 'bg-white border border-slate-200 text-slate-800 rounded-br-xs'
+                      isCreator ? 'bg-blue-600 text-white rounded-bl-xs' : 'bg-white border border-slate-200 text-slate-800 rounded-br-xs'
                     }`}>
                       {m.text}
                     </div>
@@ -552,7 +409,7 @@ export default function ClientDeliveryPortal() {
           <div className="space-y-2">
             <textarea 
               rows={2}
-              placeholder="Ask questions or submit revision requests..."
+              placeholder="Ask questions or submit revision notes to the creator..."
               value={clientMessageText}
               onChange={e => setClientMessageText(e.target.value)}
               className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-xs text-slate-900 focus:outline-none focus:border-blue-600"
@@ -561,7 +418,7 @@ export default function ClientDeliveryPortal() {
               <button 
                 onClick={handlePostClientMessage}
                 disabled={sendingMsg || !clientMessageText.trim()}
-                className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs rounded-lg disabled:opacity-40 transition flex items-center gap-1"
+                className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-lg disabled:opacity-40 transition flex items-center gap-1"
               >
                 <Send className="w-3 h-3" /> <span>Send Note</span>
               </button>
@@ -570,44 +427,33 @@ export default function ClientDeliveryPortal() {
         </div>
 
         {/* Pay & Release Action Area */}
-        <div className="bg-white border border-slate-200 rounded-xl p-5 sm:p-6 shadow-sm text-center space-y-3">
+        <div className="bg-white border border-slate-200 rounded-xl p-5 sm:p-6 shadow-xs text-center space-y-3">
           {!isPaid ? (
             <div className="space-y-3 max-w-sm mx-auto">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">Approve Deliverables & Unlock Master Files</h3>
                 <p className="text-[11px] text-slate-500 mt-0.5">
-                  Upon settlement clearance of ₹{Number(delivery.grossAmount || 0).toLocaleString('en-IN')}, watermarks vanish and original master assets unlock instantly.
+                  Upon settlement of ₹{Number(delivery.grossAmount || 0).toLocaleString('en-IN')}, watermarks vanish and uncompressed original assets unlock immediately.
                 </p>
               </div>
 
               <button 
                 onClick={() => setShowCheckoutModal(true)}
-                className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl shadow-sm transition active:scale-95 flex items-center justify-center gap-1.5"
+                className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition active:scale-95 flex items-center justify-center gap-1.5"
               >
                 <Lock className="w-3.5 h-3.5" />
                 <span>Approve & Pay ₹{Number(delivery.grossAmount || 0).toLocaleString('en-IN')}</span>
               </button>
-
-              <div className="text-[10px] font-mono text-slate-400 flex items-center justify-center gap-1">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Encrypted Handoff Verification</span>
-              </div>
             </div>
           ) : (
             <div className="py-2 space-y-2">
               <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto border border-emerald-200">
                 <CheckCircle2 className="w-5 h-5" />
               </div>
-              <h3 className="text-sm font-bold text-slate-900">Assets Decrypted & Released</h3>
+              <h3 className="text-sm font-bold text-slate-900">Deliverables Decrypted & Licensed</h3>
               <p className="text-xs text-slate-500 max-w-xs mx-auto">
-                Payment verified. Master files are now ready for direct save above.
+                Payment verified. Master files are now ready for single-click download above.
               </p>
-              <button
-                onClick={() => setShowReceiptModal(true)}
-                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition"
-              >
-                View Digital Invoice Receipt
-              </button>
             </div>
           )}
         </div>
@@ -616,7 +462,7 @@ export default function ClientDeliveryPortal() {
 
       {/* CHECKOUT MODAL */}
       {showCheckoutModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div className="w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl p-5 shadow-2xl space-y-3.5">
             <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
               <div>
@@ -637,7 +483,7 @@ export default function ClientDeliveryPortal() {
                   className="mt-0.5 accent-blue-600 w-3.5 h-3.5 rounded"
                 />
                 <span className="text-[11px] text-slate-600 leading-tight">
-                  I approve the deliverable draft and confirm that master asset access releases immediately upon settlement.
+                  I approve the deliverable proof and agree that original master asset access unseals immediately upon payment.
                 </span>
               </label>
             </div>
@@ -650,53 +496,24 @@ export default function ClientDeliveryPortal() {
             <button 
               disabled={unlocking || !termsAccepted}
               onClick={handleProcessPayment}
-              className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white font-semibold text-xs rounded-xl shadow-sm transition active:scale-95"
+              className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white font-bold text-xs rounded-xl shadow-xs transition active:scale-95 flex items-center justify-center gap-1.5"
             >
-              {unlocking ? 'Verifying Settlement...' : 'Complete Payment & Decrypt Files'}
+              {unlocking ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>Clearing Escrow Vault...</span>
+                </>
+              ) : (
+                <>
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>Authorize & Decrypt Files</span>
+                </>
+              )}
             </button>
           </div>
         </div>
       )}
 
-      {/* RECEIPT MODAL */}
-      {showReceiptModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-sm bg-white text-slate-900 rounded-xl p-5 shadow-2xl space-y-3 text-xs">
-            <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-              <span className="font-bold text-emerald-600 uppercase font-mono">PAYMENT CLEARED ✓</span>
-              <button onClick={() => setShowReceiptModal(false)} className="text-slate-400 hover:text-slate-700">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="space-y-1.5 text-slate-600">
-              <div className="flex justify-between">
-                <span>Deliverable:</span>
-                <strong className="text-slate-900 truncate max-w-[180px]">{delivery.title}</strong>
-              </div>
-              <div className="flex justify-between">
-                <span>Total Settled:</span>
-                <strong className="text-slate-900 font-mono">₹{Number(delivery.grossAmount || 0).toLocaleString('en-IN')}</strong>
-              </div>
-              <div className="flex justify-between">
-                <span>Date:</span>
-                <span className="font-mono">{new Date(delivery.paidAt || Date.now()).toLocaleDateString()}</span>
-              </div>
-            </div>
-
-            <button 
-              onClick={() => window.print()}
-              className="w-full py-2 bg-slate-900 text-white font-semibold rounded-lg shadow-sm mt-1"
-            >
-              Print Receipt
-            </button>
-          </div>
-        </div>
-      )}
-
-      <footer className="py-6 border-t border-slate-200 text-center text-[10px] text-slate-400 font-mono mt-8">
-        Secured by <span className="text-slate-700 font-medium">{brandName}</span> via ReleaseDrop
-      </footer>
     </div>
   )
 }
