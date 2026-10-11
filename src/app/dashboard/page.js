@@ -10,7 +10,7 @@ import {
   Copy, Check, Trash2, ExternalLink, FileArchive, Clock,
   AlertCircle, RefreshCw, X, MessageSquare, Send, Bell,
   Menu, Search, Layers, FileText, ChevronRight, CheckCheck,
-  TrendingUp, IndianRupee
+  TrendingUp, IndianRupee, Shield
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -116,6 +116,7 @@ function InteractiveSparkline({ title, amount, subtitle, data, color, badge, car
 export default function Dashboard() {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [authLoading, setAuthLoading] = useState(false)
   const [deliveries, setDeliveries] = useState([])
   const [filterStatus, setFilterStatus] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
@@ -145,6 +146,7 @@ export default function Dashboard() {
 
   const [activeThreadDelivery, setActiveThreadDelivery] = useState(null)
   const [threadReplyText, setThreadReplyText] = useState('')
+  const [authError, setAuthError] = useState('')
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type })
@@ -174,12 +176,27 @@ export default function Dashboard() {
   }, [])
 
   const handleGoogleLogin = async () => {
-  try {
-    await signInWithPopup(auth, googleProvider)
-  } catch (error) {
-    console.error("Login error:", error)
+    try {
+      setAuthLoading(true)
+      setAuthError('')
+      await signInWithPopup(auth, googleProvider)
+      showToast("Welcome to PayDrop Studio", "success")
+    } catch (error) {
+      console.error("Login error:", error)
+      setAuthError(error.message || "Authentication failed. Please check your connection.")
+    } finally {
+      setAuthLoading(false)
+    }
   }
-} 
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth)
+      showToast("Logged out successfully", "success")
+    } catch {
+      showToast("Logout failed", "error")
+    }
+  }
 
   const handleFilesAdd = (files) => {
     const selected = Array.from(files)
@@ -211,8 +228,6 @@ export default function Dashboard() {
           const res = JSON.parse(xhr.responseText)
           if (xhr.status === 200 && (res.secure_url || res.url)) {
             const rawUrl = res.secure_url || res.url
-            
-            // Build Cloudinary burned-in watermark URL for secure in-browser previews
             const previewUrl = file.type.startsWith('image/')
               ? rawUrl.replace('/upload/', `/upload/l_text:Arial_24_bold:${encodeURIComponent(watermarkText)},o_35,a_-30/`)
               : rawUrl
@@ -383,15 +398,46 @@ export default function Dashboard() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center antialiased">
-        <div className="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center text-white mb-4 shadow-sm">
-          <Zap className="w-6 h-6 fill-white" />
+      <div className="min-h-screen bg-[#090D16] flex flex-col items-center justify-center p-6 text-center antialiased selection:bg-blue-600 selection:text-white">
+        <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white mb-5 shadow-2xl shadow-blue-500/25">
+          <Zap className="w-7 h-7 fill-white" />
         </div>
-        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">PayDrop Studio</h1>
-        <p className="text-slate-500 text-xs mt-1 max-w-xs">Payment-locked delivery portal for freelance creators.</p>
-        <button onClick={handleGoogleLogin} className="mt-6 px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs rounded-xl shadow-sm transition">
-          Sign In with Google
-        </button>
+        <h1 className="text-2xl font-black text-white tracking-tight">PayDrop Studio</h1>
+        <p className="text-slate-400 text-xs mt-1 max-w-xs leading-relaxed">Secure payment-locked asset handover platform for elite creators.</p>
+
+        <div className="mt-8 w-full max-w-sm bg-slate-900/90 border border-slate-800/80 rounded-3xl p-7 shadow-2xl backdrop-blur-md">
+          {authError && (
+            <div className="mb-4 p-3 bg-rose-950/50 border border-rose-500/30 rounded-xl text-rose-400 text-[11px] text-left flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>{authError}</span>
+            </div>
+          )}
+
+          <button
+            onClick={handleGoogleLogin}
+            disabled={authLoading}
+            className="w-full py-3.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-lg shadow-blue-600/25 transition active:scale-95 flex items-center justify-center gap-2.5"
+          >
+            {authLoading ? (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                <span>Authenticating Securely...</span>
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                  <path d="M12.24 10.285V14.2h6.806c-.275 1.765-2.056 5.174-6.806 5.174-4.095 0-7.439-3.389-7.439-7.574s3.344-7.574 7.439-7.574c2.33 0 3.891.989 4.785 1.849l3.125-3.059C18.107 1.71 15.448.75 12.24.75 6.04.75 1.03 5.82 1.03 12.02s5.01 11.27 11.21 11.27c6.47 0 10.763-4.551 10.763-10.977 0-.759-.081-1.339-.181-1.908H12.24z"/>
+                </svg>
+                <span>Continue with Google</span>
+              </>
+            )}
+          </button>
+
+          <div className="mt-6 pt-5 border-t border-slate-800/80 flex items-center justify-center gap-2 text-[11px] text-slate-500">
+            <Shield className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Encrypted Session Vault</span>
+          </div>
+        </div>
       </div>
     )
   }
@@ -497,7 +543,7 @@ export default function Dashboard() {
                 <div className="text-[10px] text-slate-400 truncate">{user.email}</div>
               </div>
             </div>
-            <button onClick={() => signOut(auth)} className="text-slate-400 hover:text-rose-600 text-xs p-1" title="Sign Out">✕</button>
+            <button onClick={handleLogout} className="text-slate-400 hover:text-rose-600 text-xs p-1" title="Sign Out">✕</button>
           </div>
         </div>
       </aside>
@@ -1107,7 +1153,7 @@ export default function Dashboard() {
 
             <div className="border-t border-slate-100 pt-3 space-y-2">
               <div className="text-xs font-bold text-slate-900 truncate">{user.displayName || user.email?.split('@')[0]}</div>
-              <button onClick={() => signOut(auth)} className="text-xs text-rose-600 font-bold py-1">
+              <button onClick={handleLogout} className="text-xs text-rose-600 font-bold py-1">
                 Sign Out
               </button>
             </div>
