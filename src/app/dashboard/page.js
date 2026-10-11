@@ -2,15 +2,24 @@
 
 import React, { useState, useEffect } from 'react'
 import { auth, db, googleProvider } from '../../lib/firebase'
-import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth'
-import { collection, addDoc, query, where, deleteDoc, doc, updateDoc, onSnapshot, serverTimestamp, writeBatch } from 'firebase/firestore'
+import { 
+  signInWithPopup, 
+  signOut, 
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword
+} from 'firebase/auth'
+import { 
+  collection, addDoc, query, where, deleteDoc, doc, updateDoc, 
+  onSnapshot, serverTimestamp, writeBatch 
+} from 'firebase/firestore'
 import { 
   Zap, Plus, LayoutDashboard, FolderKanban, ShieldCheck, 
   UploadCloud, CheckCircle2, Lock, ArrowRight, ArrowLeft, 
   Copy, Check, Trash2, ExternalLink, FileArchive, Clock,
   AlertCircle, RefreshCw, X, MessageSquare, Send, Bell,
   Menu, Search, Layers, FileText, ChevronRight, CheckCheck,
-  TrendingUp, IndianRupee, Shield, Sparkles, LockKeyhole
+  TrendingUp, IndianRupee, Shield, Sparkles, LockKeyhole, Mail
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -146,6 +155,11 @@ export default function Dashboard() {
 
   const [activeThreadDelivery, setActiveThreadDelivery] = useState(null)
   const [threadReplyText, setThreadReplyText] = useState('')
+  
+  // Auth Form State
+  const [authMode, setAuthMode] = useState('login') // 'login' or 'signup'
+  const [emailInput, setEmailInput] = useState('')
+  const [passwordInput, setPasswordInput] = useState('')
   const [authError, setAuthError] = useState('')
 
   const showToast = (message, type = 'success') => {
@@ -175,15 +189,48 @@ export default function Dashboard() {
     }
   }, [])
 
+  const handleEmailAuth = async (e) => {
+    e.preventDefault()
+    if (!emailInput || !passwordInput) {
+      setAuthError("Email and password are required")
+      return
+    }
+
+    try {
+      setAuthLoading(true)
+      setAuthError('')
+      if (authMode === 'login') {
+        await signInWithEmailAndPassword(auth, emailInput.trim(), passwordInput)
+        showToast("Welcome back!", "success")
+      } else {
+        await createUserWithEmailAndPassword(auth, emailInput.trim(), passwordInput)
+        showToast("Account created successfully!", "success")
+      }
+    } catch (error) {
+      console.error("Auth error:", error)
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+        setAuthError("Invalid email or password.")
+      } else if (error.code === 'auth/email-already-in-use') {
+        setAuthError("Email already registered. Try logging in.")
+      } else if (error.code === 'auth/weak-password') {
+        setAuthError("Password should be at least 6 characters.")
+      } else {
+        setAuthError(error.message || "Authentication failed.")
+      }
+    } finally {
+      setAuthLoading(false)
+    }
+  }
+
   const handleGoogleLogin = async () => {
     try {
       setAuthLoading(true)
       setAuthError('')
       await signInWithPopup(auth, googleProvider)
-      showToast("Signed in successfully", "success")
+      showToast("Signed in with Google", "success")
     } catch (error) {
-      console.error("Login error:", error)
-      setAuthError(error.message || "Sign in failed. Check your network.")
+      console.error("Google Login error:", error)
+      setAuthError("Google Sign-In blocked by device. Please use Email/Password login below.")
     } finally {
       setAuthLoading(false)
     }
@@ -396,87 +443,111 @@ export default function Dashboard() {
     )
   }
 
-  /* ULTRA PRO-LEVEL SIGN-IN SCREEN */
+  /* PRO-LEVEL DUAL SIGN-IN SCREEN (EMAIL/PASSWORD + GOOGLE) */
   if (!user) {
     return (
       <div className="min-h-screen bg-[#070A11] text-slate-100 flex flex-col justify-center items-center p-6 relative overflow-hidden font-sans selection:bg-blue-600 selection:text-white">
         
-        {/* Ambient Glow Effects */}
+        {/* Ambient Glow */}
         <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-blue-600/10 blur-[140px] rounded-full pointer-events-none" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-indigo-600/10 blur-[100px] rounded-full pointer-events-none" />
 
-        <div className="w-full max-w-md relative z-10 space-y-8">
+        <div className="w-full max-w-md relative z-10 space-y-6">
           
-          {/* Brand Header */}
-          <div className="text-center space-y-3">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-semibold font-mono tracking-wide">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>PAYDROP CREATOR VAULT</span>
+          <div className="text-center space-y-2">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white mx-auto shadow-2xl shadow-blue-500/30">
+              <Zap className="w-7 h-7 fill-white" />
             </div>
-
-            <div className="pt-2 flex justify-center">
-              <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-blue-600 via-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-2xl shadow-blue-500/30 ring-1 ring-white/20">
-                <Zap className="w-8 h-8 fill-white" />
-              </div>
-            </div>
-
-            <h1 className="text-3xl font-black tracking-tight text-white font-sans">
-              PayDrop Studio
-            </h1>
-            <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
-              Automated payment-locked escrow & protected file decryption for high-ticket creators.
-            </p>
+            <h1 className="text-2xl font-black text-white tracking-tight">PayDrop Studio</h1>
+            <p className="text-xs text-slate-400">Payment-locked delivery vault for creators.</p>
           </div>
 
-          {/* Login Box */}
-          <div className="bg-slate-900/90 border border-slate-800/90 rounded-3xl p-7 shadow-2xl backdrop-blur-2xl space-y-5">
+          <div className="bg-slate-900/90 border border-slate-800/90 rounded-3xl p-6 shadow-2xl backdrop-blur-2xl space-y-4">
             
             {authError && (
-              <div className="p-3.5 bg-rose-950/50 border border-rose-500/30 rounded-2xl text-rose-300 text-xs flex items-start gap-2.5">
+              <div className="p-3 bg-rose-950/50 border border-rose-500/30 rounded-2xl text-rose-300 text-xs flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
                 <span className="leading-tight">{authError}</span>
               </div>
             )}
 
+            {/* Email/Password Form */}
+            <form onSubmit={handleEmailAuth} className="space-y-3">
+              <div>
+                <label className="text-[11px] font-semibold text-slate-400 block mb-1">Email Address</label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                  <input
+                    type="email"
+                    required
+                    placeholder="creator@studio.com"
+                    value={emailInput}
+                    onChange={e => setEmailInput(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2.5 bg-slate-800/80 border border-slate-700/80 rounded-xl text-xs text-white focus:outline-none focus:border-blue-500 placeholder:text-slate-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-semibold text-slate-400 block mb-1">Password</label>
+                <div className="relative">
+                  <LockKeyhole className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                  <input
+                    type="password"
+                    required
+                    placeholder="••••••••"
+                    value={passwordInput}
+                    onChange={e => setPasswordInput(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2.5 bg-slate-800/80 border border-slate-700/80 rounded-xl text-xs text-white focus:outline-none focus:border-blue-500 placeholder:text-slate-500"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={authLoading}
+                className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-blue-600/20 transition active:scale-95 flex items-center justify-center gap-2"
+              >
+                {authLoading ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : (
+                  <span>{authMode === 'login' ? 'Sign In' : 'Create Account'}</span>
+                )}
+              </button>
+            </form>
+
+            <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
+              <span>{authMode === 'login' ? "Don't have an account?" : "Already have an account?"}</span>
+              <button
+                type="button"
+                onClick={() => { setAuthMode(authMode === 'login' ? 'signup' : 'login'); setAuthError(''); }}
+                className="text-blue-400 font-bold hover:underline"
+              >
+                {authMode === 'login' ? 'Sign Up' : 'Sign In'}
+              </button>
+            </div>
+
+            <div className="relative flex items-center my-2">
+              <div className="flex-grow border-t border-slate-800"></div>
+              <span className="shrink-0 px-2 text-[10px] text-slate-500 font-mono">OR</span>
+              <div className="flex-grow border-t border-slate-800"></div>
+            </div>
+
+            {/* Google Login Button */}
             <button
               onClick={handleGoogleLogin}
               disabled={authLoading}
-              className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-50 text-white font-bold text-xs uppercase tracking-wider rounded-2xl shadow-xl shadow-blue-600/25 transition active:scale-[0.98] flex items-center justify-center gap-3 group"
+              className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl border border-slate-700 transition flex items-center justify-center gap-2"
             >
-              {authLoading ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin text-white" />
-                  <span>Authenticating...</span>
-                </>
-              ) : (
-                <>
-                  <div className="p-1 bg-white rounded-lg group-hover:scale-105 transition-transform">
-                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
-                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-                    </svg>
-                  </div>
-                  <span>Continue with Google</span>
-                </>
-              )}
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+              </svg>
+              <span>Continue with Google</span>
             </button>
 
-            <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-500 font-mono">
-              <span className="flex items-center gap-1.5">
-                <LockKeyhole className="w-3.5 h-3.5 text-blue-400" /> OAuth 2.0 Protected
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Shield className="w-3.5 h-3.5 text-emerald-400" /> Zero Client Friction
-              </span>
-            </div>
           </div>
-
-          <p className="text-[11px] text-slate-500 text-center font-mono">
-            Powered by PayDrop Studio Architecture © 2026
-          </p>
-
         </div>
       </div>
     )
@@ -577,7 +648,7 @@ export default function Dashboard() {
           <div className="pt-1 flex items-center justify-between">
             <div className="flex items-center gap-2 min-w-0">
               <div className="w-7 h-7 rounded-full bg-slate-900 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
-                {user.displayName ? user.displayName.slice(0, 2).toUpperCase() : 'PD'}
+                {user.displayName ? user.displayName.slice(0, 2).toUpperCase() : (user.email ? user.email.slice(0, 2).toUpperCase() : 'PD')}
               </div>
               <div className="truncate">
                 <div className="text-xs font-bold text-slate-900 truncate">{user.displayName || user.email?.split('@')[0]}</div>
