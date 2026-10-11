@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { auth, db, googleProvider } from '../../lib/firebase'
-import { signInWithPopup, signInWithRedirect, signOut, onAuthStateChanged } from 'firebase/auth'
+import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth'
 import { collection, addDoc, query, where, deleteDoc, doc, updateDoc, onSnapshot, serverTimestamp, writeBatch } from 'firebase/firestore'
 import { 
   Zap, Plus, LayoutDashboard, FolderKanban, ShieldCheck, 
@@ -174,12 +174,12 @@ export default function Dashboard() {
   }, [])
 
   const handleGoogleLogin = async () => {
-    try {
-      await signInWithPopup(auth, googleProvider)
-    } catch {
-      await signInWithRedirect(auth, googleProvider)
-    }
+  try {
+    await signInWithPopup(auth, googleProvider)
+  } catch (error) {
+    console.error("Login error:", error)
   }
+} 
 
   const handleFilesAdd = (files) => {
     const selected = Array.from(files)
