@@ -10,7 +10,7 @@ import {
   Copy, Check, Trash2, ExternalLink, FileArchive, Clock,
   AlertCircle, RefreshCw, X, MessageSquare, Send, Bell,
   Menu, Search, Layers, FileText, ChevronRight, CheckCheck,
-  TrendingUp, IndianRupee, Shield
+  TrendingUp, IndianRupee, Shield, Sparkles
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -51,32 +51,33 @@ function InteractiveSparkline({ title, amount, subtitle, data, color, badge, car
   }, '')
 
   const fillD = `${pathD} L ${points[points.length - 1].x} ${height} L ${points[0].x} ${height} Z`
-  const strokeColor = color === 'emerald' ? '#059669' : '#2563EB'
+  const strokeColor = color === 'emerald' ? '#10B981' : '#3B82F6'
   const gradId = `spark-fill-${cardId}`
 
   return (
-    <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.05)] relative overflow-hidden transition-all duration-200 hover:border-slate-300">
+    <div className="p-6 rounded-3xl bg-slate-900/60 border border-slate-800/80 shadow-xl backdrop-blur-md relative overflow-hidden transition-all duration-300 hover:border-slate-700/80">
       <div className="flex justify-between items-start">
-        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{title}</span>
+        <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-widest">{title}</span>
         {badge && (
-          <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold font-mono ${
-            color === 'emerald' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/80' :
-            'bg-blue-50 text-blue-700 border border-blue-200/80'
+          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono border ${
+            color === 'emerald' 
+              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+              : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
           }`}>
             {badge}
           </span>
         )}
       </div>
 
-      <div className="mt-2">
-        <div className="text-2xl font-black text-slate-900 font-mono tracking-tight">{amount}</div>
-        <p className="text-[11px] text-slate-400 mt-0.5">{subtitle}</p>
+      <div className="mt-3">
+        <div className="text-3xl font-black text-white font-mono tracking-tight">{amount}</div>
+        <p className="text-xs text-slate-400 mt-1">{subtitle}</p>
       </div>
 
-      <div className="relative mt-3">
+      <div className="relative mt-4">
         {activePoint && activePoint.cardId === cardId && (
           <div 
-            className="absolute z-20 px-2 py-1 bg-slate-900 text-white rounded-md text-[10px] font-mono shadow-xl -translate-x-1/2 -top-8 pointer-events-none"
+            className="absolute z-20 px-2.5 py-1 bg-white text-slate-900 font-bold rounded-lg text-[10px] font-mono shadow-xl -translate-x-1/2 -top-8 pointer-events-none"
             style={{ left: `${activePoint.x}px` }}
           >
             {activePoint.label}: {activePoint.formatted || activePoint.value}
@@ -86,22 +87,22 @@ function InteractiveSparkline({ title, amount, subtitle, data, color, badge, car
         <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-12 overflow-visible">
           <defs>
             <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={strokeColor} stopOpacity="0.18" />
+              <stop offset="0%" stopColor={strokeColor} stopOpacity="0.25" />
               <stop offset="100%" stopColor={strokeColor} stopOpacity="0.0" />
             </linearGradient>
           </defs>
           <path d={fillD} fill={`url(#${gradId})`} />
-          <path d={pathD} fill="none" stroke={hasData ? strokeColor : '#CBD5E1'} strokeWidth="2" strokeDasharray={hasData ? 'none' : '4 4'} strokeLinecap="round" />
+          <path d={pathD} fill="none" stroke={hasData ? strokeColor : '#334155'} strokeWidth="2.5" strokeDasharray={hasData ? 'none' : '4 4'} strokeLinecap="round" />
           {hasData && points.map((p, i) => (
             <circle
               key={i}
               cx={p.x}
               cy={p.y}
-              r={activePoint?.cardId === cardId && activePoint?.index === i ? "4.5" : "3"}
+              r={activePoint?.cardId === cardId && activePoint?.index === i ? "5" : "3.5"}
               className="cursor-pointer transition-all duration-150"
-              fill={activePoint?.cardId === cardId && activePoint?.index === i ? strokeColor : "#FFFFFF"}
+              fill={activePoint?.cardId === cardId && activePoint?.index === i ? strokeColor : "#090D16"}
               stroke={strokeColor}
-              strokeWidth="2"
+              strokeWidth="2.5"
               onMouseEnter={() => onPointHover({ ...p, cardId, index: i })}
               onMouseLeave={() => onPointHover(null)}
               onClick={() => onPointHover({ ...p, cardId, index: i })}
@@ -180,7 +181,7 @@ export default function Dashboard() {
       setAuthLoading(true)
       setAuthError('')
       await signInWithPopup(auth, googleProvider)
-      showToast("Welcome to PayDrop Studio", "success")
+      showToast("Signed in to Studio", "success")
     } catch (error) {
       console.error("Login error:", error)
       setAuthError(error.message || "Authentication failed. Please check your connection.")
@@ -389,53 +390,70 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center text-xs text-slate-500 gap-3 font-mono">
-        <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-        <span>LOADING WORKSPACE...</span>
+      <div className="min-h-screen bg-[#090D16] flex flex-col items-center justify-center text-xs text-slate-400 gap-3 font-mono">
+        <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        <span>AUTHENTICATING WORKSPACE...</span>
       </div>
     )
   }
 
+  // ULTRA CLEAN HIGH-END AUTH SCREEN
   if (!user) {
     return (
-      <div className="min-h-screen bg-[#090D16] flex flex-col items-center justify-center p-6 text-center antialiased selection:bg-blue-600 selection:text-white">
-        <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white mb-5 shadow-2xl shadow-blue-500/25">
-          <Zap className="w-7 h-7 fill-white" />
-        </div>
-        <h1 className="text-2xl font-black text-white tracking-tight">PayDrop Studio</h1>
-        <p className="text-slate-400 text-xs mt-1 max-w-xs leading-relaxed">Secure payment-locked asset handover platform for elite creators.</p>
+      <div className="min-h-screen bg-[#090D16] flex flex-col items-center justify-center p-6 relative overflow-hidden selection:bg-blue-600 selection:text-white">
+        
+        {/* Glow background circles */}
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-96 h-96 bg-blue-600/10 blur-[120px] rounded-full pointer-events-none" />
+        <div className="absolute bottom-1/4 left-1/2 -translate-x-1/2 w-80 h-80 bg-indigo-600/10 blur-[100px] rounded-full pointer-events-none" />
 
-        <div className="mt-8 w-full max-w-sm bg-slate-900/90 border border-slate-800/80 rounded-3xl p-7 shadow-2xl backdrop-blur-md">
-          {authError && (
-            <div className="mb-4 p-3 bg-rose-950/50 border border-rose-500/30 rounded-xl text-rose-400 text-[11px] text-left flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-              <span>{authError}</span>
+        <div className="relative z-10 w-full max-w-sm text-center space-y-6">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-semibold">
+            <Sparkles className="w-3.5 h-3.5 text-blue-400" />
+            <span>PayDrop Studio v2.4</span>
+          </div>
+
+          <div className="space-y-2">
+            <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white mx-auto shadow-2xl shadow-blue-500/30">
+              <Zap className="w-8 h-8 fill-white" />
             </div>
-          )}
+            <h1 className="text-3xl font-black text-white tracking-tight pt-2">PayDrop Studio</h1>
+            <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
+              Payment-locked delivery vault for high-ticket video editors and creative pros.
+            </p>
+          </div>
 
-          <button
-            onClick={handleGoogleLogin}
-            disabled={authLoading}
-            className="w-full py-3.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-lg shadow-blue-600/25 transition active:scale-95 flex items-center justify-center gap-2.5"
-          >
-            {authLoading ? (
-              <>
-                <RefreshCw className="w-4 h-4 animate-spin" />
-                <span>Authenticating Securely...</span>
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-                  <path d="M12.24 10.285V14.2h6.806c-.275 1.765-2.056 5.174-6.806 5.174-4.095 0-7.439-3.389-7.439-7.574s3.344-7.574 7.439-7.574c2.33 0 3.891.989 4.785 1.849l3.125-3.059C18.107 1.71 15.448.75 12.24.75 6.04.75 1.03 5.82 1.03 12.02s5.01 11.27 11.21 11.27c6.47 0 10.763-4.551 10.763-10.977 0-.759-.081-1.339-.181-1.908H12.24z"/>
-                </svg>
-                <span>Continue with Google</span>
-              </>
+          <div className="bg-slate-900/80 border border-slate-800 p-6 rounded-3xl shadow-2xl backdrop-blur-xl space-y-4 text-left">
+            {authError && (
+              <div className="p-3 bg-rose-950/40 border border-rose-500/30 rounded-2xl text-rose-400 text-[11px] flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{authError}</span>
+              </div>
             )}
-          </button>
 
-          <div className="mt-6 pt-5 border-t border-slate-800/80 flex items-center justify-center gap-2 text-[11px] text-slate-500">
-            <Shield className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Encrypted Session Vault</span>
+            <button
+              onClick={handleGoogleLogin}
+              disabled={authLoading}
+              className="w-full py-3.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold text-xs rounded-2xl shadow-xl shadow-blue-600/25 transition active:scale-95 flex items-center justify-center gap-3"
+            >
+              {authLoading ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <span>Connecting Google Account...</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                    <path d="M12.24 10.285V14.2h6.806c-.275 1.765-2.056 5.174-6.806 5.174-4.095 0-7.439-3.389-7.439-7.574s3.344-7.574 7.439-7.574c2.33 0 3.891.989 4.785 1.849l3.125-3.059C18.107 1.71 15.448.75 12.24.75 6.04.75 1.03 5.82 1.03 12.02s5.01 11.27 11.21 11.27c6.47 0 10.763-4.551 10.763-10.977 0-.759-.081-1.339-.181-1.908H12.24z"/>
+                  </svg>
+                  <span>Sign In with Google</span>
+                </>
+              )}
+            </button>
+
+            <div className="pt-2 flex items-center justify-center gap-2 text-[11px] font-mono text-slate-500">
+              <Shield className="w-3.5 h-3.5 text-emerald-400" />
+              <span>OAuth 2.0 Encrypted Auth</span>
+            </div>
           </div>
         </div>
       </div>
@@ -543,7 +561,7 @@ export default function Dashboard() {
                 <div className="text-[10px] text-slate-400 truncate">{user.email}</div>
               </div>
             </div>
-            <button onClick={handleLogout} className="text-slate-400 hover:text-rose-600 text-xs p-1" title="Sign Out">✕</button>
+            <button onClick={handleLogout} className="text-slate-400 hover:text-rose-600 text-xs p-1 font-bold" title="Sign Out">✕</button>
           </div>
         </div>
       </aside>
