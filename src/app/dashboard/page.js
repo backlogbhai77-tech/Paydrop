@@ -15,12 +15,13 @@ import {
 } from 'firebase/firestore'
 import { 
   Zap, Plus, LayoutDashboard, FolderKanban, ShieldCheck, 
-  UploadCloud, CheckCircle2, Lock, ArrowRight, ArrowLeft, 
+  UploadCloud, CheckCircle2, Lock, ArrowRight, 
   Copy, Check, Trash2, ExternalLink, FileArchive, Clock,
   AlertCircle, RefreshCw, X, MessageSquare, Send, Bell,
-  Menu, Search, Layers, FileText, ChevronRight, CheckCheck,
+  Menu, Search, Layers, FileText, ChevronRight,
   TrendingUp, IndianRupee, Shield, Sparkles, LockKeyhole, Mail,
-  FileCode, Video, ChevronDown, CreditCard, Smartphone, Building2, LogOut
+  FileCode, Video, ChevronDown, CreditCard, Smartphone, Building2, LogOut, Sun, Moon,
+  Eye, Activity, BarChart3, Settings, ShieldAlert, History, Terminal
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -40,103 +41,15 @@ function formatINR(amount) {
 function getFileIcon(filename = '', type = '') {
   const ext = filename.split('.').pop()?.toLowerCase()
   if (['mp4', 'mov', 'avi', 'mkv', 'webm'].includes(ext) || type.startsWith('video/')) {
-    return <Video className="w-4 h-4 text-purple-400 animate-pulse" />
+    return <Video className="w-4 h-4 text-purple-600 dark:text-purple-400" />
   }
   if (['zip', 'rar', '7z', 'tar'].includes(ext)) {
-    return <FileArchive className="w-4 h-4 text-amber-400" />
+    return <FileArchive className="w-4 h-4 text-amber-600 dark:text-amber-400" />
   }
   if (['js', 'ts', 'py', 'json', 'html', 'css', 'cpp'].includes(ext)) {
-    return <FileCode className="w-4 h-4 text-emerald-400" />
+    return <FileCode className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
   }
-  return <FileText className="w-4 h-4 text-blue-400" />
-}
-
-function InteractiveSparkline({ title, amount, subtitle, data, color, badge, cardId, activePoint, onPointHover }) {
-  const width = 280
-  const height = 55
-  const hasData = data.some(d => d.value > 0)
-  const maxVal = hasData ? Math.max(...data.map(d => d.value)) : 100
-  const minVal = 0
-  const range = maxVal - minVal || 1
-
-  const points = data.map((d, i) => {
-    const x = (i / (data.length - 1)) * (width - 24) + 12
-    const y = hasData 
-      ? height - ((d.value - minVal) / range) * (height - 20) - 10
-      : height - 15
-    return { x, y, ...d }
-  })
-
-  const pathD = points.reduce((acc, p, i) => {
-    if (i === 0) return `M ${p.x} ${p.y}`
-    const prev = points[i - 1]
-    const cx = (prev.x + p.x) / 2
-    return `${acc} C ${cx} ${prev.y}, ${cx} ${p.y}, ${p.x} ${p.y}`
-  }, '')
-
-  const fillD = `${pathD} L ${points[points.length - 1].x} ${height} L ${points[0].x} ${height} Z`
-  const strokeColor = color === 'emerald' ? '#10B981' : '#3B82F6'
-  const gradId = `spark-fill-${cardId}`
-
-  return (
-    <div className="p-5 rounded-3xl bg-slate-900/80 border border-slate-800/80 shadow-2xl relative overflow-hidden transition-all duration-300 hover:border-slate-700 hover:scale-[1.01] backdrop-blur-xl group">
-      <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 blur-3xl group-hover:bg-blue-500/10 transition-all pointer-events-none" />
-      
-      <div className="flex justify-between items-start">
-        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider font-mono">{title}</span>
-        {badge && (
-          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono transition-transform duration-300 group-hover:scale-105 ${
-            color === 'emerald' ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-500/30' :
-            'bg-blue-950/60 text-blue-400 border border-blue-500/30'
-          }`}>
-            {badge}
-          </span>
-        )}
-      </div>
-
-      <div className="mt-2">
-        <div className="text-2xl font-black text-white font-mono tracking-tight">{amount}</div>
-        <p className="text-[11px] text-slate-400 mt-0.5">{subtitle}</p>
-      </div>
-
-      <div className="relative mt-3">
-        {activePoint && activePoint.cardId === cardId && (
-          <div 
-            className="absolute z-20 px-2.5 py-1 bg-slate-800 text-white rounded-lg text-[10px] font-mono shadow-2xl -translate-x-1/2 -top-8 pointer-events-none border border-slate-700 animate-in fade-in zoom-in-95 duration-150"
-            style={{ left: `${activePoint.x}px` }}
-          >
-            {activePoint.label}: {activePoint.formatted || activePoint.value}
-          </div>
-        )}
-
-        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-12 overflow-visible">
-          <defs>
-            <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={strokeColor} stopOpacity="0.3" />
-              <stop offset="100%" stopColor={strokeColor} stopOpacity="0.0" />
-            </linearGradient>
-          </defs>
-          <path d={fillD} fill={`url(#${gradId})`} className="transition-all duration-500" />
-          <path d={pathD} fill="none" stroke={hasData ? strokeColor : '#475569'} strokeWidth="2.5" strokeDasharray={hasData ? 'none' : '4 4'} strokeLinecap="round" />
-          {hasData && points.map((p, i) => (
-            <circle
-              key={i}
-              cx={p.x}
-              cy={p.y}
-              r={activePoint?.cardId === cardId && activePoint?.index === i ? "5" : "3"}
-              className="cursor-pointer transition-all duration-200 hover:scale-125"
-              fill={activePoint?.cardId === cardId && activePoint?.index === i ? strokeColor : "#0F172A"}
-              stroke={strokeColor}
-              strokeWidth="2.5"
-              onMouseEnter={() => onPointHover({ ...p, cardId, index: i })}
-              onMouseLeave={() => onPointHover(null)}
-              onClick={() => onPointHover({ ...p, cardId, index: i })}
-            />
-          ))}
-        </svg>
-      </div>
-    </div>
-  )
+  return <FileText className="w-4 h-4 text-blue-600 dark:text-blue-400" />
 }
 
 export default function Dashboard() {
@@ -152,7 +65,7 @@ export default function Dashboard() {
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false)
   const [copiedId, setCopiedId] = useState(null)
   const [toast, setToast] = useState(null)
-  const [activeChartPoint, setActiveChartPoint] = useState(null)
+  const [isDarkMode, setIsDarkMode] = useState(false)
 
   // Custom Gateway Modal State
   const [payDropGatewayModal, setPayDropGatewayModal] = useState(null)
@@ -170,7 +83,7 @@ export default function Dashboard() {
   const [clientMessage, setClientMessage] = useState('')
   const [amount, setAmount] = useState('')
   const [expirySelection, setExpirySelection] = useState('7')
-  const [watermarkText, setWatermarkText] = useState('PAYDROP • PREVIEW COPY')
+  const [watermarkText, setWatermarkText] = useState('PAYDROP • CONFIDENTIAL PREVIEW')
   
   const [fileList, setFileList] = useState([])
   const [uploadProgress, setUploadProgress] = useState(0)
@@ -188,7 +101,7 @@ export default function Dashboard() {
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type })
-    setTimeout(() => setToast(null), 3000)
+    setTimeout(() => setToast(null), 3500)
   }
 
   useEffect(() => {
@@ -226,7 +139,7 @@ export default function Dashboard() {
       setAuthError('')
       if (authMode === 'login') {
         await signInWithEmailAndPassword(auth, emailInput.trim(), passwordInput)
-        showToast("Welcome back!", "success")
+        showToast("Welcome back to PayDrop Studio!", "success")
       } else {
         await createUserWithEmailAndPassword(auth, emailInput.trim(), passwordInput)
         showToast("Account created successfully!", "success")
@@ -249,7 +162,7 @@ export default function Dashboard() {
       setAuthLoading(true)
       setAuthError('')
       await signInWithPopup(auth, googleProvider)
-      showToast("Signed in with Google", "success")
+      showToast("Signed in with Google successfully", "success")
     } catch {
       setAuthError("Google Sign-In blocked by WebView. Please use Email/Password login.")
     } finally {
@@ -261,7 +174,7 @@ export default function Dashboard() {
     try {
       await signOut(auth)
       setProfileDropdownOpen(false)
-      showToast("Logged out successfully", "success")
+      showToast("Signed out successfully", "success")
     } catch {
       showToast("Logout failed", "error")
     }
@@ -366,7 +279,7 @@ export default function Dashboard() {
         createdAt: serverTimestamp()
       })
 
-      showToast("Delivery Vault protected & deployed!", "success")
+      showToast("Delivery Vault protected & deployed successfully!", "success")
       setTitle('')
       setClientName('')
       setClientEmail('')
@@ -404,32 +317,19 @@ export default function Dashboard() {
   }
 
   const handleDelete = async (id) => {
-    if (!confirm("Permanently remove this deliverable?")) return
+    if (!confirm("Permanently remove this deliverable vault?")) return
     try {
       await deleteDoc(doc(db, 'deliveries', id))
-      showToast("Vault removed", "success")
+      showToast("Vault removed successfully", "success")
     } catch {
       showToast("Failed to delete", "error")
-    }
-  }
-
-  const handleDeleteAll = async () => {
-    if (!deliveries.length) return
-    if (!confirm(`Permanently remove all ${deliveries.length} deliverables?`)) return
-    try {
-      const batch = writeBatch(db)
-      deliveries.forEach(d => batch.delete(doc(db, 'deliveries', d.id)))
-      await batch.commit()
-      showToast("All vaults deleted", "success")
-    } catch {
-      showToast("Batch action failed", "error")
     }
   }
 
   const copyLink = (id) => {
     navigator.clipboard.writeText(`${window.location.origin}/d/${id}`)
     setCopiedId(id)
-    showToast("Client Portal link copied!", "success")
+    showToast("Client Portal secure link copied to clipboard!", "success")
     setTimeout(() => setCopiedId(null), 2500)
   }
 
@@ -441,7 +341,7 @@ export default function Dashboard() {
       const updated = [...existing, { sender: 'creator', text: threadReplyText.trim(), time: new Date().toISOString() }]
       await updateDoc(doc(db, 'deliveries', deliveryId), { messages: updated })
       setThreadReplyText('')
-      showToast("Reply sent", "success")
+      showToast("Revision note sent to client", "success")
     } catch {
       showToast("Failed to send note", "error")
     }
@@ -459,80 +359,62 @@ export default function Dashboard() {
     return matchesFilter && matchesSearch
   })
 
-  const pendingTrendData = [
-    { label: 'Mon', value: pendingAmount > 0 ? Math.round(pendingAmount * 0.4) : 0 },
-    { label: 'Tue', value: pendingAmount > 0 ? Math.round(pendingAmount * 0.7) : 0 },
-    { label: 'Wed', value: pendingAmount > 0 ? Math.round(pendingAmount * 0.5) : 0 },
-    { label: 'Thu', value: pendingAmount > 0 ? Math.round(pendingAmount * 0.85) : 0 },
-    { label: 'Today', value: pendingAmount, formatted: formatINR(pendingAmount) }
-  ]
-
-  const clearedTrendData = [
-    { label: 'Mon', value: totalRevenue > 0 ? Math.round(totalRevenue * 0.2) : 0 },
-    { label: 'Tue', value: totalRevenue > 0 ? Math.round(totalRevenue * 0.35) : 0 },
-    { label: 'Wed', value: totalRevenue > 0 ? Math.round(totalRevenue * 0.6) : 0 },
-    { label: 'Thu', value: totalRevenue > 0 ? Math.round(totalRevenue * 0.75) : 0 },
-    { label: 'Today', value: totalRevenue, formatted: formatINR(totalRevenue) }
-  ]
-
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#070A11] flex flex-col items-center justify-center text-xs text-slate-400 gap-3 font-mono">
-        <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin shadow-lg shadow-blue-500/50" />
-        <span className="tracking-widest uppercase text-[10px] text-blue-400 animate-pulse">INITIALIZING STUDIO PRO...</span>
+      <div className="min-h-screen bg-slate-50 dark:bg-[#070A11] flex flex-col items-center justify-center text-xs text-slate-500 font-mono gap-3">
+        <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin shadow-md" />
+        <span className="tracking-widest uppercase text-[10px] text-blue-600 font-bold animate-pulse">LOADING PAYDROP STUDIO...</span>
       </div>
     )
   }
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-[#070A11] text-slate-100 flex flex-col justify-center items-center p-6 relative overflow-hidden font-sans selection:bg-blue-600 selection:text-white">
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-blue-600/15 blur-[160px] rounded-full pointer-events-none animate-pulse" />
-
-        <div className="w-full max-w-md relative z-10 space-y-6 animate-in fade-in zoom-in-95 duration-500">
+      <div className="min-h-screen bg-slate-50 dark:bg-[#070A11] text-slate-900 dark:text-slate-100 flex flex-col justify-center items-center p-6 relative overflow-hidden font-sans">
+        <div className="w-full max-w-md relative z-10 space-y-6 animate-in fade-in zoom-in-95 duration-300">
           <div className="text-center space-y-2">
-            <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 flex items-center justify-center text-white mx-auto shadow-2xl shadow-blue-500/40 hover:scale-105 transition-transform duration-300">
-              <Zap className="w-8 h-8 fill-white animate-bounce" />
+            <div className="w-14 h-14 rounded-2xl bg-blue-600 flex items-center justify-center text-white mx-auto shadow-xl shadow-blue-500/25">
+              <Zap className="w-7 h-7 fill-white animate-bounce" />
             </div>
-            <h1 className="text-3xl font-black text-white tracking-tight">PayDrop Studio</h1>
-            <p className="text-xs text-slate-400">Next-gen payment-locked delivery vault for elite creators.</p>
+            <h1 className="text-2xl font-black tracking-tight">PayDrop Studio</h1>
+            <p className="text-xs text-slate-500">Payment-locked delivery vault for elite creators & agencies.</p>
           </div>
 
-          <div className="bg-slate-900/90 border border-slate-800/90 rounded-3xl p-7 shadow-2xl backdrop-blur-2xl space-y-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
             {authError && (
-              <div className="p-3 bg-rose-950/50 border border-rose-500/30 rounded-2xl text-rose-300 text-xs flex items-start gap-2 animate-in fade-in duration-200">
-                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-                <span className="leading-tight">{authError}</span>
+              <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-2xl text-rose-700 dark:text-rose-300 text-xs flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+                <span>{authError}</span>
               </div>
             )}
 
-            <form onSubmit={handleEmailAuth} className="space-y-3.5">
+            <form onSubmit={handleEmailAuth} className="space-y-3">
               <div>
-                <label className="text-[11px] font-semibold text-slate-400 block mb-1">Email Address</label>
+                <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 block mb-1">Email Address</label>
                 <div className="relative">
-                  <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                  <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type="email"
                     required
                     placeholder="creator@studio.com"
                     value={emailInput}
                     onChange={e => setEmailInput(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 bg-slate-800/80 border border-slate-700/80 rounded-2xl text-xs text-white focus:outline-none focus:border-blue-500 placeholder:text-slate-500 transition-all shadow-inner"
+                    className="w-full pl-9 pr-3 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs focus:outline-none focus:border-blue-600"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="text-[11px] font-semibold text-slate-400 block mb-1">Password</label>
+                <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 block mb-1">Password</label>
                 <div className="relative">
-                  <LockKeyhole className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                  <LockKeyhole className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type="password"
                     required
                     placeholder="••••••••"
                     value={passwordInput}
                     onChange={e => setPasswordInput(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 bg-slate-800/80 border border-slate-700/80 rounded-2xl text-xs text-white focus:outline-none focus:border-blue-500 placeholder:text-slate-500 transition-all shadow-inner"
+                    className="w-full pl-9 pr-3 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs focus:outline-none focus:border-blue-600"
                   />
                 </div>
               </div>
@@ -540,42 +422,35 @@ export default function Dashboard() {
               <button
                 type="submit"
                 disabled={authLoading}
-                className="w-full py-3.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs rounded-2xl shadow-lg shadow-blue-600/30 transition-all duration-300 active:scale-95 flex items-center justify-center gap-2 group"
+                className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-lg shadow-blue-600/30 transition active:scale-95 flex items-center justify-center gap-2"
               >
-                {authLoading ? (
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                ) : (
-                  <>
-                    <span>{authMode === 'login' ? 'Sign In to Studio' : 'Create Pro Account'}</span>
-                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                  </>
-                )}
+                {authLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <span>{authMode === 'login' ? 'Sign In to Studio' : 'Create Pro Account'}</span>}
               </button>
             </form>
 
-            <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
+            <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
               <span>{authMode === 'login' ? "Don't have an account?" : "Already have an account?"}</span>
               <button
                 type="button"
                 onClick={() => { setAuthMode(authMode === 'login' ? 'signup' : 'login'); setAuthError(''); }}
-                className="text-blue-400 font-bold hover:underline"
+                className="text-blue-600 font-bold hover:underline"
               >
                 {authMode === 'login' ? 'Sign Up' : 'Sign In'}
               </button>
             </div>
 
-            <div className="relative flex items-center my-3">
-              <div className="flex-grow border-t border-slate-800"></div>
-              <span className="shrink-0 px-2 text-[10px] text-slate-500 font-mono">OR SECURE AUTH</span>
-              <div className="flex-grow border-t border-slate-800"></div>
+            <div className="relative flex items-center my-2">
+              <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
+              <span className="shrink-0 px-2 text-[10px] text-slate-400 font-mono">OR</span>
+              <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
             </div>
 
             <button
               onClick={handleGoogleLogin}
               disabled={authLoading}
-              className="w-full py-3 bg-slate-800/80 hover:bg-slate-700/80 text-slate-200 font-bold text-xs rounded-2xl border border-slate-700 transition-all duration-300 flex items-center justify-center gap-2.5 shadow-md hover:scale-[1.01]"
+              className="w-full py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs rounded-xl border border-slate-200 dark:border-slate-700 transition flex items-center justify-center gap-2"
             >
-              <svg className="w-4 h-4" viewBox="0 0 24 24">
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                 <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
                 <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
@@ -590,147 +465,93 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-[#070A11] text-slate-100 font-sans flex antialiased pb-28 lg:pb-0 relative selection:bg-blue-600 selection:text-white">
+    <div className={`min-h-screen ${isDarkMode ? 'bg-[#070A11] text-slate-100' : 'bg-slate-50 text-slate-900'} font-sans flex antialiased pb-28 lg:pb-0 relative selection:bg-blue-600 selection:text-white transition-colors duration-300`}>
       {toast && (
         <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top duration-300">
-          <div className="flex items-center gap-2.5 px-5 py-3 rounded-2xl shadow-2xl bg-slate-900/90 text-white text-xs font-semibold border border-slate-700 backdrop-blur-xl animate-bounce">
+          <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl shadow-2xl bg-slate-900 text-white text-xs font-semibold border border-slate-800">
             <Check className="w-4 h-4 text-emerald-400" />
             <span>{toast.message}</span>
           </div>
         </div>
       )}
 
-      {/* CUSTOM PAYDROP GATEWAY MODAL */}
+      {/* CUSTOM GATEWAY MODAL */}
       {payDropGatewayModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-300">
-          <div className="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-3xl p-6 space-y-5 shadow-2xl relative animate-in zoom-in-95 duration-200">
-            <button onClick={() => setPayDropGatewayModal(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white transition">
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className={`${isDarkMode ? 'bg-slate-900 text-white border-slate-800' : 'bg-white text-slate-900 border-slate-200'} border w-full max-w-sm rounded-3xl p-6 space-y-4 shadow-2xl relative`}>
+            <button onClick={() => setPayDropGatewayModal(null)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition">
               <X className="w-5 h-5" />
             </button>
 
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md">
-                <Zap className="w-4 h-4 fill-white animate-pulse" />
+              <div className="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center text-white">
+                <Zap className="w-4 h-4 fill-white" />
               </div>
               <div>
-                <h3 className="text-xs font-black uppercase text-white tracking-wider">PayDrop Gateway</h3>
+                <h3 className="text-xs font-black uppercase tracking-wider">PayDrop Gateway</h3>
                 <span className="text-[10px] text-slate-400">Internal Dummy Direct Unlock</span>
               </div>
             </div>
 
-            <div className="p-4 bg-slate-950/60 border border-slate-800 rounded-2xl space-y-2">
-              <div className="text-[11px] text-slate-400">Vault Item:</div>
-              <div className="text-xs font-bold text-white truncate">{payDropGatewayModal.title}</div>
-              <div className="text-2xl font-black font-mono text-emerald-400 pt-1">{formatINR(payDropGatewayModal.grossAmount)}</div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Choose Dummy Method</label>
-              <div className="grid grid-cols-3 gap-2 text-xs font-semibold">
-                <button
-                  onClick={() => setSelectedPayMethod('upi')}
-                  className={`p-3 rounded-2xl border flex flex-col items-center gap-1.5 transition-all ${
-                    selectedPayMethod === 'upi' ? 'bg-blue-600/20 border-blue-500 text-blue-400 scale-105 shadow-lg shadow-blue-500/20' : 'bg-slate-800/40 border-slate-800 text-slate-400 hover:bg-slate-800'
-                  }`}
-                >
-                  <Smartphone className="w-4 h-4" />
-                  <span className="text-[10px]">UPI / QR</span>
-                </button>
-
-                <button
-                  onClick={() => setSelectedPayMethod('card')}
-                  className={`p-3 rounded-2xl border flex flex-col items-center gap-1.5 transition-all ${
-                    selectedPayMethod === 'card' ? 'bg-blue-600/20 border-blue-500 text-blue-400 scale-105 shadow-lg shadow-blue-500/20' : 'bg-slate-800/40 border-slate-800 text-slate-400 hover:bg-slate-800'
-                  }`}
-                >
-                  <CreditCard className="w-4 h-4" />
-                  <span className="text-[10px]">Cards</span>
-                </button>
-
-                <button
-                  onClick={() => setSelectedPayMethod('netbank')}
-                  className={`p-3 rounded-2xl border flex flex-col items-center gap-1.5 transition-all ${
-                    selectedPayMethod === 'netbank' ? 'bg-blue-600/20 border-blue-500 text-blue-400 scale-105 shadow-lg shadow-blue-500/20' : 'bg-slate-800/40 border-slate-800 text-slate-400 hover:bg-slate-800'
-                  }`}
-                >
-                  <Building2 className="w-4 h-4" />
-                  <span className="text-[10px]">Banking</span>
-                </button>
-              </div>
+            <div className={`p-4 ${isDarkMode ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50 border-slate-200'} border rounded-2xl space-y-1`}>
+              <div className="text-[11px] text-slate-500">Vault Item:</div>
+              <div className="text-xs font-bold truncate">{payDropGatewayModal.title}</div>
+              <div className="text-2xl font-black font-mono text-emerald-500 pt-1">{formatINR(payDropGatewayModal.grossAmount)}</div>
             </div>
 
             <button
               onClick={() => triggerPayDropCustomPayment(payDropGatewayModal.id)}
               disabled={processingPayment}
-              className="w-full py-3.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs rounded-2xl shadow-xl shadow-emerald-600/30 transition-all duration-300 flex items-center justify-center gap-2 active:scale-95"
+              className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2"
             >
-              {processingPayment ? (
-                <RefreshCw className="w-4 h-4 animate-spin" />
-              ) : (
-                <>
-                  <ShieldCheck className="w-4 h-4" />
-                  <span>Simulate Instant Unlock</span>
-                </>
-              )}
+              {processingPayment ? <RefreshCw className="w-4 h-4 animate-spin" /> : <span>Confirm Test Payment</span>}
             </button>
           </div>
         </div>
       )}
 
-      {/* DESKTOP SIDEBAR */}
-      <aside className="hidden lg:flex w-68 bg-slate-900/60 border-r border-slate-800/80 flex-col justify-between p-5 sticky top-0 h-screen z-30 select-none backdrop-blur-2xl">
-        <div className="space-y-5">
-          <div className="flex items-center gap-3 px-2 py-1">
-            <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-xl shadow-blue-600/30">
-              <Zap className="w-5 h-5 fill-white animate-pulse" />
+      {/* DESKTOP SIDEBAR WITH SETTLEMENT LOGS */}
+      <aside className={`hidden lg:flex w-72 ${isDarkMode ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200'} border-r flex-col justify-between p-4 sticky top-0 h-screen z-30 select-none backdrop-blur-xl`}>
+        <div className="space-y-4">
+          <div className="flex items-center gap-2.5 px-2 py-1">
+            <div className="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md">
+              <Zap className="w-4 h-4 fill-white" />
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="font-black text-sm tracking-tight text-white uppercase">PayDrop</span>
-                <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[9px] font-bold">PRO STUDIO</span>
+                <span className="font-black text-sm tracking-tight uppercase">PayDrop</span>
+                <span className="px-1.5 py-0.2 rounded bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-[9px] font-bold">PRO</span>
               </div>
-              <span className="text-[10px] text-slate-400 font-medium">Encrypted Handover</span>
+              <span className="text-[10px] text-slate-400 font-medium">Protected Delivery</span>
             </div>
           </div>
 
-          <button
-            onClick={() => { setCurrentView('create'); setWizardStep(1); }}
-            className="w-full py-3 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold rounded-2xl shadow-xl shadow-blue-600/30 transition-all duration-300 active:scale-95 flex items-center justify-center gap-2 group"
-          >
-            <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform duration-300" />
-            <span>Create Protected Drop</span>
-          </button>
-
-          <div className="space-y-1.5 pt-2">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-2 block mb-1 font-mono">Workspace</span>
-            
+          <div className="space-y-1 pt-2">
             <button
-              onClick={() => { setCurrentView('overview'); setWizardStep(1); }}
-              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-2xl text-xs font-semibold transition-all duration-200 ${
-                currentView === 'overview' ? 'bg-gradient-to-r from-slate-800 to-slate-800/90 text-white font-bold border border-slate-700/80 shadow-lg' : 'text-slate-400 hover:bg-slate-800/40 hover:text-slate-200'
+              onClick={() => setCurrentView('overview')}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition ${
+                currentView === 'overview' ? 'bg-blue-600 text-white font-bold shadow-md shadow-blue-600/20' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800/60'
               }`}
             >
-              <div className="flex items-center gap-3">
-                <Layers className="w-4 h-4 text-blue-400" />
-                <span>Deliveries Vaults</span>
+              <div className="flex items-center gap-2.5">
+                <Layers className="w-4 h-4" />
+                <span>Vaults & Assets</span>
               </div>
-              <span className="text-[10px] px-2 py-0.5 rounded-lg bg-slate-800 text-slate-300 font-mono border border-slate-700">
-                {deliveries.length}
-              </span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded font-mono bg-slate-200 dark:bg-slate-800">{deliveries.length}</span>
             </button>
 
             <button
-              onClick={() => { setCurrentView('inbox'); setWizardStep(1); }}
-              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-2xl text-xs font-semibold transition-all duration-200 ${
-                currentView === 'inbox' || currentView === 'chat-thread' ? 'bg-gradient-to-r from-slate-800 to-slate-800/90 text-white font-bold border border-slate-700/80 shadow-lg' : 'text-slate-400 hover:bg-slate-800/40 hover:text-slate-200'
+              onClick={() => setCurrentView('inbox')}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition ${
+                currentView === 'inbox' || currentView === 'chat-thread' ? 'bg-blue-600 text-white font-bold shadow-md shadow-blue-600/20' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800/60'
               }`}
             >
-              <div className="flex items-center gap-3">
-                <MessageSquare className="w-4 h-4 text-amber-400" />
+              <div className="flex items-center gap-2.5">
+                <MessageSquare className="w-4 h-4" />
                 <span>Revisions Inbox</span>
               </div>
               {activeRevisionsCount > 0 && (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500 text-white font-bold animate-pulse">
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500 text-white font-bold animate-pulse">
                   {activeRevisionsCount}
                 </span>
               )}
@@ -738,77 +559,85 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="space-y-4 pt-4 border-t border-slate-800/80">
-          <div className="p-3.5 bg-slate-800/40 border border-slate-800/80 rounded-2xl space-y-1 shadow-inner">
-            <span className="text-[10px] font-bold text-slate-400 uppercase font-mono flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" /> Pending Payouts
-            </span>
-            <div className="text-base font-black text-amber-400 font-mono tracking-tight">{formatINR(pendingAmount)}</div>
+        {/* SETTLEMENT LOGS & AUDIT HISTORY SECTION IN SIDEBAR */}
+        <div className="space-y-3 pt-3 border-t border-slate-200 dark:border-slate-800">
+          <div className={`p-3.5 ${isDarkMode ? 'bg-slate-800/40 border-slate-800' : 'bg-slate-50 border-slate-200'} border rounded-2xl space-y-2`}>
+            <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase font-mono">
+              <span className="flex items-center gap-1"><History className="w-3 h-3 text-blue-500" /> Settlement Logs</span>
+              <span>Live</span>
+            </div>
+            <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+              {paidDeliveries.length === 0 ? (
+                <div className="text-[10px] text-slate-400 italic py-2 text-center">No settlements recorded yet.</div>
+              ) : (
+                paidDeliveries.slice(0, 4).map(item => (
+                  <div key={item.id} className="p-2 rounded-xl bg-slate-900/40 border border-slate-800/60 text-[10px] space-y-0.5">
+                    <div className="flex justify-between font-bold text-white truncate">
+                      <span className="truncate">{item.title}</span>
+                      <span className="text-emerald-400 font-mono">+{formatINR(item.grossAmount)}</span>
+                    </div>
+                    <div className="text-[9px] text-slate-400 font-mono truncate">Client: {item.clientName}</div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
       </aside>
 
-      {/* MAIN VIEW AREA */}
+      {/* MAIN CONTAINER */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-18 bg-slate-900/40 border-b border-slate-800/80 sticky top-0 z-20 px-4 sm:px-8 flex items-center justify-between backdrop-blur-2xl">
+        <header className={`h-16 ${isDarkMode ? 'bg-slate-900/40 border-slate-800' : 'bg-white/80 border-slate-200'} border-b sticky top-0 z-20 px-4 sm:px-8 flex items-center justify-between backdrop-blur-md`}>
           <div className="flex items-center gap-3">
-            <button onClick={() => setMobileMenuOpen(true)} className="lg:hidden p-2 text-slate-400 hover:bg-slate-800 rounded-xl transition">
+            <button onClick={() => setMobileMenuOpen(true)} className="lg:hidden p-1.5 text-slate-500 hover:bg-slate-100 rounded-lg">
               <Menu className="w-5 h-5" />
             </button>
-            <div className="flex items-center gap-2 text-xs font-semibold text-slate-400 font-mono">
-              <span>Studio</span>
-              <span>/</span>
-              <span className="text-white font-bold capitalize">{currentView.replace('-', ' ')}</span>
-            </div>
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider font-mono">Studio / <span className="text-slate-900 dark:text-white capitalize">{currentView}</span></span>
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Theme Toggle Button */}
+            <button
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 transition hover:scale-105 active:scale-95"
+              title="Toggle Theme"
+            >
+              {isDarkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-700" />}
+            </button>
+
+            {/* New Drop Button */}
             <button
               onClick={() => { setCurrentView('create'); setWizardStep(1); }}
-              className="px-3.5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-blue-600/20 transition-all duration-300 active:scale-95 flex items-center gap-1.5"
+              className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition active:scale-95 flex items-center gap-1.5"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>New Drop</span>
             </button>
 
-            {/* TOP RIGHT PROFILE CORNER */}
+            {/* Profile Dropdown */}
             <div className="relative">
               <button
                 onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-                className="flex items-center gap-2.5 pl-2 pr-3 py-1.5 bg-slate-800/60 hover:bg-slate-800 border border-slate-700/80 rounded-2xl transition-all duration-200 active:scale-95 shadow-md"
+                className="flex items-center gap-2 pl-2 pr-3 py-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl transition hover:border-blue-500"
               >
-                <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white text-xs font-black flex items-center justify-center uppercase shadow-md">
+                <div className="w-6 h-6 rounded-lg bg-blue-600 text-white text-[10px] font-black flex items-center justify-center uppercase">
                   {user.email ? user.email.slice(0, 2) : 'PD'}
-                </div>
-                <div className="hidden sm:block text-left">
-                  <div className="text-xs font-bold text-white leading-tight truncate max-w-[120px]">{user.email?.split('@')[0]}</div>
-                  <div className="text-[9px] text-emerald-400 font-mono">● Pro Account</div>
                 </div>
                 <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
               </button>
 
               {profileDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-60 bg-slate-900 border border-slate-800 rounded-3xl p-3 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150">
-                  <div className="p-2.5 border-b border-slate-800 mb-2">
-                    <p className="text-xs font-bold text-white truncate">{user.email}</p>
-                    <span className="text-[10px] text-emerald-400 font-mono">● Secure Vault Session Active</span>
+                <div className={`absolute right-0 mt-2 w-48 ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'} border rounded-2xl p-2 shadow-2xl z-50 animate-in fade-in duration-200`}>
+                  <div className="p-2 border-b border-slate-200 dark:border-slate-800 mb-1">
+                    <p className="text-xs font-bold truncate">{user.email}</p>
+                    <span className="text-[10px] text-emerald-500 font-mono">● Pro Studio Active</span>
                   </div>
-
-                  <div className="space-y-1">
-                    <div className="px-2.5 py-2 text-xs text-slate-400 flex justify-between font-mono bg-slate-950/40 rounded-xl">
-                      <span>Cleared Revenue</span>
-                      <span className="text-emerald-400 font-bold">{formatINR(totalRevenue)}</span>
-                    </div>
-                  </div>
-
-                  <div className="border-t border-slate-800 my-2"></div>
-
                   <button
                     onClick={handleLogout}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-rose-400 hover:bg-rose-950/30 rounded-xl transition-all duration-200"
+                    className="w-full flex items-center gap-2 px-2.5 py-1.5 text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition"
                   >
-                    <LogOut className="w-4 h-4" />
-                    <span>Sign Out Studio</span>
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>Sign Out</span>
                   </button>
                 </div>
               )}
@@ -821,106 +650,68 @@ export default function Dashboard() {
           {/* VIEW: OVERVIEW */}
           {currentView === 'overview' && (
             <div className="space-y-6 animate-in fade-in duration-300">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div>
-                  <h1 className="text-xl font-black text-white tracking-tight">Active Deliverables Vault</h1>
-                  <p className="text-xs text-slate-400 mt-0.5">Manage protected client handovers and secure previews.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className={`p-5 rounded-3xl ${isDarkMode ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200 shadow-sm'} border space-y-1 backdrop-blur-xl`}>
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-slate-400 font-mono uppercase">Awaiting Settlement</span>
+                    <Clock className="w-4 h-4 text-amber-500" />
+                  </div>
+                  <div className="text-2xl font-black text-amber-500 font-mono">{formatINR(pendingAmount)}</div>
+                  <p className="text-[11px] text-slate-400">{pendingDeliveries.length} locked vaults pending payment</p>
+                </div>
+
+                <div className={`p-5 rounded-3xl ${isDarkMode ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200 shadow-sm'} border space-y-1 backdrop-blur-xl`}>
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-slate-400 font-mono uppercase">Cleared Revenue</span>
+                    <TrendingUp className="w-4 h-4 text-emerald-500" />
+                  </div>
+                  <div className="text-2xl font-black text-emerald-500 font-mono">{formatINR(totalRevenue)}</div>
+                  <p className="text-[11px] text-slate-400">{paidDeliveries.length} completed transactions</p>
                 </div>
               </div>
 
-              {/* Sparkline Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                <InteractiveSparkline
-                  cardId="pending"
-                  title="Awaiting Settlement"
-                  amount={formatINR(pendingAmount)}
-                  subtitle="Pending client approval and payment"
-                  data={pendingTrendData}
-                  color="blue"
-                  badge="Pending"
-                  activePoint={activeChartPoint}
-                  onPointHover={setActiveChartPoint}
-                />
-                <InteractiveSparkline
-                  cardId="cleared"
-                  title="Settled Earnings"
-                  amount={formatINR(totalRevenue)}
-                  subtitle="Completed project payments"
-                  data={clearedTrendData}
-                  color="emerald"
-                  badge="Cleared"
-                  activePoint={activeChartPoint}
-                  onPointHover={setActiveChartPoint}
-                />
-              </div>
-
-              {/* Table List */}
-              <div className="bg-slate-900/80 border border-slate-800/80 rounded-3xl shadow-2xl overflow-hidden backdrop-blur-xl">
-                <div className="p-5 border-b border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 w-full sm:w-auto">
-                    <h3 className="text-xs font-black text-white uppercase tracking-wider font-mono">Vaults ({deliveries.length})</h3>
-                    {deliveries.length > 0 && (
-                      <button onClick={handleDeleteAll} className="text-xs text-rose-400 hover:text-rose-300 font-semibold transition">
-                        Delete All
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                    <div className="relative flex-1 sm:flex-initial">
+              {/* VAULT LIST */}
+              <div className={`rounded-3xl ${isDarkMode ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200 shadow-sm'} border overflow-hidden backdrop-blur-xl`}>
+                <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <h3 className="text-xs font-bold uppercase font-mono tracking-wider">Deliverable Vaults ({deliveries.length})</h3>
+                  <div className="flex items-center gap-2">
+                    <div className="relative">
                       <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                       <input
                         type="text"
                         placeholder="Search drops..."
                         value={searchQuery}
                         onChange={e => setSearchQuery(e.target.value)}
-                        className="w-full sm:w-48 pl-8 pr-3 py-1.5 bg-slate-800/80 border border-slate-700/80 rounded-xl text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500 transition-all"
+                        className="pl-9 pr-3 py-1.5 bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs placeholder:text-slate-400 focus:outline-none focus:border-blue-600"
                       />
-                    </div>
-
-                    <div className="flex items-center gap-1 bg-slate-950/60 p-1 rounded-xl text-xs font-semibold border border-slate-800">
-                      {['all', 'pending', 'paid'].map(tab => (
-                        <button
-                          key={tab}
-                          onClick={() => setFilterStatus(tab)}
-                          className={`px-3 py-1 rounded-lg transition-all capitalize ${
-                            filterStatus === tab ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
-                          }`}
-                        >
-                          {tab}
-                        </button>
-                      ))}
                     </div>
                   </div>
                 </div>
 
                 {filteredDeliveries.length === 0 ? (
-                  <div className="py-20 text-center text-xs text-slate-500">
-                    No deliverables found. Tap "New Drop" to lock your first project.
-                  </div>
+                  <div className="py-16 text-center text-xs text-slate-400">No deliverables found. Tap "New Drop" to deploy your first secure vault.</div>
                 ) : (
-                  <div className="divide-y divide-slate-800/60">
+                  <div className="divide-y divide-slate-200 dark:divide-slate-800">
                     {filteredDeliveries.map(item => (
-                      <div key={item.id} className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-800/40 transition-all duration-200">
+                      <div key={item.id} className="p-4 sm:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
                         <div className="flex items-start gap-3.5 min-w-0">
-                          <div className="w-10 h-10 rounded-2xl bg-slate-800/80 border border-slate-700/80 flex items-center justify-center shrink-0 mt-0.5 shadow-md">
+                          <div className="w-10 h-10 rounded-2xl bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex items-center justify-center shrink-0 mt-0.5">
                             {getFileIcon(item.files?.[0]?.name, item.files?.[0]?.type)}
                           </div>
                           <div className="min-w-0 space-y-0.5">
-                            <h4 className="text-xs font-bold text-white truncate">{item.title}</h4>
-                            <p className="text-[11px] text-slate-400">
-                              Client: <span className="text-slate-200 font-medium">{item.clientName}</span> • {item.files?.length || 1} asset(s)
-                            </p>
+                            <div className="flex items-center gap-2">
+                              <h4 className="text-xs font-bold truncate">{item.title}</h4>
+                              {item.status === 'Paid' && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />}
+                            </div>
+                            <p className="text-[11px] text-slate-400">Client: <span className="font-medium text-slate-700 dark:text-slate-300">{item.clientName}</span> • {item.files?.length || 1} asset(s)</p>
                           </div>
                         </div>
 
-                        <div className="flex items-center justify-between sm:justify-end gap-3.5 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-800/80">
-                          <span className="font-mono font-black text-xs text-white">
-                            {formatINR(item.grossAmount)}
-                          </span>
-
-                          <span className={`px-3 py-1 rounded-full text-[10px] font-bold font-mono ${
-                            item.status === 'Paid' ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-500/30' : 'bg-amber-950/60 text-amber-400 border border-amber-500/30'
+                        <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-200 dark:border-slate-800">
+                          <span className="font-mono font-black text-xs">{formatINR(item.grossAmount)}</span>
+                          
+                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold font-mono ${
+                            item.status === 'Paid' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800' : 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400 border border-amber-200 dark:border-amber-800'
                           }`}>
                             {item.status === 'Paid' ? 'Unlocked' : 'Locked'}
                           </span>
@@ -929,21 +720,16 @@ export default function Dashboard() {
                             {item.status !== 'Paid' && (
                               <button
                                 onClick={() => setPayDropGatewayModal(item)}
-                                className="px-2.5 py-1.5 bg-gradient-to-r from-blue-600/20 to-indigo-600/20 hover:from-blue-600/30 hover:to-indigo-600/30 text-blue-300 border border-blue-500/40 text-[10px] font-bold rounded-xl transition-all flex items-center gap-1 shadow-sm"
+                                className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-[10px] font-bold rounded-xl transition"
                               >
-                                <Zap className="w-3 h-3 fill-blue-300 animate-pulse" /> Pay
+                                Test Pay
                               </button>
                             )}
-                            <button
-                              onClick={() => copyLink(item.id)}
-                              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-semibold rounded-xl transition-all"
-                            >
-                              {copiedId === item.id ? 'Copied' : 'Copy Link'}
+                            <button onClick={() => copyLink(item.id)} className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-xs font-semibold rounded-xl transition flex items-center gap-1">
+                              <Copy className="w-3 h-3" />
+                              <span>{copiedId === item.id ? 'Copied' : 'Link'}</span>
                             </button>
-                            <Link href={`/d/${item.id}`} target="_blank" className="p-2 text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-800 rounded-xl transition">
-                              <ExternalLink className="w-3.5 h-3.5" />
-                            </Link>
-                            <button onClick={() => handleDelete(item.id)} className="p-2 text-slate-400 hover:text-rose-400 bg-slate-800/50 hover:bg-rose-950/30 rounded-xl transition">
+                            <button onClick={() => handleDelete(item.id)} className="p-1.5 text-slate-400 hover:text-rose-600 rounded-xl transition">
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
@@ -958,365 +744,168 @@ export default function Dashboard() {
 
           {/* VIEW: REVISIONS INBOX */}
           {currentView === 'inbox' && (
-            <div className="space-y-5 animate-in fade-in duration-300">
-              <div>
-                <h1 className="text-xl font-black text-white tracking-tight">Client Revisions Inbox</h1>
-                <p className="text-xs text-slate-400 mt-0.5">Pre-payment inquiries and client adjustment threads.</p>
-              </div>
-
+            <div className="space-y-4 animate-in fade-in duration-300">
+              <h1 className="text-xl font-bold tracking-tight">Client Revisions Inbox</h1>
               <div className="space-y-3">
-                {deliveries.length === 0 ? (
-                  <div className="p-16 text-center text-xs text-slate-500 bg-slate-900/80 rounded-3xl border border-slate-800">
-                    No client feedback conversations yet.
+                {deliveries.map(d => (
+                  <div key={d.id} className={`p-4 rounded-2xl ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-sm'} border flex items-center justify-between`}>
+                    <div>
+                      <div className="font-bold text-xs">{d.clientName} - {d.title}</div>
+                      <p className="text-xs text-slate-400 mt-0.5">Status: {d.status} • Messages: {d.messages?.length || 0}</p>
+                    </div>
+                    <button
+                      onClick={() => { setActiveThreadDelivery(d); setCurrentView('chat-thread'); }}
+                      className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition shadow-md"
+                    >
+                      Open Thread
+                    </button>
                   </div>
-                ) : (
-                  deliveries.map(d => {
-                    const hasMessages = d.messages && d.messages.length > 0
-                    const lastMsg = hasMessages ? d.messages[d.messages.length - 1] : null
-                    const isRevisionActive = hasMessages && d.status !== 'Paid'
-
-                    return (
-                      <div
-                        key={d.id}
-                        className={`p-5 rounded-3xl bg-slate-900/80 border transition-all duration-300 backdrop-blur-xl ${
-                          isRevisionActive ? 'border-amber-500/50 shadow-xl shadow-amber-500/5 ring-1 ring-amber-500/20' : 'border-slate-800/80 shadow-xl'
-                        }`}
-                      >
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                          <div className="flex items-start gap-4">
-                            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 mt-0.5 shadow-md ${
-                              isRevisionActive ? 'bg-amber-950/60 text-amber-400 border border-amber-500/30' : 'bg-slate-800 text-slate-400'
-                            }`}>
-                              <MessageSquare className="w-4 h-4" />
-                            </div>
-
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2">
-                                <span className="font-bold text-xs text-white">{d.clientName}</span>
-                                <span className="text-slate-600">•</span>
-                                <span className="text-xs text-slate-400">{d.title}</span>
-                              </div>
-
-                              <p className="text-xs text-slate-300 leading-relaxed">
-                                <strong className="text-slate-200 font-semibold">{lastMsg ? `${lastMsg.sender === 'creator' ? 'You' : d.clientName}: ` : 'Status: '}</strong>
-                                {lastMsg ? lastMsg.text : (d.status === 'Paid' ? 'Settlement received. Master files unlocked.' : 'Vault sent. Awaiting feedback.')}
-                              </p>
-
-                              <div className="flex items-center gap-3 text-[11px] text-slate-400 pt-1 font-mono">
-                                <span>{lastMsg ? new Date(lastMsg.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recently'}</span>
-                                <span>•</span>
-                                <span className="font-bold text-white">{formatINR(d.grossAmount)}</span>
-                                {isRevisionActive && (
-                                  <span className="px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] font-bold animate-pulse">
-                                    Change Requested
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-
-                          <button
-                            onClick={() => { setActiveThreadDelivery(d); setCurrentView('chat-thread'); }}
-                            className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-2xl transition-all duration-200 flex items-center gap-2 shadow-md self-start sm:self-center"
-                          >
-                            <MessageSquare className="w-3.5 h-3.5" />
-                            <span>Open Thread</span>
-                          </button>
-                        </div>
-                      </div>
-                    )
-                  })
-                )}
+                ))}
               </div>
             </div>
           )}
 
           {/* VIEW: CHAT THREAD */}
           {currentView === 'chat-thread' && activeThreadDelivery && (
-            <div className="bg-slate-900/90 border border-slate-800/80 rounded-3xl p-6 shadow-2xl space-y-5 animate-in fade-in duration-300 backdrop-blur-xl">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-                <div className="flex items-center gap-3">
-                  <button onClick={() => setCurrentView('inbox')} className="text-xs text-slate-400 hover:text-white font-bold transition">
-                    ← Back to Inbox
-                  </button>
-                  <span className="text-slate-700">|</span>
-                  <div>
-                    <h3 className="text-xs font-bold text-white">{activeThreadDelivery.clientName}</h3>
-                    <span className="text-[10px] text-slate-400">{activeThreadDelivery.title}</span>
+            <div className={`p-6 rounded-3xl ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-sm'} border space-y-4 animate-in fade-in duration-300`}>
+              <button onClick={() => setCurrentView('inbox')} className="text-xs text-blue-600 font-bold hover:underline">← Back to Inbox</button>
+              <h3 className="text-sm font-bold">{activeThreadDelivery.clientName} - {activeThreadDelivery.title}</h3>
+              <div className="h-72 overflow-y-auto p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-3 text-xs">
+                {(activeThreadDelivery.messages || []).map((m, idx) => (
+                  <div key={idx} className={`p-3 rounded-2xl max-w-sm ${m.sender === 'creator' ? 'bg-blue-600 text-white ml-auto shadow-md' : 'bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-slate-100'}`}>
+                    <p className="leading-relaxed">{m.text}</p>
+                    <span className="text-[9px] opacity-70 block mt-1 font-mono">{new Date(m.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                   </div>
-                </div>
-
-                <Link href={`/d/${activeThreadDelivery.id}`} target="_blank" className="text-xs text-blue-400 font-bold hover:underline flex items-center gap-1">
-                  <span>Portal View</span> <ExternalLink className="w-3 h-3" />
-                </Link>
+                ))}
               </div>
-
-              <div className="h-96 overflow-y-auto p-4 bg-slate-950/60 rounded-2xl border border-slate-800/80 space-y-3.5">
-                {(activeThreadDelivery.messages || []).length === 0 ? (
-                  <div className="h-full flex items-center justify-center text-xs text-slate-500 font-mono">
-                    No messages yet. Send a note to the client.
-                  </div>
-                ) : (
-                  activeThreadDelivery.messages.map((m, idx) => {
-                    const isCreator = m.sender === 'creator'
-                    return (
-                      <div key={idx} className={`flex flex-col ${isCreator ? 'items-end' : 'items-start'}`}>
-                        <div className={`p-3.5 rounded-2xl text-xs max-w-sm shadow-md ${
-                          isCreator ? 'bg-blue-600 text-white rounded-br-none' : 'bg-slate-800 border border-slate-700 text-slate-100 rounded-bl-none'
-                        }`}>
-                          <p className="leading-relaxed">{m.text}</p>
-                        </div>
-                        <span className="text-[9px] text-slate-500 mt-1 font-mono">{new Date(m.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                      </div>
-                    )
-                  })
-                )}
-              </div>
-
               <div className="flex gap-2">
                 <input
                   type="text"
-                  placeholder="Type revision reply..."
+                  placeholder="Type feedback or reply..."
                   value={threadReplyText}
                   onChange={e => setThreadReplyText(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleSendThreadReply(activeThreadDelivery.id)}
-                  className="flex-1 bg-slate-950/80 border border-slate-800 rounded-2xl px-4 py-3 text-xs text-white focus:outline-none focus:border-blue-500 transition shadow-inner"
+                  className="flex-1 px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs focus:outline-none focus:border-blue-600"
                 />
-                <button
-                  onClick={() => handleSendThreadReply(activeThreadDelivery.id)}
-                  className="px-5 py-3 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-2xl transition shadow-lg shadow-blue-600/20 active:scale-95"
-                >
-                  Send Reply
+                <button onClick={() => handleSendThreadReply(activeThreadDelivery.id)} className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-md transition flex items-center gap-1.5">
+                  <Send className="w-3.5 h-3.5" />
+                  <span>Send</span>
                 </button>
               </div>
             </div>
           )}
 
-          {/* VIEW: 4-STEP DEPLOY WIZARD */}
+          {/* VIEW: CREATE WIZARD */}
           {currentView === 'create' && (
             <div className="max-w-xl mx-auto space-y-5 animate-in fade-in duration-300">
               <div className="flex justify-between items-center">
-                <div>
-                  <h2 className="text-lg font-black text-white tracking-tight">Deploy Protected Delivery Vault</h2>
-                  <p className="text-xs text-slate-400">Attach deliverables, set price, and seal client preview.</p>
-                </div>
-                <button onClick={() => setCurrentView('overview')} className="text-xs font-semibold text-slate-400 hover:text-white transition">Cancel</button>
+                <h2 className="text-lg font-bold">Deploy Protected Delivery Vault</h2>
+                <button onClick={() => setCurrentView('overview')} className="text-xs text-slate-400 hover:text-slate-600">Cancel</button>
               </div>
 
-              {/* Step indicator */}
-              <div className="bg-slate-900/80 border border-slate-800/80 rounded-2xl p-4 flex items-center justify-between text-xs font-semibold shadow-xl backdrop-blur-xl">
-                <span className={wizardStep === 1 ? 'text-blue-400 font-bold' : 'text-slate-500'}>1. Assets</span>
-                <span className="text-slate-700">→</span>
-                <span className={wizardStep === 2 ? 'text-blue-400 font-bold' : 'text-slate-500'}>2. Details</span>
-                <span className="text-slate-700">→</span>
-                <span className={wizardStep === 3 ? 'text-blue-400 font-bold' : 'text-slate-500'}>3. Watermark</span>
-                <span className="text-slate-700">→</span>
-                <span className={wizardStep === 4 ? 'text-blue-400 font-bold' : 'text-slate-500'}>4. Deploy</span>
-              </div>
-
-              {/* STEP 1 */}
               {wizardStep === 1 && (
-                <div className="p-7 bg-slate-900/90 border border-slate-800/80 rounded-3xl space-y-5 shadow-2xl backdrop-blur-xl">
+                <div className={`p-6 ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-sm'} border rounded-3xl space-y-5`}>
                   <div
                     onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
                     onDragLeave={() => setIsDragging(false)}
                     onDrop={(e) => { e.preventDefault(); setIsDragging(false); handleFilesAdd(e.dataTransfer.files); }}
-                    className={`border-2 border-dashed rounded-3xl p-10 text-center transition-all duration-300 ${
-                      isDragging ? 'border-blue-500 bg-blue-500/10 scale-[1.01]' : 'border-slate-800 bg-slate-950/50 hover:border-slate-700'
-                    }`}
+                    className={`border-2 border-dashed rounded-3xl p-8 text-center transition ${isDragging ? 'border-blue-600 bg-blue-50/50 dark:bg-blue-950/20' : 'border-slate-300 dark:border-slate-700'}`}
                   >
-                    <UploadCloud className="w-12 h-12 text-blue-500 mx-auto mb-3 animate-bounce" />
-                    <span className="text-sm font-bold text-white block">Drop Videos, ZIPs, or Code Archives</span>
-                    <span className="text-xs text-slate-500 mt-1 block">MP4, MOV, ZIP, JS, PY, PDF (Up to 1GB)</span>
-                    <label className="mt-5 inline-block px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold rounded-xl cursor-pointer shadow-lg shadow-blue-600/20 transition-all active:scale-95">
+                    <UploadCloud className="w-12 h-12 text-blue-600 mx-auto mb-3 animate-bounce" />
+                    <span className="text-sm font-bold block mb-1">Drag & Drop Master Deliverables</span>
+                    <p className="text-xs text-slate-400 mb-4">Supports 4K Videos, ZIP archives, Design files, & Source code</p>
+                    <label className="inline-block px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl cursor-pointer shadow-md transition active:scale-95">
                       Browse Files
                       <input type="file" multiple onChange={e => handleFilesAdd(e.target.files)} className="hidden" />
                     </label>
                   </div>
 
                   {fileList.length > 0 && (
-                    <div className="space-y-2 border border-slate-800 rounded-2xl p-4 bg-slate-950/80 shadow-inner">
-                      {fileList.map((f, i) => (
-                        <div key={i} className="flex justify-between text-xs items-center">
-                          <div className="flex items-center gap-2.5 truncate">
-                            {getFileIcon(f.name, f.type)}
-                            <span className="truncate max-w-[260px] font-medium text-slate-200">{f.name}</span>
+                    <div className="space-y-2">
+                      <span className="text-xs font-bold font-mono text-slate-400 uppercase">Selected Assets ({fileList.length}):</span>
+                      <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                        {fileList.map((f, i) => (
+                          <div key={i} className="flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs">
+                            <span className="truncate">{f.name}</span>
+                            <button onClick={() => removeFile(i)} className="text-rose-500 hover:text-rose-700"><X className="w-3.5 h-3.5" /></button>
                           </div>
-                          <button onClick={() => removeFile(i)} className="text-slate-500 hover:text-rose-400 font-bold transition">✕</button>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
                   )}
 
                   <button
                     disabled={!fileList.length}
                     onClick={() => setWizardStep(2)}
-                    className="w-full py-3.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white text-xs font-bold rounded-2xl shadow-lg shadow-blue-600/20 transition-all active:scale-95"
+                    className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-xs font-bold rounded-xl shadow-md transition"
                   >
                     Next: Project Details →
                   </button>
                 </div>
               )}
 
-              {/* STEP 2 */}
               {wizardStep === 2 && (
-                <div className="p-7 bg-slate-900/90 border border-slate-800/80 rounded-3xl space-y-4 shadow-2xl backdrop-blur-xl">
-                  <div>
-                    <label className="text-xs font-bold text-slate-300 block mb-1">Deliverable Title *</label>
+                <div className={`p-6 ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-sm'} border rounded-3xl space-y-4`}>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-500">Deliverable Title</label>
                     <input
                       type="text"
-                      placeholder="e.g. YouTube Video Edit (v1.0)"
+                      placeholder="e.g., Brand Identity & 4K Commercial Reel"
                       value={title}
                       onChange={e => setTitle(e.target.value)}
-                      className="w-full bg-slate-950/80 border border-slate-800 rounded-2xl p-3 text-xs text-white focus:outline-none focus:border-blue-500 transition shadow-inner"
+                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-xs focus:outline-none focus:border-blue-600"
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3.5">
-                    <div>
-                      <label className="text-xs font-bold text-slate-300 block mb-1">Client Name *</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-slate-500">Client Name</label>
                       <input
                         type="text"
-                        placeholder="e.g. Tech Vision Co."
+                        placeholder="e.g., Alex Johnson"
                         value={clientName}
                         onChange={e => setClientName(e.target.value)}
-                        className="w-full bg-slate-950/80 border border-slate-800 rounded-2xl p-3 text-xs text-white focus:outline-none focus:border-blue-500 transition shadow-inner"
+                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-xs focus:outline-none focus:border-blue-600"
                       />
                     </div>
-                    <div>
-                      <label className="text-xs font-bold text-slate-300 block mb-1">Due Amount (₹ INR) *</label>
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-slate-500">Settlement Amount (₹ INR)</label>
                       <input
                         type="number"
-                        placeholder="5000"
+                        placeholder="15000"
                         value={amount}
                         onChange={e => setAmount(e.target.value)}
-                        className="w-full bg-slate-950/80 border border-slate-800 rounded-2xl p-3 text-xs font-bold text-white focus:outline-none focus:border-blue-500 transition shadow-inner"
+                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-xs font-bold font-mono focus:outline-none focus:border-blue-600"
                       />
                     </div>
                   </div>
 
-                  <div>
-                    <label className="text-xs font-bold text-slate-300 block mb-1">Handover Message for Client</label>
-                    <textarea
-                      rows={2}
-                      placeholder="e.g. Final production cut. Full uncompressed assets unlock post-payment."
-                      value={clientMessage}
-                      onChange={e => setClientMessage(e.target.value)}
-                      className="w-full bg-slate-950/80 border border-slate-800 rounded-2xl p-3 text-xs text-white focus:outline-none focus:border-blue-500 transition shadow-inner"
-                    />
-                  </div>
-
-                  <div className="flex gap-3 pt-2">
-                    <button onClick={() => setWizardStep(1)} className="w-1/3 py-3.5 border border-slate-700 hover:bg-slate-800 text-slate-300 text-xs font-bold rounded-2xl transition">Back</button>
-                    <button
-                      disabled={!title || !amount}
-                      onClick={() => setWizardStep(3)}
-                      className="w-2/3 py-3.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-bold rounded-2xl shadow-lg shadow-blue-600/20 transition-all active:scale-95"
-                    >
-                      Next: Watermark Settings →
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* STEP 3 */}
-              {wizardStep === 3 && (
-                <div className="p-7 bg-slate-900/90 border border-slate-800/80 rounded-3xl space-y-4 shadow-2xl backdrop-blur-xl">
-                  <div>
-                    <label className="text-xs font-bold text-slate-300 block mb-1">Watermark Overlay Text</label>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-500">Anti-Piracy Watermark Text</label>
                     <input
                       type="text"
                       value={watermarkText}
                       onChange={e => setWatermarkText(e.target.value)}
-                      className="w-full bg-slate-950/80 border border-slate-800 rounded-2xl p-3 text-xs font-mono text-white focus:outline-none focus:border-blue-500 transition shadow-inner"
+                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-xs font-mono focus:outline-none focus:border-blue-600"
                     />
                   </div>
 
-                  <div>
-                    <label className="text-xs font-bold text-slate-300 block mb-1">Link Expiry Duration</label>
-                    <div className="grid grid-cols-4 gap-2 text-xs font-semibold">
-                      {['7', '14', '30', 'never'].map(opt => (
-                        <button
-                          key={opt}
-                          type="button"
-                          onClick={() => setExpirySelection(opt)}
-                          className={`py-2.5 rounded-2xl border transition-all ${
-                            expirySelection === opt ? 'bg-blue-600/20 border-blue-500 text-blue-400 font-bold shadow-md' : 'border-slate-800 bg-slate-950/40 text-slate-400 hover:text-white'
-                          }`}
-                        >
-                          {opt === 'never' ? 'Never' : `${opt} Days`}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
                   <div className="flex gap-3 pt-2">
-                    <button onClick={() => setWizardStep(2)} className="w-1/3 py-3.5 border border-slate-700 hover:bg-slate-800 text-slate-300 text-xs font-bold rounded-2xl transition">Back</button>
+                    <button onClick={() => setWizardStep(1)} className="w-1/3 py-3 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold transition hover:bg-slate-100 dark:hover:bg-slate-800">Back</button>
                     <button
-                      onClick={() => setWizardStep(4)}
-                      className="w-2/3 py-3.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-2xl shadow-lg shadow-blue-600/20 transition-all active:scale-95"
+                      disabled={!title || !amount || uploading}
+                      onClick={handleDeployVault}
+                      className="w-2/3 py-3 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-lg shadow-blue-600/30 transition flex items-center justify-center gap-2"
                     >
-                      Review & Deploy →
+                      {uploading ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          <span>Encrypting ({uploadProgress}%)</span>
+                        </>
+                      ) : (
+                        <span>Deploy Secure Vault</span>
+                      )}
                     </button>
                   </div>
-                </div>
-              )}
-
-              {/* STEP 4 */}
-              {wizardStep === 4 && (
-                <div className="p-7 bg-slate-900/90 border border-slate-800/80 rounded-3xl space-y-5 shadow-2xl backdrop-blur-xl">
-                  <div className="p-4 bg-slate-950/60 border border-slate-800 rounded-2xl space-y-2 text-xs">
-                    <div className="flex justify-between font-bold text-white border-b border-slate-800 pb-2">
-                      <span>{title}</span>
-                      <span className="font-mono text-emerald-400">{formatINR(amount)}</span>
-                    </div>
-                    <div className="flex justify-between text-slate-400">
-                      <span>Client: <strong className="text-slate-200">{clientName}</strong></span>
-                      <span>{fileList.length} files attached</span>
-                    </div>
-                    <div className="text-slate-400 font-mono">
-                      Link Expiry: {expirySelection === 'never' ? 'Never' : `${expirySelection} Days`}
-                    </div>
-                  </div>
-
-                  {uploading ? (
-                    <div className="p-6 bg-slate-950 text-white rounded-3xl border border-slate-800 space-y-4 shadow-2xl">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2.5">
-                          <RefreshCw className="w-4 h-4 text-blue-400 animate-spin" />
-                          <span className="text-xs font-bold">Publishing Protected Vault...</span>
-                        </div>
-                        <span className="text-xs font-mono text-slate-300">{uploadProgress}%</span>
-                      </div>
-
-                      <div className="space-y-1.5 text-[11px] text-slate-400 font-mono">
-                        <div className={deployStepIndex >= 1 ? "text-emerald-400 font-bold flex items-center gap-1.5" : "flex items-center gap-1.5"}>
-                          <CheckCircle2 className="w-3.5 h-3.5" /> Uploading encrypted master files
-                        </div>
-                        <div className={deployStepIndex >= 2 ? "text-emerald-400 font-bold flex items-center gap-1.5" : "flex items-center gap-1.5 opacity-50"}>
-                          <CheckCircle2 className="w-3.5 h-3.5" /> Generating watermarked previews & gateway seal
-                        </div>
-                      </div>
-
-                      <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-gradient-to-r from-blue-600 to-indigo-600 transition-all duration-300"
-                          style={{ width: `${uploadProgress}%` }}
-                        />
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex gap-3 pt-2">
-                      <button onClick={() => setWizardStep(3)} className="w-1/3 py-3.5 border border-slate-700 hover:bg-slate-800 text-slate-300 text-xs font-bold rounded-2xl transition">Back</button>
-                      <button
-                        onClick={handleDeployVault}
-                        className="w-2/3 py-3.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold rounded-2xl shadow-xl shadow-blue-600/30 transition-all active:scale-95 flex items-center justify-center gap-2"
-                      >
-                        <Lock className="w-4 h-4" />
-                        <span>Deploy Protected Vault</span>
-                      </button>
-                    </div>
-                  )}
                 </div>
               )}
             </div>
@@ -1324,109 +913,6 @@ export default function Dashboard() {
 
         </main>
       </div>
-
-      {/* MOBILE BOTTOM NAVIGATION */}
-      <div className="fixed bottom-3 left-4 right-4 z-40 lg:hidden flex justify-center">
-        <div className="bg-slate-900/90 backdrop-blur-2xl border border-slate-800 shadow-2xl rounded-2xl px-4 py-2.5 flex items-center justify-around w-full max-w-sm">
-          <button
-            onClick={() => { setCurrentView('overview'); setWizardStep(1); }}
-            className={`flex flex-col items-center gap-1 transition ${
-              currentView === 'overview' ? 'text-blue-400 font-bold scale-105' : 'text-slate-400'
-            }`}
-          >
-            <Layers className="w-4 h-4" />
-            <span className="text-[10px]">Drops</span>
-          </button>
-
-          <button
-            onClick={() => { setCurrentView('inbox'); setWizardStep(1); }}
-            className={`flex flex-col items-center gap-1 transition relative ${
-              currentView === 'inbox' || currentView === 'chat-thread' ? 'text-blue-400 font-bold scale-105' : 'text-slate-400'
-            }`}
-          >
-            <div className="relative">
-              <MessageSquare className="w-4 h-4" />
-              {activeRevisionsCount > 0 && (
-                <span className="w-2 h-2 rounded-full bg-amber-500 absolute -top-0.5 -right-1 animate-ping" />
-              )}
-            </div>
-            <span className="text-[10px]">Revisions</span>
-          </button>
-
-          <button
-            onClick={() => { setCurrentView('create'); setWizardStep(1); }}
-            className="flex flex-col items-center gap-1 text-blue-400 font-bold"
-          >
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center shadow-lg shadow-blue-600/40 -mt-3 hover:scale-110 transition-transform">
-              <Plus className="w-4 h-4" />
-            </div>
-            <span className="text-[10px] text-blue-400">New Drop</span>
-          </button>
-
-          <button
-            onClick={() => setMobileMenuOpen(true)}
-            className="flex flex-col items-center gap-1 text-slate-400 hover:text-white"
-          >
-            <Menu className="w-4 h-4" />
-            <span className="text-[10px]">Menu</span>
-          </button>
-        </div>
-      </div>
-
-      {/* MOBILE DRAWER */}
-      {mobileMenuOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex lg:hidden animate-in fade-in duration-200">
-          <div className="w-72 bg-slate-900 border-r border-slate-800 h-full p-5 flex flex-col justify-between shadow-2xl animate-in slide-in-from-left duration-300">
-            <div className="space-y-5">
-              <div className="flex justify-between items-center pb-3 border-b border-slate-800">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white">
-                    <Zap className="w-4 h-4 fill-white" />
-                  </div>
-                  <span className="font-black text-sm text-white uppercase">PayDrop</span>
-                </div>
-                <button onClick={() => setMobileMenuOpen(false)} className="text-slate-400 hover:text-white p-1">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <nav className="space-y-1.5">
-                <button 
-                  onClick={() => { setCurrentView('overview'); setMobileMenuOpen(false); }}
-                  className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl text-xs font-semibold ${
-                    currentView === 'overview' ? 'bg-slate-800 text-white font-bold' : 'text-slate-300 hover:bg-slate-800/50'
-                  }`}
-                >
-                  <Layers className="w-4 h-4 text-blue-400" /> Deliveries Vaults
-                </button>
-
-                <button 
-                  onClick={() => { setCurrentView('inbox'); setMobileMenuOpen(false); }}
-                  className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl text-xs font-semibold ${
-                    currentView === 'inbox' ? 'bg-slate-800 text-white font-bold' : 'text-slate-300 hover:bg-slate-800/50'
-                  }`}
-                >
-                  <MessageSquare className="w-4 h-4 text-amber-400" /> Revisions Inbox
-                </button>
-
-                <button 
-                  onClick={() => { setCurrentView('create'); setWizardStep(1); setMobileMenuOpen(false); }}
-                  className="w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl text-xs font-semibold text-blue-400 bg-blue-600/10 border border-blue-500/20"
-                >
-                  <Plus className="w-4 h-4" /> Create Drop
-                </button>
-              </nav>
-            </div>
-
-            <div className="border-t border-slate-800 pt-4 space-y-3">
-              <div className="text-xs font-bold text-white truncate">{user.email}</div>
-              <button onClick={handleLogout} className="w-full py-2.5 bg-rose-950/40 border border-rose-500/30 text-rose-400 text-xs font-bold rounded-xl transition">
-                Sign Out Studio
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
