@@ -11,7 +11,7 @@ import {
 } from 'firebase/auth'
 import { 
   collection, addDoc, query, where, deleteDoc, doc, updateDoc, 
-  onSnapshot, serverTimestamp, writeBatch 
+  onSnapshot, serverTimestamp 
 } from 'firebase/firestore'
 import { 
   Zap, Plus, LayoutDashboard, FolderKanban, ShieldCheck, 
@@ -21,7 +21,7 @@ import {
   Menu, Search, Layers, FileText, ChevronRight,
   TrendingUp, IndianRupee, Shield, Sparkles, LockKeyhole, Mail,
   FileCode, Video, ChevronDown, CreditCard, Smartphone, Building2, LogOut, Sun, Moon,
-  Eye, Activity, BarChart3, Settings, ShieldAlert, History, Terminal
+  Eye, Activity, BarChart3, Settings, History
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -69,7 +69,6 @@ export default function Dashboard() {
 
   // Custom Gateway Modal State
   const [payDropGatewayModal, setPayDropGatewayModal] = useState(null)
-  const [selectedPayMethod, setSelectedPayMethod] = useState('upi')
   const [processingPayment, setProcessingPayment] = useState(false)
 
   // Wizard state
@@ -88,7 +87,6 @@ export default function Dashboard() {
   const [fileList, setFileList] = useState([])
   const [uploadProgress, setUploadProgress] = useState(0)
   const [uploading, setUploading] = useState(false)
-  const [deployStepIndex, setDeployStepIndex] = useState(0)
 
   const [activeThreadDelivery, setActiveThreadDelivery] = useState(null)
   const [threadReplyText, setThreadReplyText] = useState('')
@@ -242,7 +240,6 @@ export default function Dashboard() {
 
     setCreating(true)
     setUploading(true)
-    setDeployStepIndex(1)
 
     try {
       const manifest = []
@@ -252,7 +249,6 @@ export default function Dashboard() {
         manifest.push(res)
       }
       
-      setDeployStepIndex(2)
       setUploadProgress(100)
 
       const numAmount = Number(amount) || 0
@@ -293,7 +289,6 @@ export default function Dashboard() {
     } finally {
       setCreating(false)
       setUploading(false)
-      setDeployStepIndex(0)
     }
   }
 
@@ -589,9 +584,6 @@ export default function Dashboard() {
       <div className="flex-1 flex flex-col min-w-0">
         <header className={`h-16 ${isDarkMode ? 'bg-slate-900/40 border-slate-800' : 'bg-white/80 border-slate-200'} border-b sticky top-0 z-20 px-4 sm:px-8 flex items-center justify-between backdrop-blur-md`}>
           <div className="flex items-center gap-3">
-            <button onClick={() => setMobileMenuOpen(true)} className="lg:hidden p-1.5 text-slate-500 hover:bg-slate-100 rounded-lg">
-              <Menu className="w-5 h-5" />
-            </button>
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider font-mono">Studio / <span className="text-slate-900 dark:text-white capitalize">{currentView}</span></span>
           </div>
 
@@ -603,15 +595,6 @@ export default function Dashboard() {
               title="Toggle Theme"
             >
               {isDarkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-700" />}
-            </button>
-
-            {/* New Drop Button */}
-            <button
-              onClick={() => { setCurrentView('create'); setWizardStep(1); }}
-              className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition active:scale-95 flex items-center gap-1.5"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>New Drop</span>
             </button>
 
             {/* Profile Dropdown */}
@@ -645,7 +628,7 @@ export default function Dashboard() {
           </div>
         </header>
 
-        <main className="flex-1 max-w-5xl w-full mx-auto p-4 sm:p-8 space-y-6">
+        <main className="flex-1 max-w-5xl w-full mx-auto p-4 sm:p-8 space-y-6 mb-16">
 
           {/* VIEW: OVERVIEW */}
           {currentView === 'overview' && (
@@ -670,6 +653,34 @@ export default function Dashboard() {
                 </div>
               </div>
 
+              {/* REVENUE VISUAL BREAKDOWN GRAPH WIDGET */}
+              <div className={`p-6 rounded-3xl ${isDarkMode ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200 shadow-sm'} border space-y-4 backdrop-blur-xl`}>
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <BarChart3 className="w-4 h-4 text-blue-500" />
+                    <h3 className="text-xs font-bold uppercase font-mono tracking-wider">Revenue Milestone Breakdown</h3>
+                  </div>
+                  <span className="text-[10px] text-slate-400 font-mono">Real-time Stats</span>
+                </div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                  <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-1">
+                    <span className="text-[10px] text-slate-400 font-mono uppercase">Total Vaults</span>
+                    <div className="text-lg font-black font-mono">{deliveries.length}</div>
+                  </div>
+                  <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-1">
+                    <span className="text-[10px] text-slate-400 font-mono uppercase">Success Rate</span>
+                    <div className="text-lg font-black font-mono text-emerald-500">
+                      {deliveries.length ? Math.round((paidDeliveries.length / deliveries.length) * 100) : 0}%
+                    </div>
+                  </div>
+                  <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-1">
+                    <span className="text-[10px] text-slate-400 font-mono uppercase">Active Revisions</span>
+                    <div className="text-lg font-black font-mono text-amber-500">{activeRevisionsCount}</div>
+                  </div>
+                </div>
+              </div>
+
               {/* VAULT LIST */}
               <div className={`rounded-3xl ${isDarkMode ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200 shadow-sm'} border overflow-hidden backdrop-blur-xl`}>
                 <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -689,7 +700,7 @@ export default function Dashboard() {
                 </div>
 
                 {filteredDeliveries.length === 0 ? (
-                  <div className="py-16 text-center text-xs text-slate-400">No deliverables found. Tap "New Drop" to deploy your first secure vault.</div>
+                  <div className="py-16 text-center text-xs text-slate-400">No deliverables found. Tap "New Drop" in the bottom menu to deploy.</div>
                 ) : (
                   <div className="divide-y divide-slate-200 dark:divide-slate-800">
                     {filteredDeliveries.map(item => (
@@ -912,6 +923,35 @@ export default function Dashboard() {
           )}
 
         </main>
+
+        {/* FLOATING MOBILE BOTTOM NAVIGATION BAR */}
+        <div className={`lg:hidden fixed bottom-4 left-4 right-4 ${isDarkMode ? 'bg-slate-900/90 border-slate-800 text-white' : 'bg-white/90 border-slate-200 text-slate-900'} border rounded-2xl p-2 shadow-2xl backdrop-blur-xl z-40 flex items-center justify-around`}>
+          <button
+            onClick={() => setCurrentView('overview')}
+            className={`flex flex-col items-center gap-1 p-2 rounded-xl text-[10px] font-bold transition ${currentView === 'overview' ? 'text-blue-600' : 'text-slate-400'}`}
+          >
+            <Layers className="w-5 h-5" />
+            <span>Vaults</span>
+          </button>
+
+          <button
+            onClick={() => { setCurrentView('create'); setWizardStep(1); }}
+            className="flex flex-col items-center justify-center w-12 h-12 bg-blue-600 text-white rounded-full shadow-lg shadow-blue-600/40 -mt-6 active:scale-95 transition"
+          >
+            <Plus className="w-6 h-6" />
+          </button>
+
+          <button
+            onClick={() => setCurrentView('inbox')}
+            className={`flex flex-col items-center gap-1 p-2 rounded-xl text-[10px] font-bold transition relative ${currentView === 'inbox' ? 'text-blue-600' : 'text-slate-400'}`}
+          >
+            <MessageSquare className="w-5 h-5" />
+            <span>Inbox</span>
+            {activeRevisionsCount > 0 && (
+              <span className="absolute top-1 right-2 w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+            )}
+          </button>
+        </div>
       </div>
     </div>
   )
