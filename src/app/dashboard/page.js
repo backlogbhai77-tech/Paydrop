@@ -14,12 +14,9 @@ import {
   onSnapshot, serverTimestamp, writeBatch 
 } from 'firebase/firestore'
 import { 
-  Zap, Plus, LayoutDashboard, FolderKanban, ShieldCheck, 
-  UploadCloud, CheckCircle2, Lock, ArrowRight, ArrowLeft, 
-  Copy, Check, Trash2, ExternalLink, FileArchive, Clock,
-  AlertCircle, RefreshCw, X, MessageSquare, Send, Bell,
-  Menu, Search, Layers, FileText, ChevronRight, CheckCheck,
-  TrendingUp, IndianRupee, Shield, Sparkles, LockKeyhole, Mail
+  Zap, Plus, Layers, MessageSquare, ShieldCheck, 
+  UploadCloud, Lock, ExternalLink, FileArchive, 
+  Trash2, RefreshCw, X, Menu, Search, LockKeyhole, Mail, AlertCircle
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -64,7 +61,7 @@ function InteractiveSparkline({ title, amount, subtitle, data, color, badge, car
   const gradId = `spark-fill-${cardId}`
 
   return (
-    <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.05)] relative overflow-hidden transition-all duration-200 hover:border-slate-300">
+    <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs relative overflow-hidden transition-all duration-300 hover:shadow-md hover:border-slate-300">
       <div className="flex justify-between items-start">
         <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{title}</span>
         {badge && (
@@ -156,8 +153,7 @@ export default function Dashboard() {
   const [activeThreadDelivery, setActiveThreadDelivery] = useState(null)
   const [threadReplyText, setThreadReplyText] = useState('')
   
-  // Auth Form State
-  const [authMode, setAuthMode] = useState('login') // 'login' or 'signup'
+  const [authMode, setAuthMode] = useState('login')
   const [emailInput, setEmailInput] = useState('')
   const [passwordInput, setPasswordInput] = useState('')
   const [authError, setAuthError] = useState('')
@@ -207,7 +203,6 @@ export default function Dashboard() {
         showToast("Account created successfully!", "success")
       }
     } catch (error) {
-      console.error("Auth error:", error)
       if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
         setAuthError("Invalid email or password.")
       } else if (error.code === 'auth/email-already-in-use') {
@@ -228,9 +223,8 @@ export default function Dashboard() {
       setAuthError('')
       await signInWithPopup(auth, googleProvider)
       showToast("Signed in with Google", "success")
-    } catch (error) {
-      console.error("Google Login error:", error)
-      setAuthError("Google Sign-In blocked by device. Please use Email/Password login below.")
+    } catch {
+      setAuthError("Google Sign-In blocked by device. Please use Email/Password login.")
     } finally {
       setAuthLoading(false)
     }
@@ -363,25 +357,12 @@ export default function Dashboard() {
   }
 
   const handleDelete = async (id) => {
-    if (!confirm("Permanently delete this deliverable? Client access will stop immediately.")) return
+    if (!confirm("Permanently delete this deliverable?")) return
     try {
       await deleteDoc(doc(db, 'deliveries', id))
       showToast("Vault deleted", "success")
     } catch {
       showToast("Failed to delete", "error")
-    }
-  }
-
-  const handleDeleteAll = async () => {
-    if (!deliveries.length) return
-    if (!confirm(`Permanently remove all ${deliveries.length} deliverables?`)) return
-    try {
-      const batch = writeBatch(db)
-      deliveries.forEach(d => batch.delete(doc(db, 'deliveries', d.id)))
-      await batch.commit()
-      showToast("All vaults deleted", "success")
-    } catch {
-      showToast("Batch action failed", "error")
     }
   }
 
@@ -436,33 +417,28 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#090D16] flex flex-col items-center justify-center text-xs text-slate-400 gap-3 font-mono">
+      <div className="min-h-screen bg-[#070A11] flex flex-col items-center justify-center text-xs text-slate-400 gap-3 font-mono">
         <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-        <span>INITIALIZING STUDIO...</span>
+        <span>LOADING SECURE STUDIO...</span>
       </div>
     )
   }
 
-  /* PRO-LEVEL DUAL SIGN-IN SCREEN (EMAIL/PASSWORD + GOOGLE) */
   if (!user) {
     return (
-      <div className="min-h-screen bg-[#070A11] text-slate-100 flex flex-col justify-center items-center p-6 relative overflow-hidden font-sans selection:bg-blue-600 selection:text-white">
-        
-        {/* Ambient Glow */}
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-blue-600/10 blur-[140px] rounded-full pointer-events-none" />
+      <div className="min-h-screen bg-[#070A11] text-slate-100 flex flex-col justify-center items-center p-6 relative overflow-hidden font-sans">
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[450px] h-[450px] bg-blue-600/10 blur-[130px] rounded-full pointer-events-none" />
 
-        <div className="w-full max-w-md relative z-10 space-y-6">
-          
+        <div className="w-full max-w-md relative z-10 space-y-6 animate-in fade-in zoom-in-95 duration-300">
           <div className="text-center space-y-2">
             <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white mx-auto shadow-2xl shadow-blue-500/30">
               <Zap className="w-7 h-7 fill-white" />
             </div>
             <h1 className="text-2xl font-black text-white tracking-tight">PayDrop Studio</h1>
-            <p className="text-xs text-slate-400">Payment-locked delivery vault for creators.</p>
+            <p className="text-xs text-slate-400">Professional escrow delivery vault for modern freelancers.</p>
           </div>
 
-          <div className="bg-slate-900/90 border border-slate-800/90 rounded-3xl p-6 shadow-2xl backdrop-blur-2xl space-y-4">
-            
+          <div className="bg-slate-900/90 border border-slate-800/90 rounded-3xl p-6 shadow-2xl backdrop-blur-xl space-y-4">
             {authError && (
               <div className="p-3 bg-rose-950/50 border border-rose-500/30 rounded-2xl text-rose-300 text-xs flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
@@ -470,7 +446,6 @@ export default function Dashboard() {
               </div>
             )}
 
-            {/* Email/Password Form */}
             <form onSubmit={handleEmailAuth} className="space-y-3">
               <div>
                 <label className="text-[11px] font-semibold text-slate-400 block mb-1">Email Address</label>
@@ -482,7 +457,7 @@ export default function Dashboard() {
                     placeholder="creator@studio.com"
                     value={emailInput}
                     onChange={e => setEmailInput(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2.5 bg-slate-800/80 border border-slate-700/80 rounded-xl text-xs text-white focus:outline-none focus:border-blue-500 placeholder:text-slate-500"
+                    className="w-full pl-9 pr-3 py-2.5 bg-slate-800/80 border border-slate-700/80 rounded-xl text-xs text-white focus:outline-none focus:border-blue-500 placeholder:text-slate-500 transition"
                   />
                 </div>
               </div>
@@ -497,7 +472,7 @@ export default function Dashboard() {
                     placeholder="••••••••"
                     value={passwordInput}
                     onChange={e => setPasswordInput(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2.5 bg-slate-800/80 border border-slate-700/80 rounded-xl text-xs text-white focus:outline-none focus:border-blue-500 placeholder:text-slate-500"
+                    className="w-full pl-9 pr-3 py-2.5 bg-slate-800/80 border border-slate-700/80 rounded-xl text-xs text-white focus:outline-none focus:border-blue-500 placeholder:text-slate-500 transition"
                   />
                 </div>
               </div>
@@ -507,22 +482,18 @@ export default function Dashboard() {
                 disabled={authLoading}
                 className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-blue-600/20 transition active:scale-95 flex items-center justify-center gap-2"
               >
-                {authLoading ? (
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                ) : (
-                  <span>{authMode === 'login' ? 'Sign In' : 'Create Account'}</span>
-                )}
+                {authLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <span>{authMode === 'login' ? 'Sign In' : 'Create Account'}</span>}
               </button>
             </form>
 
             <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
-              <span>{authMode === 'login' ? "Don't have an account?" : "Already have an account?"}</span>
+              <span>{authMode === 'login' ? "New to PayDrop?" : "Already registered?"}</span>
               <button
                 type="button"
                 onClick={() => { setAuthMode(authMode === 'login' ? 'signup' : 'login'); setAuthError(''); }}
                 className="text-blue-400 font-bold hover:underline"
               >
-                {authMode === 'login' ? 'Sign Up' : 'Sign In'}
+                {authMode === 'login' ? 'Create an Account' : 'Sign In'}
               </button>
             </div>
 
@@ -532,7 +503,6 @@ export default function Dashboard() {
               <div className="flex-grow border-t border-slate-800"></div>
             </div>
 
-            {/* Google Login Button */}
             <button
               onClick={handleGoogleLogin}
               disabled={authLoading}
@@ -546,72 +516,59 @@ export default function Dashboard() {
               </svg>
               <span>Continue with Google</span>
             </button>
-
           </div>
         </div>
       </div>
     )
   }
 
-  /* MAIN DASHBOARD (RETAINED ALL ORIGINAL FEATURES & UI) */
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans flex antialiased pb-28 lg:pb-0 relative selection:bg-blue-600 selection:text-white">
       {toast && (
         <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top duration-200">
           <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl shadow-xl bg-slate-900 text-white text-xs font-semibold border border-slate-800">
-            <Check className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="w-2 h-2 rounded-full bg-emerald-400" />
             <span>{toast.message}</span>
           </div>
         </div>
       )}
 
-      {/* DESKTOP SIDEBAR */}
+      {/* REFINED CLEAN DESKTOP SIDEBAR */}
       <aside className="hidden lg:flex w-64 bg-white border-r border-slate-200/90 flex-col justify-between p-4 sticky top-0 h-screen z-30 select-none">
-        <div className="space-y-4">
-          <div className="flex items-center gap-2.5 px-2 py-1">
-            <div className="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-xs">
+        <div className="space-y-6">
+          <div className="flex items-center gap-2.5 px-2 pt-1">
+            <div className="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-sm">
               <Zap className="w-4 h-4 fill-white" />
             </div>
             <div>
               <div className="flex items-center gap-1.5">
                 <span className="font-black text-sm tracking-tight text-slate-900 uppercase">PayDrop</span>
-                <span className="px-1.5 py-0.2 rounded bg-blue-50 text-blue-700 border border-blue-200 text-[9px] font-bold">STUDIO</span>
+                <span className="px-1.5 py-0.2 rounded bg-blue-50 text-blue-700 border border-blue-200 text-[9px] font-bold">ESCROW</span>
               </div>
-              <span className="text-[10px] text-slate-400 font-medium">Creative Handover</span>
+              <span className="text-[10px] text-slate-400 font-medium">Freelancer Dashboard</span>
             </div>
           </div>
 
           <button
             onClick={() => { setCurrentView('create'); setWizardStep(1); }}
-            className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-sm transition active:scale-95 flex items-center justify-center gap-2"
+            className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all active:scale-95 flex items-center justify-center gap-2 group"
           >
-            <Plus className="w-4 h-4" />
-            <span>Create Protected Drop</span>
+            <Plus className="w-4 h-4 transition-transform group-hover:rotate-90 duration-200" />
+            <span>Create New Vault</span>
           </button>
 
-          <div className="relative">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search deliverables..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:border-blue-600 placeholder:text-slate-400"
-            />
-          </div>
-
-          <div className="space-y-0.5 pt-1">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 block mb-1">Manage</span>
+          <div className="space-y-1 pt-1">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 block mb-2 font-mono">Workspace</span>
             
             <button
               onClick={() => { setCurrentView('overview'); setWizardStep(1); }}
-              className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold transition ${
-                currentView === 'overview' ? 'bg-slate-900 text-white font-bold' : 'text-slate-600 hover:bg-slate-50'
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                currentView === 'overview' ? 'bg-slate-900 text-white font-bold shadow-xs' : 'text-slate-600 hover:bg-slate-50'
               }`}
             >
               <div className="flex items-center gap-2.5">
                 <Layers className="w-4 h-4" />
-                <span>Deliveries</span>
+                <span>Active Vaults</span>
               </div>
               <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-mono ${currentView === 'overview' ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
                 {deliveries.length}
@@ -620,13 +577,13 @@ export default function Dashboard() {
 
             <button
               onClick={() => { setCurrentView('inbox'); setWizardStep(1); }}
-              className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold transition ${
-                currentView === 'inbox' || currentView === 'chat-thread' ? 'bg-slate-900 text-white font-bold' : 'text-slate-600 hover:bg-slate-50'
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                currentView === 'inbox' || currentView === 'chat-thread' ? 'bg-slate-900 text-white font-bold shadow-xs' : 'text-slate-600 hover:bg-slate-50'
               }`}
             >
               <div className="flex items-center gap-2.5">
                 <MessageSquare className="w-4 h-4" />
-                <span>Revisions Inbox</span>
+                <span>Client Revisions</span>
               </div>
               {activeRevisionsCount > 0 && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500 text-white font-bold">
@@ -637,16 +594,16 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="space-y-3 pt-3 border-t border-slate-100">
+        <div className="space-y-3 pt-4 border-t border-slate-100">
           <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-1">
             <span className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1.5 font-mono">
-              <span className="w-2 h-2 rounded-full bg-amber-500" /> Pending Payouts
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" /> Escrow Locked
             </span>
             <div className="text-sm font-black text-slate-900 font-mono">{formatINR(pendingAmount)}</div>
           </div>
 
-          <div className="pt-1 flex items-center justify-between">
-            <div className="flex items-center gap-2 min-w-0">
+          <div className="pt-1 flex items-center justify-between px-1">
+            <div className="flex items-center gap-2.5 min-w-0">
               <div className="w-7 h-7 rounded-full bg-slate-900 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
                 {user.displayName ? user.displayName.slice(0, 2).toUpperCase() : (user.email ? user.email.slice(0, 2).toUpperCase() : 'PD')}
               </div>
@@ -655,82 +612,88 @@ export default function Dashboard() {
                 <div className="text-[10px] text-slate-400 truncate">{user.email}</div>
               </div>
             </div>
-            <button onClick={handleLogout} className="text-slate-400 hover:text-rose-600 text-xs p-1" title="Sign Out">✕</button>
+            <button onClick={handleLogout} className="text-slate-400 hover:text-rose-600 text-xs p-1.5 rounded-lg transition" title="Sign Out">✕</button>
           </div>
         </div>
       </aside>
 
-      {/* MAIN VIEW */}
+      {/* MAIN VIEW AREA */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-14 bg-white border-b border-slate-200/80 sticky top-0 z-20 px-4 sm:px-8 flex items-center justify-between">
+        <header className="h-16 bg-white/80 backdrop-blur-md border-b border-slate-200/80 sticky top-0 z-20 px-4 sm:px-8 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <button onClick={() => setMobileMenuOpen(true)} className="lg:hidden p-1.5 text-slate-600 hover:bg-slate-100 rounded-lg">
+            <button onClick={() => setMobileMenuOpen(true)} className="lg:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-xl transition">
               <Menu className="w-5 h-5" />
             </button>
             <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
-              <span>Studio</span>
-              <span>/</span>
+              <span className="hidden sm:inline">Workspace</span>
+              <span className="hidden sm:inline">/</span>
               <span className="text-slate-900 font-bold capitalize">{currentView.replace('-', ' ')}</span>
             </div>
           </div>
 
-          <button
-            onClick={() => { setCurrentView('create'); setWizardStep(1); }}
-            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-xs transition active:scale-95 flex items-center gap-1.5"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>New Drop</span>
-          </button>
+          <div className="flex items-center gap-3">
+            <div className="relative hidden sm:block w-56">
+              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search vaults..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-blue-600 transition"
+              />
+            </div>
+
+            <button
+              onClick={() => { setCurrentView('create'); setWizardStep(1); }}
+              className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all active:scale-95 flex items-center gap-1.5"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>New Drop</span>
+            </button>
+          </div>
         </header>
 
-        <main className="flex-1 max-w-5xl w-full mx-auto p-4 sm:p-8 space-y-6">
+        <main className="flex-1 max-w-5xl w-full mx-auto p-4 sm:p-8 space-y-6 animate-in fade-in duration-300">
 
           {/* VIEW: OVERVIEW */}
           {currentView === 'overview' && (
-            <div className="space-y-6 animate-in fade-in duration-200">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div>
-                  <h1 className="text-xl font-bold text-slate-900 tracking-tight">Active Deliverables</h1>
-                  <p className="text-xs text-slate-500 mt-0.5">Manage payment-locked client packages.</p>
-                </div>
+            <div className="space-y-6">
+              <div>
+                <h1 className="text-xl font-bold text-slate-900 tracking-tight">Escrow Dashboard</h1>
+                <p className="text-xs text-slate-500 mt-0.5">Manage secure client handovers and track fund clearances.</p>
               </div>
 
               {/* Sparkline Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <InteractiveSparkline
                   cardId="pending"
-                  title="Awaiting Settlement"
+                  title="Funds in Escrow"
                   amount={formatINR(pendingAmount)}
-                  subtitle="Pending client approval and payment"
+                  subtitle="Awaiting client approval & settlement"
                   data={pendingTrendData}
                   color="blue"
-                  badge="Pending"
+                  badge="Locked"
                   activePoint={activeChartPoint}
                   onPointHover={setActiveChartPoint}
                 />
                 <InteractiveSparkline
                   cardId="cleared"
-                  title="Settled Earnings"
+                  title="Cleared Payouts"
                   amount={formatINR(totalRevenue)}
-                  subtitle="Completed project payments"
+                  subtitle="Successfully settled earnings"
                   data={clearedTrendData}
                   color="emerald"
-                  badge="Cleared"
+                  badge="Released"
                   activePoint={activeChartPoint}
                   onPointHover={setActiveChartPoint}
                 />
               </div>
 
-              {/* Table List */}
+              {/* Deliveries Table List */}
               <div className="bg-white border border-slate-200/90 rounded-2xl shadow-xs overflow-hidden">
                 <div className="p-4 border-b border-slate-100 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider font-mono">Vaults ({deliveries.length})</h3>
-                    {deliveries.length > 0 && (
-                      <button onClick={handleDeleteAll} className="text-xs text-rose-600 hover:underline font-semibold">
-                        Delete All
-                      </button>
-                    )}
                   </div>
 
                   <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs font-semibold">
@@ -739,7 +702,7 @@ export default function Dashboard() {
                         key={tab}
                         onClick={() => setFilterStatus(tab)}
                         className={`px-3 py-1 rounded-lg transition capitalize ${
-                          filterStatus === tab ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500'
+                          filterStatus === tab ? 'bg-white text-slate-900 shadow-xs font-bold' : 'text-slate-500 hover:text-slate-800'
                         }`}
                       >
                         {tab}
@@ -750,12 +713,12 @@ export default function Dashboard() {
 
                 {filteredDeliveries.length === 0 ? (
                   <div className="py-16 text-center text-xs text-slate-400">
-                    No deliverables found. Tap "New Drop" to lock your first project.
+                    No deliverables found. Create your first secure escrow drop.
                   </div>
                 ) : (
                   <div className="divide-y divide-slate-100">
                     {filteredDeliveries.map(item => (
-                      <div key={item.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/50 transition">
+                      <div key={item.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/60 transition">
                         <div className="flex items-start gap-3 min-w-0">
                           <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 mt-0.5">
                             <FileArchive className="w-4 h-4" />
@@ -776,7 +739,7 @@ export default function Dashboard() {
                           <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
                             item.status === 'Paid' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'
                           }`}>
-                            {item.status === 'Paid' ? 'Paid' : 'Pending'}
+                            {item.status === 'Paid' ? 'Released' : 'In Escrow'}
                           </span>
 
                           <div className="flex items-center gap-1">
@@ -786,10 +749,10 @@ export default function Dashboard() {
                             >
                               {copiedId === item.id ? 'Copied' : 'Copy Link'}
                             </button>
-                            <Link href={`/d/${item.id}`} target="_blank" className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg">
+                            <Link href={`/d/${item.id}`} target="_blank" className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg transition">
                               <ExternalLink className="w-3.5 h-3.5" />
                             </Link>
-                            <button onClick={() => handleDelete(item.id)} className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg">
+                            <button onClick={() => handleDelete(item.id)} className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg transition">
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
@@ -804,16 +767,16 @@ export default function Dashboard() {
 
           {/* VIEW: REVISIONS INBOX */}
           {currentView === 'inbox' && (
-            <div className="space-y-5 animate-in fade-in duration-200">
+            <div className="space-y-5">
               <div>
-                <h1 className="text-xl font-bold text-slate-900 tracking-tight">Client Revisions</h1>
-                <p className="text-xs text-slate-500 mt-0.5">Pre-payment inquiries and client adjustment notes.</p>
+                <h1 className="text-xl font-bold text-slate-900 tracking-tight">Client Revisions & Feedback</h1>
+                <p className="text-xs text-slate-500 mt-0.5">Active change requests and project discussion threads.</p>
               </div>
 
               <div className="space-y-3">
                 {deliveries.length === 0 ? (
                   <div className="p-12 text-center text-xs text-slate-400 bg-white rounded-2xl border border-slate-200">
-                    No client feedback conversations yet.
+                    No active feedback threads.
                   </div>
                 ) : (
                   deliveries.map(d => {
@@ -845,7 +808,7 @@ export default function Dashboard() {
 
                               <p className="text-xs text-slate-600 leading-snug">
                                 <strong className="text-slate-800 font-semibold">{lastMsg ? `${lastMsg.sender === 'creator' ? 'You' : d.clientName}: ` : 'Status: '}</strong>
-                                {lastMsg ? lastMsg.text : (d.status === 'Paid' ? 'Settlement received. Master files unlocked.' : 'Vault sent. Awaiting feedback.')}
+                                {lastMsg ? lastMsg.text : (d.status === 'Paid' ? 'Funds released. Assets unlocked.' : 'Escrow vault active. Awaiting review.')}
                               </p>
 
                               <div className="flex items-center gap-3 text-[11px] text-slate-400 pt-1 font-mono">
@@ -854,7 +817,7 @@ export default function Dashboard() {
                                 <span className="font-bold text-slate-700">{formatINR(d.grossAmount)}</span>
                                 {isRevisionActive && (
                                   <span className="px-2 py-0.2 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold">
-                                    Change Requested
+                                    Changes Requested
                                   </span>
                                 )}
                               </div>
@@ -881,11 +844,11 @@ export default function Dashboard() {
 
           {/* VIEW: CHAT THREAD */}
           {currentView === 'chat-thread' && activeThreadDelivery && (
-            <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-4 animate-in fade-in duration-200">
+            <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-3">
-                  <button onClick={() => setCurrentView('inbox')} className="text-xs text-slate-400 hover:text-slate-700 font-bold">
-                    ← Back to Inbox
+                  <button onClick={() => setCurrentView('inbox')} className="text-xs text-slate-400 hover:text-slate-700 font-bold transition">
+                    ← Back
                   </button>
                   <span className="text-slate-300">|</span>
                   <div>
@@ -902,7 +865,7 @@ export default function Dashboard() {
               <div className="h-80 overflow-y-auto p-4 bg-slate-50 rounded-xl space-y-3">
                 {(activeThreadDelivery.messages || []).length === 0 ? (
                   <div className="h-full flex items-center justify-center text-xs text-slate-400">
-                    No messages yet. Send a note to the client.
+                    No messages yet in this revision thread.
                   </div>
                 ) : (
                   activeThreadDelivery.messages.map((m, idx) => {
@@ -928,13 +891,13 @@ export default function Dashboard() {
                   value={threadReplyText}
                   onChange={e => setThreadReplyText(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleSendThreadReply(activeThreadDelivery.id)}
-                  className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:outline-none focus:border-blue-600"
+                  className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:outline-none focus:border-blue-600 transition"
                 />
                 <button
                   onClick={() => handleSendThreadReply(activeThreadDelivery.id)}
                   className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition"
                 >
-                  Send Reply
+                  Send
                 </button>
               </div>
             </div>
@@ -942,27 +905,25 @@ export default function Dashboard() {
 
           {/* VIEW: 4-STEP WIZARD */}
           {currentView === 'create' && (
-            <div className="max-w-xl mx-auto space-y-5 animate-in fade-in duration-200">
+            <div className="max-w-xl mx-auto space-y-5">
               <div className="flex justify-between items-center">
                 <div>
-                  <h2 className="text-lg font-bold text-slate-900 tracking-tight">Deploy Delivery Vault</h2>
-                  <p className="text-xs text-slate-500">Attach deliverables, set price, and seal client preview.</p>
+                  <h2 className="text-lg font-bold text-slate-900 tracking-tight">Create Escrow Vault</h2>
+                  <p className="text-xs text-slate-500">Lock assets and secure client payment handshake.</p>
                 </div>
                 <button onClick={() => setCurrentView('overview')} className="text-xs font-semibold text-slate-400 hover:text-slate-700">Cancel</button>
               </div>
 
-              {/* Step indicator */}
               <div className="bg-white border border-slate-200/90 rounded-xl p-3 flex items-center justify-between text-xs font-semibold shadow-xs">
                 <span className={wizardStep === 1 ? 'text-blue-600 font-bold' : 'text-slate-400'}>1. Assets</span>
                 <span className="text-slate-300">→</span>
                 <span className={wizardStep === 2 ? 'text-blue-600 font-bold' : 'text-slate-400'}>2. Details</span>
                 <span className="text-slate-300">→</span>
-                <span className={wizardStep === 3 ? 'text-blue-600 font-bold' : 'text-slate-400'}>3. Watermark</span>
+                <span className={wizardStep === 3 ? 'text-blue-600 font-bold' : 'text-slate-400'}>3. Preview</span>
                 <span className="text-slate-300">→</span>
                 <span className={wizardStep === 4 ? 'text-blue-600 font-bold' : 'text-slate-400'}>4. Deploy</span>
               </div>
 
-              {/* STEP 1 */}
               {wizardStep === 1 && (
                 <div className="p-6 bg-white border border-slate-200/90 rounded-2xl space-y-4 shadow-xs">
                   <div
@@ -974,8 +935,8 @@ export default function Dashboard() {
                     }`}
                   >
                     <UploadCloud className="w-10 h-10 text-blue-600 mx-auto mb-2" />
-                    <span className="text-sm font-bold text-slate-900 block">Select Project Deliverables</span>
-                    <span className="text-xs text-slate-400 mt-0.5 block">MP4, MOV, PNG, JPG, PDF, ZIP</span>
+                    <span className="text-sm font-bold text-slate-900 block">Drop Project Files Here</span>
+                    <span className="text-xs text-slate-400 mt-0.5 block">Videos, Zips, Designs, Documents</span>
                     <label className="mt-4 inline-block px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl cursor-pointer shadow-xs transition">
                       Browse Files
                       <input type="file" multiple onChange={e => handleFilesAdd(e.target.files)} className="hidden" />
@@ -1003,7 +964,6 @@ export default function Dashboard() {
                 </div>
               )}
 
-              {/* STEP 2 */}
               {wizardStep === 2 && (
                 <div className="p-6 bg-white border border-slate-200/90 rounded-2xl space-y-4 shadow-xs">
                   <div>
@@ -1013,7 +973,7 @@ export default function Dashboard() {
                       placeholder="e.g. YouTube Video Edit (v1.0)"
                       value={title}
                       onChange={e => setTitle(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-blue-600"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-blue-600 transition"
                     />
                   </div>
 
@@ -1022,37 +982,37 @@ export default function Dashboard() {
                       <label className="text-xs font-bold text-slate-700 block mb-1">Client Name *</label>
                       <input
                         type="text"
-                        placeholder="e.g. Tech Vision Co."
+                        placeholder="e.g. John Doe"
                         value={clientName}
                         onChange={e => setClientName(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-blue-600"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-blue-600 transition"
                       />
                     </div>
                     <div>
-                      <label className="text-xs font-bold text-slate-700 block mb-1">Settlement Due (₹ INR) *</label>
+                      <label className="text-xs font-bold text-slate-700 block mb-1">Escrow Amount (₹ INR) *</label>
                       <input
                         type="number"
                         placeholder="5000"
                         value={amount}
                         onChange={e => setAmount(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold text-slate-900 focus:outline-none focus:border-blue-600"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold text-slate-900 focus:outline-none focus:border-blue-600 transition"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="text-xs font-bold text-slate-700 block mb-1">Handover Message for Client</label>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">Note for Client</label>
                     <textarea
                       rows={2}
-                      placeholder="e.g. Final production cut. Full uncompressed assets unlock post-payment."
+                      placeholder="Final draft ready for review. Full files unlock upon payment release."
                       value={clientMessage}
                       onChange={e => setClientMessage(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-blue-600"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-blue-600 transition"
                     />
                   </div>
 
                   <div className="flex gap-2">
-                    <button onClick={() => setWizardStep(1)} className="w-1/3 py-2.5 border border-slate-200 text-slate-600 text-xs font-bold rounded-xl">Back</button>
+                    <button onClick={() => setWizardStep(1)} className="w-1/3 py-2.5 border border-slate-200 text-slate-600 text-xs font-bold rounded-xl transition">Back</button>
                     <button
                       disabled={!title || !amount}
                       onClick={() => setWizardStep(3)}
@@ -1064,7 +1024,6 @@ export default function Dashboard() {
                 </div>
               )}
 
-              {/* STEP 3 */}
               {wizardStep === 3 && (
                 <div className="p-6 bg-white border border-slate-200/90 rounded-2xl space-y-4 shadow-xs">
                   <div>
@@ -1073,7 +1032,7 @@ export default function Dashboard() {
                       type="text"
                       value={watermarkText}
                       onChange={e => setWatermarkText(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-mono text-slate-900 focus:outline-none focus:border-blue-600"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-mono text-slate-900 focus:outline-none focus:border-blue-600 transition"
                     />
                   </div>
 
@@ -1086,7 +1045,7 @@ export default function Dashboard() {
                           type="button"
                           onClick={() => setExpirySelection(opt)}
                           className={`py-2 rounded-xl border transition ${
-                            expirySelection === opt ? 'bg-blue-50 border-blue-600 text-blue-700' : 'border-slate-200 text-slate-600'
+                            expirySelection === opt ? 'bg-blue-50 border-blue-600 text-blue-700 font-bold' : 'border-slate-200 text-slate-600'
                           }`}
                         >
                           {opt === 'never' ? 'Never' : `${opt} Days`}
@@ -1096,7 +1055,7 @@ export default function Dashboard() {
                   </div>
 
                   <div className="flex gap-2">
-                    <button onClick={() => setWizardStep(2)} className="w-1/3 py-2.5 border border-slate-200 text-slate-600 text-xs font-bold rounded-xl">Back</button>
+                    <button onClick={() => setWizardStep(2)} className="w-1/3 py-2.5 border border-slate-200 text-slate-600 text-xs font-bold rounded-xl transition">Back</button>
                     <button
                       onClick={() => setWizardStep(4)}
                       className="w-2/3 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-xs transition"
@@ -1107,7 +1066,6 @@ export default function Dashboard() {
                 </div>
               )}
 
-              {/* STEP 4 */}
               {wizardStep === 4 && (
                 <div className="p-6 bg-white border border-slate-200/90 rounded-2xl space-y-5 shadow-xs">
                   <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs">
@@ -1119,9 +1077,6 @@ export default function Dashboard() {
                       <span>Client: {clientName}</span>
                       <span>{fileList.length} files attached</span>
                     </div>
-                    <div className="text-slate-500">
-                      Expires: {expirySelection === 'never' ? 'Never' : `${expirySelection} Days`}
-                    </div>
                   </div>
 
                   {uploading ? (
@@ -1129,36 +1084,24 @@ export default function Dashboard() {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <RefreshCw className="w-4 h-4 text-blue-400 animate-spin" />
-                          <span className="text-xs font-semibold">Publishing Deliverable Vault...</span>
+                          <span className="text-xs font-semibold">Deploying Escrow Vault...</span>
                         </div>
                         <span className="text-xs font-mono text-slate-300">{uploadProgress}%</span>
                       </div>
 
-                      <div className="space-y-1 text-[11px] text-slate-400 font-mono">
-                        <div className={deployStepIndex >= 1 ? "text-emerald-400 font-bold" : ""}>
-                          ✓ Uploading raw master files
-                        </div>
-                        <div className={deployStepIndex >= 2 ? "text-emerald-400 font-bold" : ""}>
-                          ✓ Generating protected preview links
-                        </div>
-                      </div>
-
                       <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-blue-600 transition-all duration-300"
-                          style={{ width: `${uploadProgress}%` }}
-                        />
+                        <div className="h-full bg-blue-600 transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
                       </div>
                     </div>
                   ) : (
                     <div className="flex gap-2">
-                      <button onClick={() => setWizardStep(3)} className="w-1/3 py-2.5 border border-slate-200 text-slate-600 text-xs font-bold rounded-xl">Back</button>
+                      <button onClick={() => setWizardStep(3)} className="w-1/3 py-2.5 border border-slate-200 text-slate-600 text-xs font-bold rounded-xl transition">Back</button>
                       <button
                         onClick={handleDeployVault}
                         className="w-2/3 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 active:scale-95"
                       >
                         <Lock className="w-3.5 h-3.5" />
-                        <span>Deploy Protected Vault</span>
+                        <span>Deploy Vault</span>
                       </button>
                     </div>
                   )}
@@ -1180,7 +1123,7 @@ export default function Dashboard() {
             }`}
           >
             <Layers className="w-4 h-4" />
-            <span className="text-[10px]">Drops</span>
+            <span className="text-[10px]">Vaults</span>
           </button>
 
           <button
@@ -1242,7 +1185,7 @@ export default function Dashboard() {
                     currentView === 'overview' ? 'bg-slate-900 text-white font-bold' : 'text-slate-700 hover:bg-slate-50'
                   }`}
                 >
-                  <Layers className="w-4 h-4" /> Deliveries
+                  <Layers className="w-4 h-4" /> Active Vaults
                 </button>
 
                 <button 
@@ -1251,14 +1194,14 @@ export default function Dashboard() {
                     currentView === 'inbox' ? 'bg-slate-900 text-white font-bold' : 'text-slate-700 hover:bg-slate-50'
                   }`}
                 >
-                  <MessageSquare className="w-4 h-4" /> Revisions
+                  <MessageSquare className="w-4 h-4" /> Client Revisions
                 </button>
 
                 <button 
                   onClick={() => { setCurrentView('create'); setWizardStep(1); setMobileMenuOpen(false); }}
                   className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-blue-600 bg-blue-50/60"
                 >
-                  <Plus className="w-4 h-4" /> Create Drop
+                  <Plus className="w-4 h-4" /> Create New Vault
                 </button>
               </nav>
             </div>
