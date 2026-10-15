@@ -39,7 +39,6 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [authLoading, setAuthLoading] = useState(false)
   const [deliveries, setDeliveries] = useState([])
-  const [searchQuery, setSearchQuery] = useState('')
   
   const [currentTab, setCurrentTab] = useState('home') // 'home', 'projects', 'revisions', 'wallet'
   const [copiedId, setCopiedId] = useState(null)
@@ -205,8 +204,8 @@ export default function Dashboard() {
   }
 
   const handleDeployVault = async () => {
-    if (!title || !amount || !user) {
-      showToast("Please enter Project Name and Amount", "error")
+    if (!title || !amount || !fileList.length || !user) {
+      showToast("Please provide project details and attach at least one deliverable file", "error")
       return
     }
 
@@ -214,12 +213,10 @@ export default function Dashboard() {
 
     try {
       const manifest = []
-      if (fileList.length > 0) {
-        for (let i = 0; i < fileList.length; i++) {
-          setUploadProgress(Math.round(((i) / fileList.length) * 100))
-          const res = await uploadFileToCloudinary(fileList[i])
-          manifest.push(res)
-        }
+      for (let i = 0; i < fileList.length; i++) {
+        setUploadProgress(Math.round(((i) / fileList.length) * 100))
+        const res = await uploadFileToCloudinary(fileList[i])
+        manifest.push(res)
       }
 
       setUploadProgress(100)
@@ -250,7 +247,7 @@ export default function Dashboard() {
         createdAt: serverTimestamp()
       })
 
-      showToast("Escrow payment request created!", "success")
+      showToast("Secure escrow payment request created!", "success")
       setTitle('')
       setClientName('')
       setClientEmail('')
@@ -298,7 +295,7 @@ export default function Dashboard() {
   }
 
   const paidDeliveries = deliveries.filter(d => d.status === 'Paid')
-  const totalRevenue = paidDeliveries.reduce((acc, c) => acc + (Number(c.creatorPayout) || Number(c.grossAmount) || 0), 0) || 4860
+  const totalRevenue = paidDeliveries.reduce((acc, c) => acc + (Number(c.creatorPayout) || Number(c.grossAmount) || 0), 0)
   const activeRevisionsCount = deliveries.filter(d => d.messages && d.messages.length > 0 && d.status !== 'Paid').length
 
   const barChartData = [
@@ -326,7 +323,7 @@ export default function Dashboard() {
               P
             </div>
             <h1 className="text-3xl font-black text-slate-900 tracking-tight">paydrop</h1>
-            <p className="text-xs text-slate-500">Mobile Payment Escrow App</p>
+            <p className="text-xs text-slate-500">Secure Payment Escrow Studio</p>
           </div>
 
           <div className="bg-white border border-slate-200/80 rounded-[32px] p-8 shadow-xl shadow-slate-200/60 space-y-5">
@@ -343,7 +340,7 @@ export default function Dashboard() {
                 <input
                   type="email"
                   required
-                  placeholder="alex@lumio.com"
+                  placeholder="creator@studio.com"
                   value={emailInput}
                   onChange={e => setEmailInput(e.target.value)}
                   className="w-full px-4 py-3 bg-[#F3F5F1] border border-slate-200 rounded-2xl text-xs text-slate-900 focus:outline-none focus:border-[#94EC36] transition"
@@ -458,7 +455,7 @@ export default function Dashboard() {
                 <span>Projects</span>
               </div>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 font-mono">
-                {deliveries.length + 2}
+                {deliveries.length}
               </span>
             </button>
 
@@ -492,10 +489,10 @@ export default function Dashboard() {
         <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-9 h-9 rounded-full bg-[#FFD6A5] text-[#063D2A] text-xs font-bold flex items-center justify-center shrink-0">
-              AD
+              {user.displayName ? user.displayName.slice(0, 2).toUpperCase() : 'AD'}
             </div>
             <div className="truncate">
-              <div className="text-xs font-bold text-slate-900 truncate">{user.displayName || 'Alex'}</div>
+              <div className="text-xs font-bold text-slate-900 truncate">{user.displayName || user.email?.split('@')[0]}</div>
               <div className="text-[10px] text-slate-400 truncate">{user.email}</div>
             </div>
           </div>
@@ -516,16 +513,16 @@ export default function Dashboard() {
 
           <div className="hidden lg:block">
             <span className="text-xs font-medium text-slate-400">Wednesday, May 21</span>
-            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Good morning, {user.displayName?.split(' ')[0] || 'Alex'}</h1>
+            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Good morning, {user.displayName?.split(' ')[0] || user.email?.split('@')[0] || 'Ankit'}</h1>
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-white border border-slate-200/80 flex items-center justify-center text-slate-700 shadow-xs cursor-pointer hover:bg-slate-50">
+            <div className="w-10 h-10 rounded-full bg-white border border-slate-200/80 flex items-center justify-center text-slate-700 shadow-xs cursor-pointer hover:bg-slate-50 transition">
               <Sparkles className="w-4 h-4 text-[#063D2A]" />
             </div>
 
             <div className="w-10 h-10 rounded-full bg-[#FFD6A5] text-[#063D2A] font-bold text-xs flex items-center justify-center border border-white shadow-xs">
-              AD
+              {user.displayName ? user.displayName.slice(0, 2).toUpperCase() : 'AN'}
             </div>
           </div>
         </header>
@@ -536,7 +533,7 @@ export default function Dashboard() {
           {currentTab === 'home' && (
             <div className="space-y-6">
               
-              {/* HERO AVAILABLE BALANCE CARD (Cleaned Up Unwanted Buttons) */}
+              {/* HERO AVAILABLE BALANCE CARD (Strictly Live Firestore Data) */}
               <div className="bg-[#063D2A] rounded-[36px] p-7 sm:p-8 text-white relative overflow-hidden shadow-2xl shadow-[#063D2A]/15">
                 <div className="absolute -right-12 -top-12 w-64 h-64 bg-[#0B4C35] rounded-full blur-2xl pointer-events-none opacity-50" />
                 <div className="absolute right-12 -bottom-24 w-72 h-72 bg-[#08422E] rounded-full blur-3xl pointer-events-none opacity-60" />
@@ -559,12 +556,12 @@ export default function Dashboard() {
                     <div className="text-4xl sm:text-5xl font-black font-sans tracking-tight text-white">
                       {balanceVisible ? formatCurrency(totalRevenue, 'USD') : '$ ••••••'}
                     </div>
-                    <p className="text-xs text-emerald-200/70 mt-1">Total earnings protected in escrow</p>
+                    <p className="text-xs text-emerald-200/70 mt-1">Total settled earnings protected in escrow</p>
                   </div>
                 </div>
               </div>
 
-              {/* THIS MONTH BAR GRAPH CARD */}
+              {/* MONTHLY EARNINGS BAR GRAPH CARD */}
               <div className="bg-white border border-slate-200/80 rounded-[36px] p-7 shadow-xs space-y-5">
                 <div className="flex items-start justify-between">
                   <div>
@@ -586,7 +583,7 @@ export default function Dashboard() {
                     >
                       <div 
                         className={`w-full rounded-full transition-all duration-300 ${
-                          hoveredBarIndex === idx ? 'bg-[#94EC36] shadow-md shadow-[#94EC36]/30' : 'bg-slate-100 group-hover:bg-slate-200'
+                          hoveredBarIndex === idx ? 'bg-[#94EC36] shadow-md shadow-[#94EC36]/30 scale-y-105' : 'bg-slate-100 group-hover:bg-slate-200'
                         }`}
                         style={{ height: `${item.val}%` }}
                       />
@@ -600,12 +597,12 @@ export default function Dashboard() {
                     <div className="text-2xl font-black text-slate-900 tracking-tight mt-0.5">{formatCurrency(totalRevenue, 'USD')}</div>
                   </div>
                   <div className="text-right">
-                    <div className="text-xs text-slate-400 font-medium">{12 + deliveries.length} payments</div>
+                    <div className="text-xs text-slate-400 font-medium">{paidDeliveries.length} payments cleared</div>
                   </div>
                 </div>
               </div>
 
-              {/* ACTIVE PROJECTS LIST */}
+              {/* ACTIVE PROJECTS LIST (Strictly Real Firestore Deliveries) */}
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
@@ -617,125 +614,57 @@ export default function Dashboard() {
                   </button>
                 </div>
 
-                <div className="space-y-3">
-                  {/* Card 1 */}
-                  <div className="p-6 bg-white border border-slate-200/80 rounded-[32px] shadow-xs space-y-4 hover:border-slate-300 transition">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3.5">
-                        <div className="w-12 h-12 rounded-2xl bg-[#94EC36]/30 text-[#063D2A] font-bold text-sm flex items-center justify-center border border-[#94EC36]/50">
-                          LL
-                        </div>
-                        <div>
-                          <h4 className="text-base font-bold text-slate-900 tracking-tight">SaaS landing page</h4>
-                          <p className="text-xs text-slate-400 mt-0.5">with Lumio Labs</p>
-                        </div>
-                      </div>
-
-                      <div className="text-right">
-                        <div className="font-black text-base text-slate-900">$1,800</div>
-                        <div className="text-xs text-slate-400 font-medium mt-0.5">In escrow</div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-[#94EC36] rounded-full w-3/4 transition-all duration-500" />
-                      </div>
-
-                      <div className="flex items-center justify-between text-xs pt-0.5">
-                        <span className="flex items-center gap-1.5 font-bold text-slate-800">
-                          <span className="w-2 h-2 rounded-full bg-[#94EC36]" />
-                          Funded
-                        </span>
-                        <a href="#view" className="text-slate-500 font-bold hover:text-slate-900 flex items-center gap-0.5">
-                          <span>View project</span> <ChevronRight className="w-4 h-4" />
-                        </a>
-                      </div>
-                    </div>
+                {deliveries.length === 0 ? (
+                  <div className="p-12 text-center text-xs text-slate-400 bg-white rounded-[32px] border border-slate-200/80 shadow-xs">
+                    No active escrow projects yet. Tap '+' to request your first payment.
                   </div>
+                ) : (
+                  <div className="space-y-3">
+                    {deliveries.map(item => (
+                      <div key={item.id} className="p-6 bg-white border border-slate-200/80 rounded-[32px] shadow-xs space-y-4 hover:border-slate-300 transition">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-3.5">
+                            <div className="w-12 h-12 rounded-2xl bg-[#94EC36]/30 text-[#063D2A] font-bold text-sm flex items-center justify-center">
+                              {item.clientName ? item.clientName.slice(0, 2).toUpperCase() : 'CL'}
+                            </div>
+                            <div>
+                              <h4 className="text-base font-bold text-slate-900 tracking-tight">{item.title}</h4>
+                              <p className="text-xs text-slate-400 mt-0.5">with {item.clientName}</p>
+                            </div>
+                          </div>
 
-                  {/* Card 2 */}
-                  <div className="p-6 bg-white border border-slate-200/80 rounded-[32px] shadow-xs space-y-4 hover:border-slate-300 transition">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3.5">
-                        <div className="w-12 h-12 rounded-2xl bg-blue-100 text-blue-700 font-bold text-sm flex items-center justify-center border border-blue-200">
-                          NC
+                          <div className="text-right">
+                            <div className="font-black text-base text-slate-900">{formatCurrency(item.grossAmount, item.currency || 'USD')}</div>
+                            <div className="text-xs text-slate-400 font-medium mt-0.5">{item.status === 'Paid' ? 'Released' : 'In escrow'}</div>
+                          </div>
                         </div>
-                        <div>
-                          <h4 className="text-base font-bold text-slate-900 tracking-tight">Brand identity system</h4>
-                          <p className="text-xs text-slate-400 mt-0.5">with Northstar Co.</p>
+
+                        <div className="space-y-2">
+                          <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full transition-all duration-500 ${item.status === 'Paid' ? 'w-full bg-[#94EC36]' : 'w-2/3 bg-[#94EC36]'}`} />
+                          </div>
+
+                          <div className="flex items-center justify-between text-xs pt-0.5">
+                            <span className="flex items-center gap-1.5 font-bold text-slate-800">
+                              <span className={`w-2 h-2 rounded-full ${item.status === 'Paid' ? 'bg-emerald-500' : 'bg-[#94EC36]'}`} />
+                              {item.status === 'Paid' ? 'Funds Released' : 'Funded • In Progress'}
+                            </span>
+
+                            <div className="flex items-center gap-2">
+                              <button onClick={() => copyLink(item.id)} className="text-slate-500 font-bold hover:text-slate-900 transition">
+                                {copiedId === item.id ? 'Copied' : 'Copy link'}
+                              </button>
+                              <span className="text-slate-300">•</span>
+                              <Link href={`/d/${item.id}`} target="_blank" className="text-[#063D2A] font-bold flex items-center gap-0.5 hover:underline">
+                                <span>View project</span> <ChevronRight className="w-4 h-4" />
+                              </Link>
+                            </div>
+                          </div>
                         </div>
                       </div>
-
-                      <div className="text-right">
-                        <div className="font-black text-base text-slate-900">$950</div>
-                        <div className="text-xs text-slate-400 font-medium mt-0.5">Milestone 2 of 3</div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-[#94EC36] rounded-full w-1/2 transition-all duration-500" />
-                      </div>
-
-                      <div className="flex items-center justify-between text-xs pt-0.5">
-                        <span className="flex items-center gap-1.5 font-bold text-slate-800">
-                          <span className="w-2 h-2 rounded-full bg-[#94EC36]" />
-                          In review
-                        </span>
-                        <a href="#view" className="text-slate-500 font-bold hover:text-slate-900 flex items-center gap-0.5">
-                          <span>View project</span> <ChevronRight className="w-4 h-4" />
-                        </a>
-                      </div>
-                    </div>
+                    ))}
                   </div>
-
-                  {/* User Created Deliveries */}
-                  {deliveries.map(item => (
-                    <div key={item.id} className="p-6 bg-white border border-slate-200/80 rounded-[32px] shadow-xs space-y-4 hover:border-slate-300 transition">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-3.5">
-                          <div className="w-12 h-12 rounded-2xl bg-[#94EC36]/30 text-[#063D2A] font-bold text-sm flex items-center justify-center">
-                            {item.clientName ? item.clientName.slice(0, 2).toUpperCase() : 'CL'}
-                          </div>
-                          <div>
-                            <h4 className="text-base font-bold text-slate-900 tracking-tight">{item.title}</h4>
-                            <p className="text-xs text-slate-400 mt-0.5">with {item.clientName}</p>
-                          </div>
-                        </div>
-
-                        <div className="text-right">
-                          <div className="font-black text-base text-slate-900">{formatCurrency(item.grossAmount, item.currency || 'USD')}</div>
-                          <div className="text-xs text-slate-400 font-medium mt-0.5">{item.status === 'Paid' ? 'Released' : 'In escrow'}</div>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                          <div className={`h-full rounded-full transition-all duration-500 ${item.status === 'Paid' ? 'w-full bg-[#94EC36]' : 'w-2/3 bg-[#94EC36]'}`} />
-                        </div>
-
-                        <div className="flex items-center justify-between text-xs pt-0.5">
-                          <span className="flex items-center gap-1.5 font-bold text-slate-800">
-                            <span className={`w-2 h-2 rounded-full ${item.status === 'Paid' ? 'bg-emerald-500' : 'bg-[#94EC36]'}`} />
-                            {item.status === 'Paid' ? 'Funds Released' : 'Funded'}
-                          </span>
-
-                          <div className="flex items-center gap-2">
-                            <button onClick={() => copyLink(item.id)} className="text-slate-500 font-bold hover:text-slate-900">
-                              {copiedId === item.id ? 'Copied' : 'Copy link'}
-                            </button>
-                            <span className="text-slate-300">•</span>
-                            <Link href={`/d/${item.id}`} target="_blank" className="text-[#063D2A] font-bold flex items-center gap-0.5 hover:underline">
-                              <span>View project</span> <ChevronRight className="w-4 h-4" />
-                            </Link>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-
-                </div>
+                )}
               </div>
 
             </div>
@@ -747,17 +676,17 @@ export default function Dashboard() {
               <h1 className="text-2xl font-black text-slate-900 tracking-tight">All Projects</h1>
               <div className="space-y-3">
                 {deliveries.length === 0 ? (
-                  <div className="p-12 text-center text-xs text-slate-400 bg-white rounded-[32px]">No extra projects created yet. Tap '+' to create one.</div>
+                  <div className="p-12 text-center text-xs text-slate-400 bg-white rounded-[32px]">No projects created yet.</div>
                 ) : (
                   deliveries.map(item => (
-                    <div key={item.id} className="p-6 bg-white border border-slate-200/80 rounded-[32px] flex items-center justify-between">
+                    <div key={item.id} className="p-6 bg-white border border-slate-200/80 rounded-[32px] flex items-center justify-between shadow-xs">
                       <div>
                         <h4 className="font-bold text-sm text-slate-900">{item.title}</h4>
                         <p className="text-xs text-slate-400">Client: {item.clientName} • {item.files?.length || 0} file(s)</p>
                       </div>
                       <div className="flex items-center gap-3">
                         <span className="font-bold text-xs">{formatCurrency(item.grossAmount, item.currency)}</span>
-                        <button onClick={() => handleDelete(item.id)} className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl">
+                        <button onClick={() => handleDelete(item.id)} className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
@@ -773,32 +702,40 @@ export default function Dashboard() {
             <div className="space-y-6">
               <h1 className="text-2xl font-black text-slate-900 tracking-tight">Client Revisions</h1>
               <div className="space-y-3">
-                {deliveries.map(d => (
-                  <div key={d.id} className="p-6 bg-white border border-slate-200/80 rounded-[32px] flex justify-between items-center">
-                    <div>
-                      <h4 className="font-bold text-xs text-slate-900">{d.clientName}</h4>
-                      <p className="text-xs text-slate-500">{d.title}</p>
+                {deliveries.length === 0 ? (
+                  <div className="p-12 text-center text-xs text-slate-400 bg-white rounded-[32px]">No revision threads found.</div>
+                ) : (
+                  deliveries.map(d => (
+                    <div key={d.id} className="p-6 bg-white border border-slate-200/80 rounded-[32px] flex justify-between items-center shadow-xs">
+                      <div>
+                        <h4 className="font-bold text-xs text-slate-900">{d.clientName}</h4>
+                        <p className="text-xs text-slate-500">{d.title}</p>
+                      </div>
+                      <button onClick={() => { setActiveThreadDelivery(d); setCurrentTab('chat-thread'); }} className="px-4 py-2 bg-[#063D2A] hover:bg-[#094E36] text-white font-bold text-xs rounded-xl transition">
+                        Open Chat
+                      </button>
                     </div>
-                    <button onClick={() => { setActiveThreadDelivery(d); setCurrentTab('chat-thread'); }} className="px-4 py-2 bg-[#063D2A] text-white font-bold text-xs rounded-xl">
-                      Open Chat
-                    </button>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
           )}
 
           {/* TAB: CHAT THREAD */}
           {currentTab === 'chat-thread' && activeThreadDelivery && (
-            <div className="bg-white border border-slate-200/80 rounded-[32px] p-6 space-y-4">
-              <button onClick={() => setCurrentTab('revisions')} className="text-xs font-bold text-slate-400">← Back</button>
-              <h3 className="font-bold text-sm">{activeThreadDelivery.title}</h3>
+            <div className="bg-white border border-slate-200/80 rounded-[32px] p-6 space-y-4 shadow-xs">
+              <button onClick={() => setCurrentTab('revisions')} className="text-xs font-bold text-slate-400 hover:text-slate-700">← Back</button>
+              <h3 className="font-bold text-sm text-slate-900">{activeThreadDelivery.title}</h3>
               <div className="h-64 overflow-y-auto bg-[#F3F5F1] p-4 rounded-2xl space-y-2">
-                {(activeThreadDelivery.messages || []).map((m, idx) => (
-                  <div key={idx} className={`p-3 text-xs rounded-xl max-w-xs ${m.sender === 'creator' ? 'bg-[#063D2A] text-white ml-auto' : 'bg-white text-slate-800'}`}>
-                    {m.text}
-                  </div>
-                ))}
+                {(activeThreadDelivery.messages || []).length === 0 ? (
+                  <div className="h-full flex items-center justify-center text-xs text-slate-400">No messages yet.</div>
+                ) : (
+                  activeThreadDelivery.messages.map((m, idx) => (
+                    <div key={idx} className={`p-3 text-xs rounded-xl max-w-xs ${m.sender === 'creator' ? 'bg-[#063D2A] text-white ml-auto' : 'bg-white text-slate-800 shadow-xs'}`}>
+                      {m.text}
+                    </div>
+                  ))
+                )}
               </div>
               <div className="flex gap-2">
                 <input
@@ -806,9 +743,9 @@ export default function Dashboard() {
                   placeholder="Type reply..."
                   value={threadReplyText}
                   onChange={e => setThreadReplyText(e.target.value)}
-                  className="flex-1 bg-[#F3F5F1] px-4 py-2 rounded-xl text-xs focus:outline-none"
+                  className="flex-1 bg-[#F3F5F1] px-4 py-2.5 rounded-xl text-xs focus:outline-none focus:border-[#94EC36] transition"
                 />
-                <button onClick={() => handleSendThreadReply(activeThreadDelivery.id)} className="px-4 py-2 bg-[#063D2A] text-white text-xs font-bold rounded-xl">
+                <button onClick={() => handleSendThreadReply(activeThreadDelivery.id)} className="px-5 py-2.5 bg-[#063D2A] hover:bg-[#094E36] text-white text-xs font-bold rounded-xl transition">
                   Send
                 </button>
               </div>
@@ -818,11 +755,11 @@ export default function Dashboard() {
           {/* TAB: WALLET */}
           {currentTab === 'wallet' && (
             <div className="space-y-6">
-              <h1 className="text-2xl font-black text-slate-900 tracking-tight">Wallet & Earnings</h1>
-              <div className="p-8 bg-white border border-slate-200/80 rounded-[36px] space-y-3">
-                <div className="text-xs text-slate-400">Total Settled Earnings</div>
-                <div className="text-4xl font-black text-[#063D2A]">{formatCurrency(totalRevenue, 'USD')}</div>
-                <p className="text-xs text-slate-500">Payouts are processed automatically upon client approval.</p>
+              <h1 className="text-2xl font-black text-slate-900 tracking-tight">Wallet & Payouts</h1>
+              <div className="p-8 bg-white border border-slate-200/80 rounded-[36px] space-y-4 shadow-xs">
+                <div className="text-xs text-slate-400 font-medium">Available Balance for Payout</div>
+                <div className="text-4xl font-black text-[#063D2A] font-mono">{formatCurrency(totalRevenue, 'USD')}</div>
+                <p className="text-xs text-slate-500 leading-relaxed">Funds are securely locked in escrow and instantly released to your linked bank account upon client approval.</p>
               </div>
             </div>
           )}
@@ -838,14 +775,14 @@ export default function Dashboard() {
         <Plus className="w-7 h-7 text-[#94EC36]" />
       </button>
 
-      {/* REQUEST A PAYMENT MODAL (With Multi-File / Video / Zip Support) */}
+      {/* REQUEST A PAYMENT MODAL (With Strict File Validation & Multi-File Support) */}
       {requestModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="w-full max-w-md bg-white rounded-[40px] p-8 shadow-2xl relative animate-in zoom-in-95 duration-200 space-y-5 max-h-[90vh] overflow-y-auto">
             
             <div className="flex items-start justify-between">
               <div>
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">NEW ESCROW</span>
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest font-mono">NEW ESCROW</span>
                 <h3 className="text-2xl font-black text-slate-900 tracking-tight mt-0.5">Request a payment</h3>
               </div>
               <button 
@@ -900,9 +837,9 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Upload Multi-Files Box (Video, ZIP, Images, PDFs) */}
+              {/* Strict Deliverables File Upload Box */}
               <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1.5">Project Files (ZIP, Videos, PDFs, Images)</label>
+                <label className="text-xs font-bold text-slate-700 block mb-1.5">Deliverable Files (ZIP, Videos, PDFs) *</label>
                 <div
                   onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
                   onDragLeave={() => setIsDragging(false)}
@@ -936,7 +873,6 @@ export default function Dashboard() {
                 )}
               </div>
 
-              {/* Escrow Guarantee Banner */}
               <div className="p-4 bg-[#94EC36]/15 border border-[#94EC36]/30 rounded-2xl flex items-start gap-3">
                 <ShieldCheck className="w-5 h-5 text-[#063D2A] shrink-0 mt-0.5" />
                 <p className="text-xs text-[#063D2A] leading-relaxed font-semibold">
@@ -957,7 +893,7 @@ export default function Dashboard() {
               ) : (
                 <button
                   onClick={handleDeployVault}
-                  disabled={!title || !amount}
+                  disabled={!title || !amount || fileList.length === 0}
                   className="w-full py-4 bg-[#063D2A] hover:bg-[#094E36] disabled:opacity-50 text-white font-bold text-xs rounded-2xl shadow-lg transition active:scale-95 flex items-center justify-center gap-2"
                 >
                   <span>Create secure payment</span>
