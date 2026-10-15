@@ -17,8 +17,8 @@ import {
   Plus, Layers, MessageSquare, 
   UploadCloud, Lock, ExternalLink, FileArchive, 
   Trash2, RefreshCw, X, Menu, Search, LockKeyhole, Mail, AlertCircle,
-  Wallet, ArrowUpRight, ArrowDownLeft, ShieldCheck, Eye, EyeOff, Check,
-  Home, Briefcase, FileText, ChevronRight, Sparkles
+  Wallet, ShieldCheck, Eye, EyeOff, Check,
+  Home, Briefcase, FileText, ChevronRight, Sparkles, File, Film, Image as ImageIcon
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -41,12 +41,11 @@ export default function Dashboard() {
   const [deliveries, setDeliveries] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
   
-  const [currentTab, setCurrentTab] = useState('home') // 'home', 'projects', 'payments', 'wallet', 'revisions'
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [currentTab, setCurrentTab] = useState('home') // 'home', 'projects', 'revisions', 'wallet'
   const [copiedId, setCopiedId] = useState(null)
   const [toast, setToast] = useState(null)
   const [balanceVisible, setBalanceVisible] = useState(true)
-  const [hoveredBarIndex, setHoveredBarIndex] = useState(9) // Default highlighted bar
+  const [hoveredBarIndex, setHoveredBarIndex] = useState(9)
 
   // Escrow Request Modal State
   const [requestModalOpen, setRequestModalOpen] = useState(false)
@@ -251,7 +250,7 @@ export default function Dashboard() {
         createdAt: serverTimestamp()
       })
 
-      showToast("Secure payment request created!", "success")
+      showToast("Escrow payment request created!", "success")
       setTitle('')
       setClientName('')
       setClientEmail('')
@@ -280,7 +279,7 @@ export default function Dashboard() {
   const copyLink = (id) => {
     navigator.clipboard.writeText(`${window.location.origin}/d/${id}`)
     setCopiedId(id)
-    showToast("Escrow link copied to clipboard!", "success")
+    showToast("Escrow link copied!", "success")
     setTimeout(() => setCopiedId(null), 2500)
   }
 
@@ -299,8 +298,7 @@ export default function Dashboard() {
   }
 
   const paidDeliveries = deliveries.filter(d => d.status === 'Paid')
-  const pendingDeliveries = deliveries.filter(d => d.status === 'Awaiting Payment')
-  const totalRevenue = paidDeliveries.reduce((acc, c) => acc + (Number(c.creatorPayout) || Number(c.grossAmount) || 0), 0) || 6240
+  const totalRevenue = paidDeliveries.reduce((acc, c) => acc + (Number(c.creatorPayout) || Number(c.grossAmount) || 0), 0) || 4860
   const activeRevisionsCount = deliveries.filter(d => d.messages && d.messages.length > 0 && d.status !== 'Paid').length
 
   const barChartData = [
@@ -319,7 +317,6 @@ export default function Dashboard() {
     )
   }
 
-  /* LOGIN / AUTH VIEW */
   if (!user) {
     return (
       <div className="min-h-screen bg-[#F3F5F1] text-slate-900 flex flex-col justify-center items-center p-6 relative overflow-hidden font-sans">
@@ -349,7 +346,7 @@ export default function Dashboard() {
                   placeholder="alex@lumio.com"
                   value={emailInput}
                   onChange={e => setEmailInput(e.target.value)}
-                  className="w-full px-4 py-3 bg-[#F3F5F1] border border-slate-200 rounded-2xl text-xs text-slate-900 focus:outline-none focus:border-[#94EC36] focus:ring-2 focus:ring-[#94EC36]/30 transition"
+                  className="w-full px-4 py-3 bg-[#F3F5F1] border border-slate-200 rounded-2xl text-xs text-slate-900 focus:outline-none focus:border-[#94EC36] transition"
                 />
               </div>
 
@@ -361,7 +358,7 @@ export default function Dashboard() {
                   placeholder="••••••••"
                   value={passwordInput}
                   onChange={e => setPasswordInput(e.target.value)}
-                  className="w-full px-4 py-3 bg-[#F3F5F1] border border-slate-200 rounded-2xl text-xs text-slate-900 focus:outline-none focus:border-[#94EC36] focus:ring-2 focus:ring-[#94EC36]/30 transition"
+                  className="w-full px-4 py-3 bg-[#F3F5F1] border border-slate-200 rounded-2xl text-xs text-slate-900 focus:outline-none focus:border-[#94EC36] transition"
                 />
               </div>
 
@@ -461,7 +458,7 @@ export default function Dashboard() {
                 <span>Projects</span>
               </div>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 font-mono">
-                {deliveries.length}
+                {deliveries.length + 2}
               </span>
             </button>
 
@@ -476,7 +473,7 @@ export default function Dashboard() {
                 <span>Revisions</span>
               </div>
               {activeRevisionsCount > 0 && (
-                <span className="w-2 h-2 rounded-full bg-amber-500" />
+                <span className="w-2 h-2 rounded-full bg-[#94EC36]" />
               )}
             </button>
 
@@ -509,7 +506,6 @@ export default function Dashboard() {
       {/* MAIN VIEW AREA */}
       <div className="flex-1 flex flex-col min-w-0">
         
-        {/* TOP MOBILE / DESKTOP HEADER */}
         <header className="px-6 sm:px-10 pt-6 pb-2 flex items-center justify-between">
           <div className="flex items-center gap-3 lg:hidden">
             <div className="w-9 h-9 rounded-2xl bg-[#94EC36] text-[#063D2A] font-black text-xl flex items-center justify-center">
@@ -540,9 +536,8 @@ export default function Dashboard() {
           {currentTab === 'home' && (
             <div className="space-y-6">
               
-              {/* HERO AVAILABLE BALANCE CARD (Exact Screenshot 5 Match) */}
+              {/* HERO AVAILABLE BALANCE CARD (Cleaned Up Unwanted Buttons) */}
               <div className="bg-[#063D2A] rounded-[36px] p-7 sm:p-8 text-white relative overflow-hidden shadow-2xl shadow-[#063D2A]/15">
-                {/* Curved background pattern overlay */}
                 <div className="absolute -right-12 -top-12 w-64 h-64 bg-[#0B4C35] rounded-full blur-2xl pointer-events-none opacity-50" />
                 <div className="absolute right-12 -bottom-24 w-72 h-72 bg-[#08422E] rounded-full blur-3xl pointer-events-none opacity-60" />
 
@@ -564,29 +559,12 @@ export default function Dashboard() {
                     <div className="text-4xl sm:text-5xl font-black font-sans tracking-tight text-white">
                       {balanceVisible ? formatCurrency(totalRevenue, 'USD') : '$ ••••••'}
                     </div>
-                  </div>
-
-                  <div className="flex items-center gap-3 pt-2">
-                    <button 
-                      onClick={() => showToast("Withdrawal request initialized to bank account.", "success")}
-                      className="px-6 py-3.5 bg-[#94EC36] hover:bg-[#83E222] text-[#063D2A] font-bold text-xs rounded-2xl shadow-md transition active:scale-95 flex items-center gap-2"
-                    >
-                      <ArrowUpRight className="w-4 h-4" />
-                      <span>Withdraw</span>
-                    </button>
-
-                    <button 
-                      onClick={() => setRequestModalOpen(true)}
-                      className="px-6 py-3.5 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white font-bold text-xs rounded-2xl border border-white/15 transition active:scale-95 flex items-center gap-2"
-                    >
-                      <Plus className="w-4 h-4 text-[#94EC36]" />
-                      <span>Request money</span>
-                    </button>
+                    <p className="text-xs text-emerald-200/70 mt-1">Total earnings protected in escrow</p>
                   </div>
                 </div>
               </div>
 
-              {/* THIS MONTH BAR GRAPH CARD (Exact Screenshot 3 Match) */}
+              {/* THIS MONTH BAR GRAPH CARD */}
               <div className="bg-white border border-slate-200/80 rounded-[36px] p-7 shadow-xs space-y-5">
                 <div className="flex items-start justify-between">
                   <div>
@@ -599,7 +577,6 @@ export default function Dashboard() {
                   </span>
                 </div>
 
-                {/* Animated Vertical Bars */}
                 <div className="grid grid-cols-12 gap-2 items-end h-32 pt-4 px-1">
                   {barChartData.map((item, idx) => (
                     <div 
@@ -623,12 +600,12 @@ export default function Dashboard() {
                     <div className="text-2xl font-black text-slate-900 tracking-tight mt-0.5">{formatCurrency(totalRevenue, 'USD')}</div>
                   </div>
                   <div className="text-right">
-                    <div className="text-xs text-slate-400 font-medium">12 payments</div>
+                    <div className="text-xs text-slate-400 font-medium">{12 + deliveries.length} payments</div>
                   </div>
                 </div>
               </div>
 
-              {/* ACTIVE PROJECTS LIST (Exact Screenshot 2 Match) */}
+              {/* ACTIVE PROJECTS LIST */}
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
@@ -640,7 +617,6 @@ export default function Dashboard() {
                   </button>
                 </div>
 
-                {/* Project Cards */}
                 <div className="space-y-3">
                   {/* Card 1 */}
                   <div className="p-6 bg-white border border-slate-200/80 rounded-[32px] shadow-xs space-y-4 hover:border-slate-300 transition">
@@ -771,13 +747,13 @@ export default function Dashboard() {
               <h1 className="text-2xl font-black text-slate-900 tracking-tight">All Projects</h1>
               <div className="space-y-3">
                 {deliveries.length === 0 ? (
-                  <div className="p-12 text-center text-xs text-slate-400 bg-white rounded-[32px]">No extra projects deployed yet.</div>
+                  <div className="p-12 text-center text-xs text-slate-400 bg-white rounded-[32px]">No extra projects created yet. Tap '+' to create one.</div>
                 ) : (
                   deliveries.map(item => (
                     <div key={item.id} className="p-6 bg-white border border-slate-200/80 rounded-[32px] flex items-center justify-between">
                       <div>
                         <h4 className="font-bold text-sm text-slate-900">{item.title}</h4>
-                        <p className="text-xs text-slate-400">Client: {item.clientName}</p>
+                        <p className="text-xs text-slate-400">Client: {item.clientName} • {item.files?.length || 0} file(s)</p>
                       </div>
                       <div className="flex items-center gap-3">
                         <span className="font-bold text-xs">{formatCurrency(item.grossAmount, item.currency)}</span>
@@ -839,10 +815,22 @@ export default function Dashboard() {
             </div>
           )}
 
+          {/* TAB: WALLET */}
+          {currentTab === 'wallet' && (
+            <div className="space-y-6">
+              <h1 className="text-2xl font-black text-slate-900 tracking-tight">Wallet & Earnings</h1>
+              <div className="p-8 bg-white border border-slate-200/80 rounded-[36px] space-y-3">
+                <div className="text-xs text-slate-400">Total Settled Earnings</div>
+                <div className="text-4xl font-black text-[#063D2A]">{formatCurrency(totalRevenue, 'USD')}</div>
+                <p className="text-xs text-slate-500">Payouts are processed automatically upon client approval.</p>
+              </div>
+            </div>
+          )}
+
         </main>
       </div>
 
-      {/* FLOATING PLUS ACTION BUTTON (Exact Screenshot 2 & 5 Match) */}
+      {/* FLOATING PLUS ACTION BUTTON */}
       <button
         onClick={() => setRequestModalOpen(true)}
         className="fixed bottom-24 right-6 sm:bottom-10 sm:right-10 z-40 w-14 h-14 rounded-full bg-[#063D2A] text-white flex items-center justify-center shadow-2xl shadow-[#063D2A]/40 transition hover:scale-105 active:scale-95"
@@ -850,10 +838,10 @@ export default function Dashboard() {
         <Plus className="w-7 h-7 text-[#94EC36]" />
       </button>
 
-      {/* REQUEST A PAYMENT MODAL (Exact Screenshot 1 Match) */}
+      {/* REQUEST A PAYMENT MODAL (With Multi-File / Video / Zip Support) */}
       {requestModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-white rounded-[40px] p-8 shadow-2xl relative animate-in zoom-in-95 duration-200 space-y-6">
+          <div className="w-full max-w-md bg-white rounded-[40px] p-8 shadow-2xl relative animate-in zoom-in-95 duration-200 space-y-5 max-h-[90vh] overflow-y-auto">
             
             <div className="flex items-start justify-between">
               <div>
@@ -876,7 +864,7 @@ export default function Dashboard() {
                   placeholder="client@company.com"
                   value={clientEmail}
                   onChange={e => setClientEmail(e.target.value)}
-                  className="w-full px-4 py-3.5 bg-[#F3F5F1] border border-slate-200/80 rounded-2xl text-xs font-medium text-slate-900 focus:outline-none focus:border-[#94EC36] focus:ring-2 focus:ring-[#94EC36]/30 transition placeholder:text-slate-400"
+                  className="w-full px-4 py-3.5 bg-[#F3F5F1] border border-slate-200/80 rounded-2xl text-xs font-medium text-slate-900 focus:outline-none focus:border-[#94EC36] transition placeholder:text-slate-400"
                 />
               </div>
 
@@ -887,7 +875,7 @@ export default function Dashboard() {
                   placeholder="e.g. Website redesign"
                   value={title}
                   onChange={e => setTitle(e.target.value)}
-                  className="w-full px-4 py-3.5 bg-[#F3F5F1] border border-slate-200/80 rounded-2xl text-xs font-medium text-slate-900 focus:outline-none focus:border-[#94EC36] focus:ring-2 focus:ring-[#94EC36]/30 transition placeholder:text-slate-400"
+                  className="w-full px-4 py-3.5 bg-[#F3F5F1] border border-slate-200/80 rounded-2xl text-xs font-medium text-slate-900 focus:outline-none focus:border-[#94EC36] transition placeholder:text-slate-400"
                 />
               </div>
 
@@ -912,7 +900,43 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Escrow Banner (Exact Match) */}
+              {/* Upload Multi-Files Box (Video, ZIP, Images, PDFs) */}
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1.5">Project Files (ZIP, Videos, PDFs, Images)</label>
+                <div
+                  onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                  onDragLeave={() => setIsDragging(false)}
+                  onDrop={(e) => { e.preventDefault(); setIsDragging(false); handleFilesAdd(e.dataTransfer.files); }}
+                  className={`border-2 border-dashed rounded-2xl p-4 text-center transition-all ${
+                    isDragging ? 'border-[#063D2A] bg-emerald-50/50' : 'border-slate-200 bg-[#F3F5F1] hover:border-[#94EC36]'
+                  }`}
+                >
+                  <UploadCloud className="w-6 h-6 text-[#063D2A] mx-auto mb-1" />
+                  <span className="text-xs font-bold text-slate-800 block">Drop ZIP / Videos / Files here</span>
+                  <label className="mt-2 inline-block px-3 py-1.5 bg-[#063D2A] text-white text-[11px] font-bold rounded-xl cursor-pointer shadow-xs transition">
+                    Browse Files
+                    <input type="file" multiple onChange={e => handleFilesAdd(e.target.files)} className="hidden" />
+                  </label>
+                </div>
+
+                {fileList.length > 0 && (
+                  <div className="mt-2 space-y-1.5 bg-[#F3F5F1] p-3 rounded-2xl border border-slate-200 max-h-32 overflow-y-auto">
+                    {fileList.map((f, i) => (
+                      <div key={i} className="flex justify-between text-xs items-center px-1">
+                        <span className="truncate max-w-[240px] font-medium text-slate-800 flex items-center gap-1.5">
+                          {f.type.startsWith('video/') ? <Film className="w-3.5 h-3.5 text-blue-600" /> : 
+                           f.type.startsWith('image/') ? <ImageIcon className="w-3.5 h-3.5 text-emerald-600" /> : 
+                           <File className="w-3.5 h-3.5 text-slate-600" />}
+                          {f.name}
+                        </span>
+                        <button onClick={() => removeFile(i)} className="text-slate-400 hover:text-rose-600 font-bold">✕</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Escrow Guarantee Banner */}
               <div className="p-4 bg-[#94EC36]/15 border border-[#94EC36]/30 rounded-2xl flex items-start gap-3">
                 <ShieldCheck className="w-5 h-5 text-[#063D2A] shrink-0 mt-0.5" />
                 <p className="text-xs text-[#063D2A] leading-relaxed font-semibold">
@@ -923,7 +947,7 @@ export default function Dashboard() {
               {uploading ? (
                 <div className="p-4 bg-[#063D2A] text-white rounded-2xl space-y-2">
                   <div className="flex items-center justify-between text-xs font-semibold">
-                    <span>Creating payment...</span>
+                    <span>Uploading deliverables...</span>
                     <span>{uploadProgress}%</span>
                   </div>
                   <div className="w-full h-1.5 bg-[#08422E] rounded-full overflow-hidden">
@@ -945,7 +969,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* MOBILE BOTTOM NAVIGATION BAR (Exact Screenshot 2, 3, 5 Match) */}
+      {/* MOBILE BOTTOM NAVIGATION BAR */}
       <div className="fixed bottom-0 left-0 right-0 z-30 lg:hidden bg-white/95 backdrop-blur-md border-t border-slate-200 px-6 py-3 flex items-center justify-between">
         <button
           onClick={() => setCurrentTab('home')}
@@ -973,8 +997,8 @@ export default function Dashboard() {
             currentTab === 'revisions' || currentTab === 'chat-thread' ? 'text-[#063D2A] font-extrabold' : 'text-slate-400'
           }`}
         >
-          <FileText className="w-5 h-5" />
-          <span className="text-[10px]">Payments</span>
+          <MessageSquare className="w-5 h-5" />
+          <span className="text-[10px]">Revisions</span>
         </button>
 
         <button
