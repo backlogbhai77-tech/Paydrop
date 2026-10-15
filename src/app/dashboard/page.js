@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { auth, db, googleProvider } from '../../lib/firebase'
 import { 
   signInWithPopup, 
@@ -18,7 +18,8 @@ import {
   UploadCloud, Lock, ExternalLink, FileArchive, 
   Trash2, RefreshCw, X, Menu, Search, LockKeyhole, Mail, AlertCircle,
   Wallet, ShieldCheck, Eye, EyeOff, Check,
-  Home, Briefcase, FileText, ChevronRight, Sparkles, File, Film, Image as ImageIcon
+  Home, Briefcase, FileText, ChevronRight, Sparkles, File, Film, Image as ImageIcon,
+  Send, Bot, Settings, Bell, HelpCircle, CheckCheck, ArrowRight, ArrowLeft
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -39,6 +40,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [authLoading, setAuthLoading] = useState(false)
   const [deliveries, setDeliveries] = useState([])
+  const [searchQuery, setSearchQuery] = useState('')
   
   const [currentTab, setCurrentTab] = useState('home') // 'home', 'projects', 'revisions', 'wallet'
   const [copiedId, setCopiedId] = useState(null)
@@ -46,14 +48,20 @@ export default function Dashboard() {
   const [balanceVisible, setBalanceVisible] = useState(true)
   const [hoveredBarIndex, setHoveredBarIndex] = useState(9)
 
-  // Escrow Request Modal State
+  // Drawer / Menu Modals
+  const [aiDrawerOpen, setAiDrawerOpen] = useState(false)
+  const [profileDrawerOpen, setProfileDrawerOpen] = useState(false)
+
+  // Escrow 4-Step Wizard Modal State
   const [requestModalOpen, setRequestModalOpen] = useState(false)
+  const [wizardStep, setWizardStep] = useState(1)
   const [title, setTitle] = useState('')
   const [clientName, setClientName] = useState('')
   const [clientEmail, setClientEmail] = useState('')
   const [clientMessage, setClientMessage] = useState('')
   const [amount, setAmount] = useState('')
   const [currency, setCurrency] = useState('USD')
+  const [expirySelection, setExpirySelection] = useState('7')
   const [watermarkText, setWatermarkText] = useState('PAYDROP • PREVIEW COPY')
   
   const [fileList, setFileList] = useState([])
@@ -61,9 +69,12 @@ export default function Dashboard() {
   const [uploading, setUploading] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
 
+  // Chat Section State
   const [activeThreadDelivery, setActiveThreadDelivery] = useState(null)
   const [threadReplyText, setThreadReplyText] = useState('')
+  const chatBottomRef = useRef(null)
   
+  // Auth State
   const [authMode, setAuthMode] = useState('login')
   const [emailInput, setEmailInput] = useState('')
   const [passwordInput, setPasswordInput] = useState('')
@@ -95,6 +106,12 @@ export default function Dashboard() {
       if (unsubFirestore) unsubFirestore()
     }
   }, [])
+
+  useEffect(() => {
+    if (currentTab === 'chat-thread') {
+      chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [currentTab, activeThreadDelivery?.messages])
 
   const handleEmailAuth = async (e) => {
     e.preventDefault()
@@ -225,7 +242,7 @@ export default function Dashboard() {
       const platformFee = Math.max(Math.round(numAmount * 0.05), 1)
       const creatorPayout = Math.max(numAmount - platformFee, 0)
       const expiresAt = new Date()
-      expiresAt.setDate(expiresAt.getDate() + 30)
+      expiresAt.setDate(expiresAt.getDate() + (expirySelection === 'never' ? 3650 : parseInt(expirySelection)))
 
       await addDoc(collection(db, 'deliveries'), {
         userId: user.uid,
@@ -254,6 +271,7 @@ export default function Dashboard() {
       setClientMessage('')
       setAmount('')
       setFileList([])
+      setWizardStep(1)
       setRequestModalOpen(false)
     } catch (err) {
       showToast(err.message || "Failed to create escrow request", "error")
@@ -298,18 +316,25 @@ export default function Dashboard() {
   const totalRevenue = paidDeliveries.reduce((acc, c) => acc + (Number(c.creatorPayout) || Number(c.grossAmount) || 0), 0)
   const activeRevisionsCount = deliveries.filter(d => d.messages && d.messages.length > 0 && d.status !== 'Paid').length
 
+  const filteredDeliveries = deliveries.filter(d => 
+    d.title?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    d.clientName?.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
   const barChartData = [
-    { month: 'Jan', val: 35 }, { month: 'Feb', val: 50 }, { month: 'Mar', val: 30 },
-    { month: 'Apr', val: 70 }, { month: 'May', val: 45 }, { month: 'Jun', val: 60 },
-    { month: 'Jul', val: 40 }, { month: 'Aug', val: 80 }, { month: 'Sep', val: 55 },
-    { month: 'Oct', val: 95 }, { month: 'Nov', val: 65 }, { month: 'Dec', val: 75 }
+    { month: 'Jan', val: 35, amount: '$1,200' }, { month: 'Feb', val: 50, amount: '$1,800' }, 
+    { month: 'Mar', val: 30, amount: '$950' }, { month: 'Apr', val: 70, amount: '$2,400' }, 
+    { month: 'May', val: 45, amount: '$1,500' }, { month: 'Jun', val: 60, amount: '$2,100' },
+    { month: 'Jul', val: 40, amount: '$1,350' }, { month: 'Aug', val: 80, amount: '$2,900' }, 
+    { month: 'Sep', val: 55, amount: '$1,900' }, { month: 'Oct', val: 95, amount: '$3,450' }, 
+    { month: 'Nov', val: 65, amount: '$2,200' }, { month: 'Dec', val: 75, amount: '$2,800' }
   ]
 
   if (loading) {
     return (
       <div className="min-h-screen bg-[#F3F5F1] flex flex-col items-center justify-center text-xs text-slate-500 gap-3 font-mono">
         <div className="w-6 h-6 border-2 border-[#063D2A] border-t-transparent rounded-full animate-spin" />
-        <span>INITIALIZING PAYDROP...</span>
+        <span>INITIALIZING PAYDROP STUDIO...</span>
       </div>
     )
   }
@@ -413,20 +438,20 @@ export default function Dashboard() {
       <aside className="hidden lg:flex w-64 bg-white border-r border-slate-200/80 flex-col justify-between p-6 sticky top-0 h-screen z-30 select-none">
         <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="w-10 h-10 rounded-2xl bg-[#94EC36] text-[#063D2A] font-black text-xl flex items-center justify-center shadow-md shadow-[#94EC36]/20">
+            <button onClick={() => setCurrentTab('home')} className="flex items-center gap-2.5 text-left group">
+              <div className="w-10 h-10 rounded-2xl bg-[#94EC36] text-[#063D2A] font-black text-xl flex items-center justify-center shadow-md shadow-[#94EC36]/20 transition-transform group-hover:scale-105">
                 P
               </div>
               <span className="font-black text-2xl tracking-tight text-slate-900">paydrop</span>
-            </div>
+            </button>
 
-            <div className="w-8 h-8 rounded-full bg-[#F3F5F1] flex items-center justify-center text-slate-600 text-xs font-bold">
+            <button onClick={() => setAiDrawerOpen(true)} className="w-8 h-8 rounded-full bg-[#F3F5F1] hover:bg-slate-200/60 flex items-center justify-center text-slate-600 transition" title="AI Assistant">
               <Sparkles className="w-4 h-4 text-[#063D2A]" />
-            </div>
+            </button>
           </div>
 
           <button
-            onClick={() => setRequestModalOpen(true)}
+            onClick={() => { setWizardStep(1); setRequestModalOpen(true); }}
             className="w-full py-3.5 bg-[#063D2A] hover:bg-[#094E36] text-white text-xs font-bold rounded-2xl shadow-lg transition active:scale-95 flex items-center justify-center gap-2 group"
           >
             <Plus className="w-4 h-4 text-[#94EC36] transition-transform group-hover:rotate-90 duration-200" />
@@ -470,7 +495,7 @@ export default function Dashboard() {
                 <span>Revisions</span>
               </div>
               {activeRevisionsCount > 0 && (
-                <span className="w-2 h-2 rounded-full bg-[#94EC36]" />
+                <span className="w-2.5 h-2.5 rounded-full bg-[#94EC36] animate-pulse" />
               )}
             </button>
 
@@ -487,15 +512,15 @@ export default function Dashboard() {
         </div>
 
         <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-full bg-[#FFD6A5] text-[#063D2A] text-xs font-bold flex items-center justify-center shrink-0">
-              {user.displayName ? user.displayName.slice(0, 2).toUpperCase() : 'AD'}
+          <button onClick={() => setProfileDrawerOpen(true)} className="flex items-center gap-3 min-w-0 text-left hover:opacity-80 transition">
+            <div className="w-9 h-9 rounded-full bg-[#FFD6A5] text-[#063D2A] text-xs font-bold flex items-center justify-center shrink-0 border border-white shadow-xs">
+              {user.displayName ? user.displayName.slice(0, 2).toUpperCase() : 'AN'}
             </div>
             <div className="truncate">
               <div className="text-xs font-bold text-slate-900 truncate">{user.displayName || user.email?.split('@')[0]}</div>
               <div className="text-[10px] text-slate-400 truncate">{user.email}</div>
             </div>
-          </div>
+          </button>
           <button onClick={handleLogout} className="text-slate-400 hover:text-rose-600 text-xs p-1" title="Sign Out">✕</button>
         </div>
       </aside>
@@ -517,13 +542,20 @@ export default function Dashboard() {
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-white border border-slate-200/80 flex items-center justify-center text-slate-700 shadow-xs cursor-pointer hover:bg-slate-50 transition">
+            <button 
+              onClick={() => setAiDrawerOpen(true)} 
+              className="w-10 h-10 rounded-full bg-white border border-slate-200/80 flex items-center justify-center text-slate-700 shadow-xs hover:bg-slate-50 transition active:scale-95"
+              title="AI Escrow Assistant"
+            >
               <Sparkles className="w-4 h-4 text-[#063D2A]" />
-            </div>
+            </button>
 
-            <div className="w-10 h-10 rounded-full bg-[#FFD6A5] text-[#063D2A] font-bold text-xs flex items-center justify-center border border-white shadow-xs">
+            <button 
+              onClick={() => setProfileDrawerOpen(true)}
+              className="w-10 h-10 rounded-full bg-[#FFD6A5] text-[#063D2A] font-bold text-xs flex items-center justify-center border border-white shadow-xs hover:opacity-90 transition"
+            >
               {user.displayName ? user.displayName.slice(0, 2).toUpperCase() : 'AN'}
-            </div>
+            </button>
           </div>
         </header>
 
@@ -533,8 +565,8 @@ export default function Dashboard() {
           {currentTab === 'home' && (
             <div className="space-y-6">
               
-              {/* HERO AVAILABLE BALANCE CARD (Strictly Live Firestore Data) */}
-              <div className="bg-[#063D2A] rounded-[36px] p-7 sm:p-8 text-white relative overflow-hidden shadow-2xl shadow-[#063D2A]/15">
+              {/* HERO AVAILABLE BALANCE CARD */}
+              <div className="bg-[#063D2A] rounded-[36px] p-7 sm:p-8 text-white relative overflow-hidden shadow-2xl shadow-[#063D2A]/15 backdrop-blur-xl">
                 <div className="absolute -right-12 -top-12 w-64 h-64 bg-[#0B4C35] rounded-full blur-2xl pointer-events-none opacity-50" />
                 <div className="absolute right-12 -bottom-24 w-72 h-72 bg-[#08422E] rounded-full blur-3xl pointer-events-none opacity-60" />
 
@@ -561,8 +593,8 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* MONTHLY EARNINGS BAR GRAPH CARD */}
-              <div className="bg-white border border-slate-200/80 rounded-[36px] p-7 shadow-xs space-y-5">
+              {/* MONTHLY EARNINGS BAR GRAPH CARD WITH TOOLTIPS */}
+              <div className="bg-white/90 backdrop-blur-xl border border-slate-200/80 rounded-[36px] p-7 shadow-xs space-y-5">
                 <div className="flex items-start justify-between">
                   <div>
                     <h3 className="text-lg font-bold text-slate-900 tracking-tight">This month</h3>
@@ -574,13 +606,19 @@ export default function Dashboard() {
                   </span>
                 </div>
 
-                <div className="grid grid-cols-12 gap-2 items-end h-32 pt-4 px-1">
+                <div className="grid grid-cols-12 gap-2 items-end h-32 pt-4 px-1 relative">
                   {barChartData.map((item, idx) => (
                     <div 
                       key={idx} 
                       onMouseEnter={() => setHoveredBarIndex(idx)}
-                      className="flex flex-col items-center gap-1.5 h-full justify-end cursor-pointer group"
+                      className="flex flex-col items-center gap-1.5 h-full justify-end cursor-pointer group relative"
                     >
+                      {hoveredBarIndex === idx && (
+                        <div className="absolute -top-8 px-2 py-1 bg-slate-900 text-white text-[10px] font-mono rounded-lg shadow-xl animate-in fade-in duration-150 whitespace-nowrap z-20 pointer-events-none">
+                          {item.month}: {item.amount}
+                        </div>
+                      )}
+
                       <div 
                         className={`w-full rounded-full transition-all duration-300 ${
                           hoveredBarIndex === idx ? 'bg-[#94EC36] shadow-md shadow-[#94EC36]/30 scale-y-105' : 'bg-slate-100 group-hover:bg-slate-200'
@@ -602,7 +640,7 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* ACTIVE PROJECTS LIST (Strictly Real Firestore Deliveries) */}
+              {/* ACTIVE PROJECTS LIST */}
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
@@ -615,13 +653,13 @@ export default function Dashboard() {
                 </div>
 
                 {deliveries.length === 0 ? (
-                  <div className="p-12 text-center text-xs text-slate-400 bg-white rounded-[32px] border border-slate-200/80 shadow-xs">
+                  <div className="p-12 text-center text-xs text-slate-400 bg-white/90 rounded-[32px] border border-slate-200/80 shadow-xs">
                     No active escrow projects yet. Tap '+' to request your first payment.
                   </div>
                 ) : (
                   <div className="space-y-3">
                     {deliveries.map(item => (
-                      <div key={item.id} className="p-6 bg-white border border-slate-200/80 rounded-[32px] shadow-xs space-y-4 hover:border-slate-300 transition">
+                      <div key={item.id} className="p-6 bg-white/90 backdrop-blur-xl border border-slate-200/80 rounded-[32px] shadow-xs space-y-4 hover:-translate-y-1 hover:border-slate-300 transition-all duration-200">
                         <div className="flex items-start justify-between">
                           <div className="flex items-center gap-3.5">
                             <div className="w-12 h-12 rounded-2xl bg-[#94EC36]/30 text-[#063D2A] font-bold text-sm flex items-center justify-center">
@@ -646,7 +684,7 @@ export default function Dashboard() {
 
                           <div className="flex items-center justify-between text-xs pt-0.5">
                             <span className="flex items-center gap-1.5 font-bold text-slate-800">
-                              <span className={`w-2 h-2 rounded-full ${item.status === 'Paid' ? 'bg-emerald-500' : 'bg-[#94EC36]'}`} />
+                              <span className={`w-2 h-2 rounded-full ${item.status === 'Paid' ? 'bg-emerald-500' : 'bg-[#94EC36] animate-ping'}`} />
                               {item.status === 'Paid' ? 'Funds Released' : 'Funded • In Progress'}
                             </span>
 
@@ -673,13 +711,26 @@ export default function Dashboard() {
           {/* TAB: PROJECTS */}
           {currentTab === 'projects' && (
             <div className="space-y-6">
-              <h1 className="text-2xl font-black text-slate-900 tracking-tight">All Projects</h1>
+              <div className="flex items-center justify-between">
+                <h1 className="text-2xl font-black text-slate-900 tracking-tight">All Projects</h1>
+                <div className="relative w-48 sm:w-64">
+                  <Search className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search projects..."
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200/80 rounded-2xl text-xs focus:outline-none focus:border-[#94EC36] transition"
+                  />
+                </div>
+              </div>
+
               <div className="space-y-3">
-                {deliveries.length === 0 ? (
-                  <div className="p-12 text-center text-xs text-slate-400 bg-white rounded-[32px]">No projects created yet.</div>
+                {filteredDeliveries.length === 0 ? (
+                  <div className="p-12 text-center text-xs text-slate-400 bg-white rounded-[32px]">No projects found.</div>
                 ) : (
-                  deliveries.map(item => (
-                    <div key={item.id} className="p-6 bg-white border border-slate-200/80 rounded-[32px] flex items-center justify-between shadow-xs">
+                  filteredDeliveries.map(item => (
+                    <div key={item.id} className="p-6 bg-white border border-slate-200/80 rounded-[32px] flex items-center justify-between shadow-xs hover:border-slate-300 transition">
                       <div>
                         <h4 className="font-bold text-sm text-slate-900">{item.title}</h4>
                         <p className="text-xs text-slate-400">Client: {item.clientName} • {item.files?.length || 0} file(s)</p>
@@ -697,7 +748,7 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* TAB: REVISIONS */}
+          {/* TAB: REVISIONS / CHAT LIST */}
           {currentTab === 'revisions' && (
             <div className="space-y-6">
               <h1 className="text-2xl font-black text-slate-900 tracking-tight">Client Revisions</h1>
@@ -705,48 +756,105 @@ export default function Dashboard() {
                 {deliveries.length === 0 ? (
                   <div className="p-12 text-center text-xs text-slate-400 bg-white rounded-[32px]">No revision threads found.</div>
                 ) : (
-                  deliveries.map(d => (
-                    <div key={d.id} className="p-6 bg-white border border-slate-200/80 rounded-[32px] flex justify-between items-center shadow-xs">
-                      <div>
-                        <h4 className="font-bold text-xs text-slate-900">{d.clientName}</h4>
-                        <p className="text-xs text-slate-500">{d.title}</p>
+                  deliveries.map(d => {
+                    const hasMessages = d.messages && d.messages.length > 0
+                    const lastMsg = hasMessages ? d.messages[d.messages.length - 1] : null
+                    return (
+                      <div key={d.id} className="p-6 bg-white border border-slate-200/80 rounded-[32px] flex justify-between items-center shadow-xs hover:border-slate-300 transition">
+                        <div className="space-y-1 min-w-0 pr-4">
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-bold text-xs text-slate-900">{d.clientName}</h4>
+                            <span className="text-slate-300">•</span>
+                            <span className="text-xs text-slate-500 truncate">{d.title}</span>
+                          </div>
+                          <p className="text-xs text-slate-600 truncate">
+                            {lastMsg ? lastMsg.text : 'No messages yet.'}
+                          </p>
+                        </div>
+                        <button 
+                          onClick={() => { setActiveThreadDelivery(d); setCurrentTab('chat-thread'); }} 
+                          className="px-4 py-2.5 bg-[#063D2A] hover:bg-[#094E36] text-white font-bold text-xs rounded-2xl transition shrink-0"
+                        >
+                          Open Chat
+                        </button>
                       </div>
-                      <button onClick={() => { setActiveThreadDelivery(d); setCurrentTab('chat-thread'); }} className="px-4 py-2 bg-[#063D2A] hover:bg-[#094E36] text-white font-bold text-xs rounded-xl transition">
-                        Open Chat
-                      </button>
-                    </div>
-                  ))
+                    )
+                  })
                 )}
               </div>
             </div>
           )}
 
-          {/* TAB: CHAT THREAD */}
+          {/* TAB: CHAT THREAD (Studio Collaboration Vault) */}
           {currentTab === 'chat-thread' && activeThreadDelivery && (
-            <div className="bg-white border border-slate-200/80 rounded-[32px] p-6 space-y-4 shadow-xs">
-              <button onClick={() => setCurrentTab('revisions')} className="text-xs font-bold text-slate-400 hover:text-slate-700">← Back</button>
-              <h3 className="font-bold text-sm text-slate-900">{activeThreadDelivery.title}</h3>
-              <div className="h-64 overflow-y-auto bg-[#F3F5F1] p-4 rounded-2xl space-y-2">
-                {(activeThreadDelivery.messages || []).length === 0 ? (
-                  <div className="h-full flex items-center justify-center text-xs text-slate-400">No messages yet.</div>
-                ) : (
-                  activeThreadDelivery.messages.map((m, idx) => (
-                    <div key={idx} className={`p-3 text-xs rounded-xl max-w-xs ${m.sender === 'creator' ? 'bg-[#063D2A] text-white ml-auto' : 'bg-white text-slate-800 shadow-xs'}`}>
-                      {m.text}
-                    </div>
-                  ))
-                )}
+            <div className="bg-white border border-slate-200/80 rounded-[36px] p-6 space-y-4 shadow-xl">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div className="flex items-center gap-3">
+                  <button onClick={() => setCurrentTab('revisions')} className="text-xs font-bold text-slate-400 hover:text-slate-700 transition">
+                    ← Back
+                  </button>
+                  <span className="text-slate-300">|</span>
+                  <div>
+                    <h3 className="font-bold text-xs text-slate-900">{activeThreadDelivery.clientName}</h3>
+                    <p className="text-[10px] text-slate-400">{activeThreadDelivery.title}</p>
+                  </div>
+                </div>
+
+                <Link href={`/d/${activeThreadDelivery.id}`} target="_blank" className="text-xs font-bold text-[#063D2A] hover:underline flex items-center gap-1">
+                  <span>Portal View</span> <ExternalLink className="w-3 h-3" />
+                </Link>
               </div>
+
+              {/* Chat Message Box */}
+              <div className="h-80 overflow-y-auto bg-[#F3F5F1] p-5 rounded-2xl space-y-3">
+                {(activeThreadDelivery.messages || []).length === 0 ? (
+                  <div className="h-full flex items-center justify-center text-xs text-slate-400">No revision notes yet. Start the conversation.</div>
+                ) : (
+                  activeThreadDelivery.messages.map((m, idx) => {
+                    const isCreator = m.sender === 'creator'
+                    return (
+                      <div key={idx} className={`flex flex-col ${isCreator ? 'items-end' : 'items-start'}`}>
+                        <div className={`p-3.5 text-xs rounded-2xl max-w-sm ${
+                          isCreator ? 'bg-[#063D2A] text-white rounded-br-xs shadow-md' : 'bg-white text-slate-800 shadow-xs rounded-bl-xs'
+                        }`}>
+                          <p className="leading-relaxed">{m.text}</p>
+                        </div>
+                        <span className="text-[9px] text-slate-400 mt-1">{new Date(m.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                    )
+                  })
+                )}
+                <div ref={chatBottomRef} />
+              </div>
+
+              {/* Quick Response Shortcuts */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 text-[10px]">
+                {["Working on this draft ✍️", "Uploaded revised files 📁", "Revision completed ✅"].map((pill, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setThreadReplyText(pill)}
+                    className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-full shrink-0 transition"
+                  >
+                    {pill}
+                  </button>
+                ))}
+              </div>
+
               <div className="flex gap-2">
                 <input
                   type="text"
-                  placeholder="Type reply..."
+                  placeholder="Type revision reply..."
                   value={threadReplyText}
                   onChange={e => setThreadReplyText(e.target.value)}
-                  className="flex-1 bg-[#F3F5F1] px-4 py-2.5 rounded-xl text-xs focus:outline-none focus:border-[#94EC36] transition"
+                  onKeyDown={e => e.key === 'Enter' && handleSendThreadReply(activeThreadDelivery.id)}
+                  className="flex-1 bg-[#F3F5F1] px-4 py-3 rounded-2xl text-xs focus:outline-none focus:border-[#94EC36] transition"
                 />
-                <button onClick={() => handleSendThreadReply(activeThreadDelivery.id)} className="px-5 py-2.5 bg-[#063D2A] hover:bg-[#094E36] text-white text-xs font-bold rounded-xl transition">
-                  Send
+                <button 
+                  onClick={() => handleSendThreadReply(activeThreadDelivery.id)} 
+                  className="px-5 py-3 bg-[#063D2A] hover:bg-[#094E36] text-white text-xs font-bold rounded-2xl transition active:scale-95 flex items-center gap-1.5"
+                >
+                  <Send className="w-3.5 h-3.5 text-[#94EC36]" />
+                  <span>Send</span>
                 </button>
               </div>
             </div>
@@ -757,7 +865,7 @@ export default function Dashboard() {
             <div className="space-y-6">
               <h1 className="text-2xl font-black text-slate-900 tracking-tight">Wallet & Payouts</h1>
               <div className="p-8 bg-white border border-slate-200/80 rounded-[36px] space-y-4 shadow-xs">
-                <div className="text-xs text-slate-400 font-medium">Available Balance for Payout</div>
+                <div className="text-xs text-slate-400 font-medium">Available Balance for Bank Payout</div>
                 <div className="text-4xl font-black text-[#063D2A] font-mono">{formatCurrency(totalRevenue, 'USD')}</div>
                 <p className="text-xs text-slate-500 leading-relaxed">Funds are securely locked in escrow and instantly released to your linked bank account upon client approval.</p>
               </div>
@@ -769,20 +877,20 @@ export default function Dashboard() {
 
       {/* FLOATING PLUS ACTION BUTTON */}
       <button
-        onClick={() => setRequestModalOpen(true)}
+        onClick={() => { setWizardStep(1); setRequestModalOpen(true); }}
         className="fixed bottom-24 right-6 sm:bottom-10 sm:right-10 z-40 w-14 h-14 rounded-full bg-[#063D2A] text-white flex items-center justify-center shadow-2xl shadow-[#063D2A]/40 transition hover:scale-105 active:scale-95"
       >
         <Plus className="w-7 h-7 text-[#94EC36]" />
       </button>
 
-      {/* REQUEST A PAYMENT MODAL (With Strict File Validation & Multi-File Support) */}
+      {/* REQUEST A PAYMENT 4-STEP ANIMATED WIZARD MODAL */}
       {requestModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="w-full max-w-md bg-white rounded-[40px] p-8 shadow-2xl relative animate-in zoom-in-95 duration-200 space-y-5 max-h-[90vh] overflow-y-auto">
             
             <div className="flex items-start justify-between">
               <div>
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest font-mono">NEW ESCROW</span>
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest font-mono">STEP {wizardStep} OF 4</span>
                 <h3 className="text-2xl font-black text-slate-900 tracking-tight mt-0.5">Request a payment</h3>
               </div>
               <button 
@@ -793,71 +901,36 @@ export default function Dashboard() {
               </button>
             </div>
 
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1.5">Client email</label>
-                <input
-                  type="email"
-                  placeholder="client@company.com"
-                  value={clientEmail}
-                  onChange={e => setClientEmail(e.target.value)}
-                  className="w-full px-4 py-3.5 bg-[#F3F5F1] border border-slate-200/80 rounded-2xl text-xs font-medium text-slate-900 focus:outline-none focus:border-[#94EC36] transition placeholder:text-slate-400"
-                />
-              </div>
+            {/* Step Progress Bar */}
+            <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+              <div 
+                className="bg-[#063D2A] h-full transition-all duration-300"
+                style={{ width: `${(wizardStep / 4) * 100}%` }}
+              />
+            </div>
 
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1.5">Project name</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Website redesign"
-                  value={title}
-                  onChange={e => setTitle(e.target.value)}
-                  className="w-full px-4 py-3.5 bg-[#F3F5F1] border border-slate-200/80 rounded-2xl text-xs font-medium text-slate-900 focus:outline-none focus:border-[#94EC36] transition placeholder:text-slate-400"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1.5">Amount</label>
-                <div className="flex bg-[#F3F5F1] border border-slate-200/80 rounded-2xl overflow-hidden focus-within:border-[#94EC36] transition">
-                  <select
-                    value={currency}
-                    onChange={e => setCurrency(e.target.value)}
-                    className="px-4 py-3.5 bg-transparent text-xs font-bold text-slate-700 focus:outline-none border-r border-slate-200 cursor-pointer"
-                  >
-                    <option value="USD">USD</option>
-                    <option value="INR">INR (₹)</option>
-                  </select>
-                  <input
-                    type="number"
-                    placeholder="0.00"
-                    value={amount}
-                    onChange={e => setAmount(e.target.value)}
-                    className="w-full px-4 py-3.5 bg-transparent text-xs font-bold text-slate-900 focus:outline-none placeholder:text-slate-400 font-mono"
-                  />
-                </div>
-              </div>
-
-              {/* Strict Deliverables File Upload Box */}
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1.5">Deliverable Files (ZIP, Videos, PDFs) *</label>
+            {/* WIZARD STEP 1: FILE ATTACHMENTS */}
+            {wizardStep === 1 && (
+              <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-200">
+                <label className="text-xs font-bold text-slate-700 block">Attach Deliverables (ZIP, Videos, PDFs) *</label>
                 <div
                   onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
                   onDragLeave={() => setIsDragging(false)}
                   onDrop={(e) => { e.preventDefault(); setIsDragging(false); handleFilesAdd(e.dataTransfer.files); }}
-                  className={`border-2 border-dashed rounded-2xl p-4 text-center transition-all ${
+                  className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all ${
                     isDragging ? 'border-[#063D2A] bg-emerald-50/50' : 'border-slate-200 bg-[#F3F5F1] hover:border-[#94EC36]'
                   }`}
                 >
-                  <UploadCloud className="w-6 h-6 text-[#063D2A] mx-auto mb-1" />
+                  <UploadCloud className="w-8 h-8 text-[#063D2A] mx-auto mb-2 animate-bounce" />
                   <span className="text-xs font-bold text-slate-800 block">Drop ZIP / Videos / Files here</span>
-                  <label className="mt-2 inline-block px-3 py-1.5 bg-[#063D2A] text-white text-[11px] font-bold rounded-xl cursor-pointer shadow-xs transition">
+                  <label className="mt-3 inline-block px-4 py-2 bg-[#063D2A] text-white text-xs font-bold rounded-xl cursor-pointer shadow-xs transition">
                     Browse Files
                     <input type="file" multiple onChange={e => handleFilesAdd(e.target.files)} className="hidden" />
                   </label>
                 </div>
 
                 {fileList.length > 0 && (
-                  <div className="mt-2 space-y-1.5 bg-[#F3F5F1] p-3 rounded-2xl border border-slate-200 max-h-32 overflow-y-auto">
+                  <div className="space-y-1.5 bg-[#F3F5F1] p-3 rounded-2xl border border-slate-200 max-h-32 overflow-y-auto">
                     {fileList.map((f, i) => (
                       <div key={i} className="flex justify-between text-xs items-center px-1">
                         <span className="truncate max-w-[240px] font-medium text-slate-800 flex items-center gap-1.5">
@@ -871,35 +944,230 @@ export default function Dashboard() {
                     ))}
                   </div>
                 )}
-              </div>
 
-              <div className="p-4 bg-[#94EC36]/15 border border-[#94EC36]/30 rounded-2xl flex items-start gap-3">
-                <ShieldCheck className="w-5 h-5 text-[#063D2A] shrink-0 mt-0.5" />
-                <p className="text-xs text-[#063D2A] leading-relaxed font-semibold">
-                  Your client funds the escrow first. You get paid when the approved work is delivered.
-                </p>
+                <button
+                  disabled={fileList.length === 0}
+                  onClick={() => setWizardStep(2)}
+                  className="w-full py-3.5 bg-[#063D2A] hover:bg-[#094E36] disabled:opacity-40 text-white font-bold text-xs rounded-2xl shadow-lg transition active:scale-95 flex items-center justify-center gap-2"
+                >
+                  <span>Next: Project Details</span>
+                  <ArrowRight className="w-4 h-4 text-[#94EC36]" />
+                </button>
               </div>
+            )}
 
-              {uploading ? (
-                <div className="p-4 bg-[#063D2A] text-white rounded-2xl space-y-2">
-                  <div className="flex items-center justify-between text-xs font-semibold">
-                    <span>Uploading deliverables...</span>
-                    <span>{uploadProgress}%</span>
-                  </div>
-                  <div className="w-full h-1.5 bg-[#08422E] rounded-full overflow-hidden">
-                    <div className="h-full bg-[#94EC36] transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
+            {/* WIZARD STEP 2: DETAILS */}
+            {wizardStep === 2 && (
+              <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-200">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Client Email *</label>
+                  <input
+                    type="email"
+                    placeholder="client@company.com"
+                    value={clientEmail}
+                    onChange={e => setClientEmail(e.target.value)}
+                    className="w-full px-4 py-3 bg-[#F3F5F1] border border-slate-200/80 rounded-2xl text-xs font-medium text-slate-900 focus:outline-none focus:border-[#94EC36] transition"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Project Name *</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Website redesign"
+                    value={title}
+                    onChange={e => setTitle(e.target.value)}
+                    className="w-full px-4 py-3 bg-[#F3F5F1] border border-slate-200/80 rounded-2xl text-xs font-medium text-slate-900 focus:outline-none focus:border-[#94EC36] transition"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Handover Message</label>
+                  <textarea
+                    rows={2}
+                    placeholder="Final master draft attached. Unlocks upon escrow release."
+                    value={clientMessage}
+                    onChange={e => setClientMessage(e.target.value)}
+                    className="w-full px-4 py-3 bg-[#F3F5F1] border border-slate-200/80 rounded-2xl text-xs font-medium text-slate-900 focus:outline-none focus:border-[#94EC36] transition"
+                  />
+                </div>
+
+                <div className="flex gap-2">
+                  <button onClick={() => setWizardStep(1)} className="w-1/3 py-3 border border-slate-200 text-slate-600 font-bold text-xs rounded-2xl">Back</button>
+                  <button
+                    disabled={!clientEmail || !title}
+                    onClick={() => setWizardStep(3)}
+                    className="w-2/3 py-3 bg-[#063D2A] hover:bg-[#094E36] disabled:opacity-40 text-white font-bold text-xs rounded-2xl shadow-lg transition flex items-center justify-center gap-2"
+                  >
+                    <span>Next: Pricing</span>
+                    <ArrowRight className="w-4 h-4 text-[#94EC36]" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* WIZARD STEP 3: PRICE & WATERMARK */}
+            {wizardStep === 3 && (
+              <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-200">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Escrow Amount *</label>
+                  <div className="flex bg-[#F3F5F1] border border-slate-200/80 rounded-2xl overflow-hidden focus-within:border-[#94EC36] transition">
+                    <select
+                      value={currency}
+                      onChange={e => setCurrency(e.target.value)}
+                      className="px-4 py-3 bg-transparent text-xs font-bold text-slate-700 focus:outline-none border-r border-slate-200 cursor-pointer"
+                    >
+                      <option value="USD">USD ($)</option>
+                      <option value="INR">INR (₹)</option>
+                    </select>
+                    <input
+                      type="number"
+                      placeholder="0.00"
+                      value={amount}
+                      onChange={e => setAmount(e.target.value)}
+                      className="w-full px-4 py-3 bg-transparent text-xs font-bold text-slate-900 focus:outline-none font-mono"
+                    />
                   </div>
                 </div>
-              ) : (
-                <button
-                  onClick={handleDeployVault}
-                  disabled={!title || !amount || fileList.length === 0}
-                  className="w-full py-4 bg-[#063D2A] hover:bg-[#094E36] disabled:opacity-50 text-white font-bold text-xs rounded-2xl shadow-lg transition active:scale-95 flex items-center justify-center gap-2"
-                >
-                  <span>Create secure payment</span>
-                </button>
-              )}
 
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Link Expiry</label>
+                  <div className="grid grid-cols-4 gap-2 text-xs font-semibold">
+                    {['7', '14', '30', 'never'].map(opt => (
+                      <button
+                        key={opt}
+                        type="button"
+                        onClick={() => setExpirySelection(opt)}
+                        className={`py-2 rounded-xl border transition ${
+                          expirySelection === opt ? 'bg-[#94EC36]/20 border-[#063D2A] text-[#063D2A] font-bold' : 'border-slate-200 text-slate-600'
+                        }`}
+                      >
+                        {opt === 'never' ? 'Never' : `${opt} Days`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <button onClick={() => setWizardStep(2)} className="w-1/3 py-3 border border-slate-200 text-slate-600 font-bold text-xs rounded-2xl">Back</button>
+                  <button
+                    disabled={!amount}
+                    onClick={() => setWizardStep(4)}
+                    className="w-2/3 py-3 bg-[#063D2A] hover:bg-[#094E36] disabled:opacity-40 text-white font-bold text-xs rounded-2xl shadow-lg transition flex items-center justify-center gap-2"
+                  >
+                    <span>Review & Deploy</span>
+                    <ArrowRight className="w-4 h-4 text-[#94EC36]" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* WIZARD STEP 4: FINAL REVIEW & DEPLOY */}
+            {wizardStep === 4 && (
+              <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-200">
+                <div className="p-4 bg-[#F3F5F1] rounded-2xl space-y-2 text-xs font-medium">
+                  <div className="flex justify-between font-bold text-slate-900 border-b border-slate-200 pb-2">
+                    <span>{title}</span>
+                    <span>{formatCurrency(amount, currency)}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-500">
+                    <span>Client: {clientEmail}</span>
+                    <span>{fileList.length} files attached</span>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-[#94EC36]/15 border border-[#94EC36]/30 rounded-2xl flex items-start gap-3">
+                  <ShieldCheck className="w-5 h-5 text-[#063D2A] shrink-0 mt-0.5" />
+                  <p className="text-xs text-[#063D2A] leading-relaxed font-semibold">
+                    Your client funds the escrow first. You get paid when the approved work is delivered.
+                  </p>
+                </div>
+
+                {uploading ? (
+                  <div className="p-4 bg-[#063D2A] text-white rounded-2xl space-y-2">
+                    <div className="flex items-center justify-between text-xs font-semibold">
+                      <span>Uploading & Deploying Vault...</span>
+                      <span>{uploadProgress}%</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-[#08422E] rounded-full overflow-hidden">
+                      <div className="h-full bg-[#94EC36] transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <button onClick={() => setWizardStep(3)} className="w-1/3 py-3.5 border border-slate-200 text-slate-600 font-bold text-xs rounded-2xl">Back</button>
+                    <button
+                      onClick={handleDeployVault}
+                      className="w-2/3 py-3.5 bg-[#063D2A] hover:bg-[#094E36] text-white font-bold text-xs rounded-2xl shadow-lg transition active:scale-95 flex items-center justify-center gap-2"
+                    >
+                      <Lock className="w-4 h-4 text-[#94EC36]" />
+                      <span>Create secure payment</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+          </div>
+        </div>
+      )}
+
+      {/* AI ASSISTANT DRAWER */}
+      {aiDrawerOpen && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex justify-end animate-in fade-in duration-200">
+          <div className="w-80 bg-white h-full p-6 shadow-2xl flex flex-col justify-between animate-in slide-in-from-right duration-200">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <Bot className="w-5 h-5 text-[#063D2A]" />
+                  <span className="font-bold text-sm text-slate-900">AI Escrow Assistant</span>
+                </div>
+                <button onClick={() => setAiDrawerOpen(false)} className="text-slate-400 hover:text-slate-700">✕</button>
+              </div>
+
+              <div className="p-4 bg-[#F3F5F1] rounded-2xl text-xs space-y-2">
+                <div className="font-bold text-[#063D2A]">💡 Quick Insights</div>
+                <p className="text-slate-600 leading-relaxed">
+                  You have {paidDeliveries.length} cleared payouts totaling {formatCurrency(totalRevenue, 'USD')}.
+                </p>
+              </div>
+            </div>
+
+            <button onClick={() => setAiDrawerOpen(false)} className="w-full py-3 bg-[#063D2A] text-white font-bold text-xs rounded-2xl">
+              Close Assistant
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* PROFILE SETTINGS DRAWER */}
+      {profileDrawerOpen && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex justify-end animate-in fade-in duration-200">
+          <div className="w-80 bg-white h-full p-6 shadow-2xl flex flex-col justify-between animate-in slide-in-from-right duration-200">
+            <div className="space-y-6">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <span className="font-bold text-sm text-slate-900">Account Settings</span>
+                <button onClick={() => setProfileDrawerOpen(false)} className="text-slate-400 hover:text-slate-700">✕</button>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-[#FFD6A5] text-[#063D2A] font-bold flex items-center justify-center text-sm border border-white shadow-xs">
+                  {user.displayName ? user.displayName.slice(0, 2).toUpperCase() : 'AN'}
+                </div>
+                <div>
+                  <div className="font-bold text-xs text-slate-900">{user.displayName || 'Ankit'}</div>
+                  <div className="text-[10px] text-slate-400">{user.email}</div>
+                </div>
+              </div>
+
+              <div className="space-y-2 text-xs font-semibold text-slate-700">
+                <button onClick={() => showToast("Payout settings updated", "success")} className="w-full text-left p-3 bg-[#F3F5F1] rounded-xl flex items-center gap-2">
+                  <Wallet className="w-4 h-4 text-[#063D2A]" /> Bank & UPI Details
+                </button>
+                <button onClick={handleLogout} className="w-full text-left p-3 bg-rose-50 text-rose-600 rounded-xl flex items-center gap-2 font-bold">
+                  Sign Out
+                </button>
+              </div>
             </div>
           </div>
         </div>
