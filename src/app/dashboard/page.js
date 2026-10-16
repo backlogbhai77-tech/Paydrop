@@ -11,7 +11,7 @@ import {
   Plus, MessageSquare, UploadCloud, Lock, ExternalLink, 
   Trash2, RefreshCw, X, Search, Wallet, ShieldCheck, Eye, EyeOff,
   Home, Briefcase, ChevronRight, Sparkles, File, Film, Image as ImageIcon,
-  Send, Bot, ArrowRight, ArrowLeft, Share2, Copy, Check, Printer
+  Send, Bot, ArrowRight, ArrowLeft, Share2
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -37,13 +37,13 @@ export default function Dashboard() {
   const [copiedId, setCopiedId] = useState(null)
   const [toast, setToast] = useState(null)
   const [balanceVisible, setBalanceVisible] = useState(true)
-  const [hoveredBarIndex, setHoveredBarIndex] = useState(null)
+  const [activeChartPoint, setActiveChartPoint] = useState(null)
 
   // Drawer Modals
   const [aiDrawerOpen, setAiDrawerOpen] = useState(false)
   const [profileDrawerOpen, setProfileDrawerOpen] = useState(false)
 
-  // Fullscreen 4-Step Escrow Wizard State
+  // Fullscreen Wizard
   const [requestModalOpen, setRequestModalOpen] = useState(false)
   const [wizardStep, setWizardStep] = useState(1)
   const [title, setTitle] = useState('')
@@ -60,7 +60,7 @@ export default function Dashboard() {
   const [uploading, setUploading] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
 
-  // Fullscreen Revision Chat State
+  // Revision Chat
   const [activeThreadDelivery, setActiveThreadDelivery] = useState(null)
   const [threadReplyText, setThreadReplyText] = useState('')
   const chatBottomRef = useRef(null)
@@ -83,8 +83,8 @@ export default function Dashboard() {
           setDeliveries(docs)
           
           if (activeThreadDelivery) {
-            const updatedThread = docs.find(d => d.id === activeThreadDelivery.id)
-            if (updatedThread) setActiveThreadDelivery(updatedThread)
+            const updated = docs.find(d => d.id === activeThreadDelivery.id)
+            if (updated) setActiveThreadDelivery(updated)
           }
         })
       } else {
@@ -158,7 +158,7 @@ export default function Dashboard() {
 
   const handleDeployVault = async () => {
     if (!title || !amount || !fileList.length || !user) {
-      showToast("Please complete all steps and attach at least one deliverable file", "error")
+      showToast("Complete all steps and attach at least one file", "error")
       return
     }
 
@@ -200,7 +200,7 @@ export default function Dashboard() {
         createdAt: serverTimestamp()
       })
 
-      // AUTOMATED BACKGROUND EMAIL DISPATCH TO API
+      // BACKGROUND EMAIL DISPATCH VIA UNIFIED API
       const clientPortalUrl = `${window.location.origin}/d/${newDocRef.id}`
       if (clientEmail) {
         try {
@@ -208,6 +208,7 @@ export default function Dashboard() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
+              action: 'send-email',
               clientEmail: clientEmail.trim(),
               clientName: clientName.trim() || 'Client',
               creatorName: user.displayName || user.email?.split('@')[0] || 'Creator',
@@ -217,11 +218,11 @@ export default function Dashboard() {
             })
           })
         } catch (emailErr) {
-          console.error("Background email dispatch error:", emailErr)
+          console.error("Email dispatch failed:", emailErr)
         }
       }
 
-      showToast("Escrow request deployed & email dispatched in background!", "success")
+      showToast("Vault deployed & background email sent!", "success")
       setTitle('')
       setClientName('')
       setClientEmail('')
@@ -231,7 +232,7 @@ export default function Dashboard() {
       setWizardStep(1)
       setRequestModalOpen(false)
     } catch (err) {
-      showToast(err.message || "Failed to create escrow request", "error")
+      showToast(err.message || "Failed to create vault", "error")
     } finally {
       setUploading(false)
       setUploadProgress(0)
@@ -251,7 +252,7 @@ export default function Dashboard() {
   const copyLink = (id) => {
     navigator.clipboard.writeText(`${window.location.origin}/d/${id}`)
     setCopiedId(id)
-    showToast("Escrow link copied to clipboard!", "success")
+    showToast("Escrow link copied!", "success")
     setTimeout(() => setCopiedId(null), 2500)
   }
 
@@ -278,7 +279,7 @@ export default function Dashboard() {
       setThreadReplyText('')
       showToast("Reply sent to client", "success")
     } catch {
-      showToast("Failed to send message", "error")
+      showToast("Failed to send reply", "error")
     }
   }
 
@@ -294,8 +295,6 @@ export default function Dashboard() {
   const paidDeliveries = deliveries.filter(d => d.status === 'Paid')
   const totalRevenueINR = paidDeliveries.filter(d => (d.currency || 'INR') === 'INR').reduce((acc, c) => acc + (Number(c.creatorPayout) || Number(c.grossAmount) || 0), 0)
   const totalRevenueUSD = paidDeliveries.filter(d => d.currency === 'USD').reduce((acc, c) => acc + (Number(c.creatorPayout) || Number(c.grossAmount) || 0), 0)
-  
-  // UNREAD REVISIONS BADGE LOGIC
   const unreadRevisions = deliveries.filter(d => d.messages && d.messages.length > 0 && d.messages[d.messages.length - 1].sender === 'client')
 
   const filteredDeliveries = deliveries.filter(d => 
@@ -303,10 +302,11 @@ export default function Dashboard() {
     d.clientName?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
+  // SMOOTH DYNAMIC AREA CHART DATA CALCULATOR
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
   const currentYear = new Date().getFullYear()
   
-  const monthlySums = monthNames.map((m, i) => {
+  const monthlyDataPoints = monthNames.map((m, i) => {
     const monthItems = paidDeliveries.filter(d => {
       const dDate = d.createdAt?.seconds ? new Date(d.createdAt.seconds * 1000) : new Date()
       return dDate.getMonth() === i && dDate.getFullYear() === currentYear
@@ -315,23 +315,23 @@ export default function Dashboard() {
     return { month: m, amount: sum }
   })
 
-  const maxMonthlyVal = Math.max(...monthlySums.map(s => s.amount), 1000)
-  
-  const dynamicMonthlyStats = monthlySums.map(item => {
-    const heightPercent = Math.round((item.amount / maxMonthlyVal) * 100)
-    return {
-      month: item.month,
-      val: item.amount === 0 ? 8 : Math.max(heightPercent, 12),
-      amount: formatCurrency(item.amount, currency),
-      rawAmount: item.amount
-    }
+  const maxVal = Math.max(...monthlyDataPoints.map(p => p.amount), 5000)
+  const chartPoints = monthlyDataPoints.map((p, idx) => {
+    const x = (idx / 11) * 300
+    const y = 100 - (p.amount / maxVal) * 80
+    return { x, y, month: p.month, amount: p.amount }
   })
+
+  const svgPathD = chartPoints.reduce((acc, p, i) => {
+    return i === 0 ? `M ${p.x} ${p.y}` : `${acc} L ${p.x} ${p.y}`
+  }, '')
+  const areaPathD = `${svgPathD} L 300 120 L 0 120 Z`
 
   if (loading) {
     return (
       <div className="min-h-screen bg-[#F0F5EE] flex flex-col items-center justify-center text-xs text-slate-500 gap-3 font-mono">
         <div className="w-6 h-6 border-2 border-[#063D2A] border-t-transparent rounded-full animate-spin" />
-        <span>INITIALIZING STUDIO DASHBOARD...</span>
+        <span>INITIALIZING DASHBOARD...</span>
       </div>
     )
   }
@@ -339,9 +339,9 @@ export default function Dashboard() {
   if (!user) {
     return (
       <div className="min-h-screen bg-[#F0F5EE] flex flex-col items-center justify-center p-6 text-center">
-        <p className="text-xs text-slate-500 mb-4">You are not signed in.</p>
+        <p className="text-xs text-slate-500 mb-4">You are signed out.</p>
         <Link href="/" className="px-6 py-3 bg-[#063D2A] text-white text-xs font-bold rounded-2xl">
-          Go to Home / Login
+          Return to Login
         </Link>
       </div>
     )
@@ -464,7 +464,7 @@ export default function Dashboard() {
 
           <div className="hidden lg:block">
             <span className="text-xs font-medium text-slate-400">Studio Dashboard</span>
-            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Welcome, {user.displayName?.split(' ')[0] || user.email?.split('@')[0] || 'Ankit'}</h1>
+            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Welcome back, {user.displayName?.split(' ')[0] || user.email?.split('@')[0] || 'Ankit'}</h1>
           </div>
 
           <div className="flex items-center gap-3">
@@ -518,12 +518,12 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* REAL DYNAMIC MONTHLY BAR GRAPH */}
+              {/* MODERN AREA CHART GRAPH */}
               <div className="bg-white/90 backdrop-blur-xl border border-slate-200/80 rounded-[36px] p-7 shadow-xs space-y-5">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h3 className="text-lg font-bold text-slate-900 tracking-tight">Yearly Revenue Overview ({currentYear})</h3>
-                    <span className="text-xs text-slate-400 font-medium">Monthly breakdown from escrow transactions</span>
+                    <h3 className="text-lg font-bold text-slate-900 tracking-tight">Revenue Trend ({currentYear})</h3>
+                    <span className="text-xs text-slate-400 font-medium">Real-time escrow settlement velocity</span>
                   </div>
 
                   <select
@@ -536,42 +536,36 @@ export default function Dashboard() {
                   </select>
                 </div>
 
-                <div className="grid grid-cols-12 gap-1.5 sm:gap-2 items-end h-36 pt-6 px-1 relative border-b border-slate-100 pb-2">
-                  {dynamicMonthlyStats.map((item, idx) => (
-                    <div 
-                      key={idx} 
-                      onMouseEnter={() => setHoveredBarIndex(idx)}
-                      onMouseLeave={() => setHoveredBarIndex(null)}
-                      className="flex flex-col items-center gap-1.5 h-full justify-end cursor-pointer group relative"
-                    >
-                      {hoveredBarIndex === idx && (
-                        <div className="absolute -top-10 px-2.5 py-1.5 bg-slate-900 text-white text-[10px] font-mono rounded-xl shadow-xl animate-in fade-in duration-150 whitespace-nowrap z-30 pointer-events-none">
-                          <div className="font-bold">{item.month} {currentYear}</div>
-                          <div className="text-[#94EC36]">{item.amount}</div>
-                        </div>
-                      )}
+                <div className="relative h-40 pt-4">
+                  {/* SVG Area Line Chart */}
+                  <svg className="w-full h-full overflow-visible" viewBox="0 0 300 120" preserveAspectRatio="none">
+                    <defs>
+                      <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#94EC36" stopOpacity="0.4" />
+                        <stop offset="100%" stopColor="#94EC36" stopOpacity="0.0" />
+                      </linearGradient>
+                    </defs>
 
-                      <div 
-                        className={`w-full rounded-t-lg transition-all duration-300 ${
-                          hoveredBarIndex === idx ? 'bg-[#94EC36] shadow-md shadow-[#94EC36]/30 scale-y-105' : item.rawAmount > 0 ? 'bg-[#063D2A] group-hover:bg-[#094E36]' : 'bg-slate-100 group-hover:bg-slate-200'
-                        }`}
-                        style={{ height: `${item.val}%` }}
-                      />
-                      <span className="text-[9px] text-slate-400 font-mono mt-1">{item.month}</span>
+                    <path d={areaPathD} fill="url(#chartGradient)" />
+                    <path d={svgPathD} fill="none" stroke="#063D2A" strokeWidth="3" strokeLinecap="round" />
+
+                    {chartPoints.map((pt, idx) => (
+                      <g key={idx} className="group cursor-pointer" onMouseEnter={() => setActiveChartPoint(pt)}>
+                        <circle cx={pt.x} cy={pt.y} r="4" className="fill-[#063D2A] group-hover:fill-[#94EC36] transition-all" />
+                      </g>
+                    ))}
+                  </svg>
+
+                  {/* Hover Tooltip Overlay */}
+                  {activeChartPoint && (
+                    <div className="absolute top-2 left-1/2 -translate-x-1/2 px-3 py-1 bg-slate-900 text-white text-[10px] font-mono rounded-xl shadow-xl animate-in fade-in duration-150">
+                      {activeChartPoint.month}: {formatCurrency(activeChartPoint.amount, currency)}
                     </div>
-                  ))}
+                  )}
                 </div>
 
-                <div className="pt-2 flex items-center justify-between text-xs">
-                  <div>
-                    <span className="text-slate-400 font-medium">Total accumulated: </span>
-                    <span className="font-bold text-slate-900">{formatCurrency(currency === 'INR' ? totalRevenueINR : totalRevenueUSD, currency)}</span>
-                  </div>
-                  <div>
-                    <span className="text-emerald-700 font-bold bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
-                      {paidDeliveries.length} paid projects
-                    </span>
-                  </div>
+                <div className="flex justify-between text-[10px] text-slate-400 font-mono pt-2 border-t border-slate-100">
+                  {monthNames.map((m, i) => <span key={i}>{m}</span>)}
                 </div>
               </div>
 
@@ -691,7 +685,7 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* REVISIONS TAB WITH RED NOTIFICATION BADGES */}
+          {/* REVISIONS TAB */}
           {currentTab === 'revisions' && (
             <div className="space-y-6">
               <h1 className="text-2xl font-black text-slate-900 tracking-tight">Client Revisions</h1>
@@ -762,7 +756,7 @@ export default function Dashboard() {
 
                 <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-[#F0F5EE]">
                   {(activeThreadDelivery.messages || []).length === 0 ? (
-                    <div className="h-full flex items-center justify-center text-xs text-slate-400">No revision notes yet. Start the conversation.</div>
+                    <div className="h-full flex items-center justify-center text-xs text-slate-400">No revision notes yet. Start conversation.</div>
                   ) : (
                     activeThreadDelivery.messages.map((m, idx) => {
                       const isCreator = m.sender === 'creator'
@@ -824,7 +818,7 @@ export default function Dashboard() {
               <div className="p-8 bg-white/90 backdrop-blur-xl border border-slate-200/80 rounded-[36px] space-y-4 shadow-xs">
                 <div className="text-xs text-slate-400 font-medium">Available Balance for Bank Payout</div>
                 <div className="text-4xl font-black text-[#063D2A] font-mono">{formatCurrency(currency === 'INR' ? totalRevenueINR : totalRevenueUSD, currency)}</div>
-                <p className="text-xs text-slate-500 leading-relaxed">Funds are securely locked in escrow and instantly released to your linked bank account upon client approval.</p>
+                <p className="text-xs text-slate-500 leading-relaxed">Funds are locked in escrow and released to bank upon approval.</p>
               </div>
             </div>
           )}
@@ -840,7 +834,7 @@ export default function Dashboard() {
         <Plus className="w-7 h-7 text-[#94EC36]" />
       </button>
 
-      {/* FULLSCREEN 4-STEP WIZARD MODAL */}
+      {/* FULLSCREEN WIZARD MODAL */}
       {requestModalOpen && (
         <div className="fixed inset-0 z-50 bg-[#F0F5EE] flex flex-col p-4 sm:p-8 animate-in fade-in duration-200">
           <div className="max-w-2xl w-full mx-auto bg-white border border-slate-200/80 rounded-[40px] flex-1 p-8 shadow-2xl flex flex-col justify-between overflow-y-auto">
@@ -868,7 +862,7 @@ export default function Dashboard() {
 
               {wizardStep === 1 && (
                 <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-200">
-                  <label className="text-xs font-bold text-slate-700 block">Attach Deliverables (ZIP, Videos, PDFs) *</label>
+                  <label className="text-xs font-bold text-slate-700 block">Attach Deliverables (ZIP, Videos, Code, PDFs) *</label>
                   <div
                     onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
                     onDragLeave={() => setIsDragging(false)}
@@ -878,7 +872,7 @@ export default function Dashboard() {
                     }`}
                   >
                     <UploadCloud className="w-10 h-10 text-[#063D2A] mx-auto mb-3 animate-bounce" />
-                    <span className="text-sm font-bold text-slate-800 block">Drop ZIP / Videos / Files here</span>
+                    <span className="text-sm font-bold text-slate-800 block">Drop ZIP / Videos / Code files here</span>
                     <label className="mt-4 inline-block px-5 py-2.5 bg-[#063D2A] text-white text-xs font-bold rounded-2xl cursor-pointer shadow-md transition hover:scale-105">
                       Browse Files
                       <input type="file" multiple onChange={e => handleFilesAdd(e.target.files)} className="hidden" />
@@ -920,7 +914,7 @@ export default function Dashboard() {
                     <label className="text-xs font-bold text-slate-700 block mb-1.5">Project Name *</label>
                     <input
                       type="text"
-                      placeholder="e.g. Website redesign"
+                      placeholder="e.g. Website Redesign & Source Code"
                       value={title}
                       onChange={e => setTitle(e.target.value)}
                       className="w-full px-4 py-3.5 bg-[#F0F5EE] border border-slate-200 rounded-2xl text-xs font-medium text-slate-900 focus:outline-none focus:border-[#94EC36] transition"
@@ -999,7 +993,7 @@ export default function Dashboard() {
                   <div className="p-4 bg-[#94EC36]/15 border border-[#94EC36]/30 rounded-2xl flex items-start gap-3">
                     <ShieldCheck className="w-5 h-5 text-[#063D2A] shrink-0 mt-0.5" />
                     <p className="text-xs text-[#063D2A] leading-relaxed font-semibold">
-                      Your client funds the escrow first. You get paid when the approved work is delivered.
+                      Client deposits funds in escrow to unlock master deliverables.
                     </p>
                   </div>
                 </div>
@@ -1137,7 +1131,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* MOBILE BOTTOM NAVIGATION */}
+      {/* MOBILE BOTTOM NAV */}
       <div className="fixed bottom-0 left-0 right-0 z-30 lg:hidden bg-white/95 backdrop-blur-md border-t border-slate-200 px-6 py-3 flex items-center justify-between">
         <button
           onClick={() => setCurrentTab('home')}
