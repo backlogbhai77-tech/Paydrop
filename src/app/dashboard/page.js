@@ -1,14 +1,8 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
-import { auth, db, googleProvider } from '../../lib/firebase'
-import { 
-  signInWithPopup, 
-  signOut, 
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword
-} from 'firebase/auth'
+import { auth, db } from '../../lib/firebase'
+import { signOut, onAuthStateChanged } from 'firebase/auth'
 import { 
   collection, addDoc, query, where, deleteDoc, doc, updateDoc, 
   onSnapshot, serverTimestamp 
@@ -17,7 +11,7 @@ import {
   Plus, MessageSquare, UploadCloud, Lock, ExternalLink, 
   Trash2, RefreshCw, X, Search, Wallet, ShieldCheck, Eye, EyeOff,
   Home, Briefcase, ChevronRight, Sparkles, File, Film, Image as ImageIcon,
-  Send, Bot, ArrowRight, ArrowLeft, CheckCircle2
+  Send, Bot, ArrowRight, ArrowLeft, Share2, Copy, Check, Printer
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -186,7 +180,7 @@ export default function Dashboard() {
       const expiresAt = new Date()
       expiresAt.setDate(expiresAt.getDate() + (expirySelection === 'never' ? 3650 : parseInt(expirySelection)))
 
-      await addDoc(collection(db, 'deliveries'), {
+      const newDocRef = await addDoc(collection(db, 'deliveries'), {
         userId: user.uid,
         userEmail: user.email,
         title: title.trim(),
@@ -206,7 +200,13 @@ export default function Dashboard() {
         createdAt: serverTimestamp()
       })
 
-      showToast("Secure escrow payment request created!", "success")
+      // AUTOMATED CLIENT EMAIL DISPATCH LINK
+      const clientPortalUrl = `${window.location.origin}/d/${newDocRef.id}`
+      if (clientEmail) {
+        window.open(`mailto:${clientEmail}?subject=${encodeURIComponent(`[PayDrop Escrow] Protected Deliverables for ${title}`)}&body=${encodeURIComponent(`Hi ${clientName || 'Client'},\n\nI have created a secure deliverable vault for our project: ${title}.\n\nYou can review the protected preview and release the escrow payment to unlock original master files here:\n\n${clientPortalUrl}\n\nBest regards,\n${user.displayName || user.email}`)}`)
+      }
+
+      showToast("Escrow request deployed & notification email triggered!", "success")
       setTitle('')
       setClientName('')
       setClientEmail('')
@@ -236,8 +236,21 @@ export default function Dashboard() {
   const copyLink = (id) => {
     navigator.clipboard.writeText(`${window.location.origin}/d/${id}`)
     setCopiedId(id)
-    showToast("Escrow link copied!", "success")
+    showToast("Escrow link copied to clipboard!", "success")
     setTimeout(() => setCopiedId(null), 2500)
+  }
+
+  const shareProject = (item) => {
+    const url = `${window.location.origin}/d/${item.id}`
+    if (navigator.share) {
+      navigator.share({
+        title: `PayDrop Escrow: ${item.title}`,
+        text: `Review protected deliverables for ${item.title}`,
+        url: url,
+      }).catch(() => copyLink(item.id))
+    } else {
+      copyLink(item.id)
+    }
   }
 
   const handleSendThreadReply = async (deliveryId) => {
@@ -266,14 +279,15 @@ export default function Dashboard() {
   const paidDeliveries = deliveries.filter(d => d.status === 'Paid')
   const totalRevenueINR = paidDeliveries.filter(d => (d.currency || 'INR') === 'INR').reduce((acc, c) => acc + (Number(c.creatorPayout) || Number(c.grossAmount) || 0), 0)
   const totalRevenueUSD = paidDeliveries.filter(d => d.currency === 'USD').reduce((acc, c) => acc + (Number(c.creatorPayout) || Number(c.grossAmount) || 0), 0)
-  const unreadRevisionsCount = deliveries.filter(d => d.messages && d.messages.length > 0 && d.messages[d.messages.length - 1].sender === 'client').length
+  
+  // UNREAD REVISIONS BADGE LOGIC
+  const unreadRevisions = deliveries.filter(d => d.messages && d.messages.length > 0 && d.messages[d.messages.length - 1].sender === 'client')
 
   const filteredDeliveries = deliveries.filter(d => 
     d.title?.toLowerCase().includes(searchQuery.toLowerCase()) || 
     d.clientName?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  // FULLY REAL DYNAMIC MONTHLY GRAPH CALCULATOR FROM FIRESTORE DATA
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
   const currentYear = new Date().getFullYear()
   
@@ -329,7 +343,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* DESKTOP SIDEBAR */}
+      {/* SIDEBAR */}
       <aside className="hidden lg:flex w-64 bg-white/80 backdrop-blur-xl border-r border-slate-200/80 flex-col justify-between p-6 sticky top-0 h-screen z-30 select-none shrink-0">
         <div className="space-y-6">
           <div className="flex items-center justify-between">
@@ -389,8 +403,10 @@ export default function Dashboard() {
                 <MessageSquare className="w-4 h-4" />
                 <span>Revisions</span>
               </div>
-              {unreadRevisionsCount > 0 && (
-                <span className="w-2.5 h-2.5 rounded-full bg-[#94EC36] animate-pulse" />
+              {unreadRevisions.length > 0 && (
+                <span className="px-2 py-0.5 bg-rose-500 text-white font-mono text-[9px] rounded-full font-black animate-pulse">
+                  {unreadRevisions.length}
+                </span>
               )}
             </button>
 
@@ -432,8 +448,8 @@ export default function Dashboard() {
           </div>
 
           <div className="hidden lg:block">
-            <span className="text-xs font-medium text-slate-400">Wednesday, May 21</span>
-            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Good morning, {user.displayName?.split(' ')[0] || user.email?.split('@')[0] || 'Ankit'}</h1>
+            <span className="text-xs font-medium text-slate-400">Studio Dashboard</span>
+            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Welcome, {user.displayName?.split(' ')[0] || user.email?.split('@')[0] || 'Ankit'}</h1>
           </div>
 
           <div className="flex items-center gap-3">
@@ -463,7 +479,6 @@ export default function Dashboard() {
               {/* HERO BALANCE CARD */}
               <div className="bg-[#063D2A] rounded-[36px] p-7 sm:p-8 text-white relative overflow-hidden shadow-2xl shadow-[#063D2A]/15 backdrop-blur-xl">
                 <div className="absolute -right-12 -top-12 w-64 h-64 bg-[#0B4C35] rounded-full blur-2xl pointer-events-none opacity-50" />
-                <div className="absolute right-12 -bottom-24 w-72 h-72 bg-[#08422E] rounded-full blur-3xl pointer-events-none opacity-60" />
 
                 <div className="relative z-10 space-y-6">
                   <div className="flex items-center justify-between">
@@ -594,12 +609,15 @@ export default function Dashboard() {
                             </span>
 
                             <div className="flex items-center gap-3">
+                              <button onClick={() => shareProject(item)} className="p-1.5 bg-[#F0F5EE] hover:bg-slate-200 rounded-xl text-slate-700 transition" title="Share Escrow Link">
+                                <Share2 className="w-3.5 h-3.5" />
+                              </button>
                               <button onClick={() => copyLink(item.id)} className="text-slate-500 font-bold hover:text-slate-900 transition">
                                 {copiedId === item.id ? 'Copied!' : 'Copy link'}
                               </button>
                               <span className="text-slate-300">•</span>
                               <Link href={`/d/${item.id}`} target="_blank" className="text-[#063D2A] font-bold flex items-center gap-0.5 hover:underline">
-                                <span>View portal</span> <ChevronRight className="w-4 h-4" />
+                                <span>Portal</span> <ChevronRight className="w-4 h-4" />
                               </Link>
                             </div>
                           </div>
@@ -638,10 +656,15 @@ export default function Dashboard() {
                     <div key={item.id} className="p-6 bg-white border border-slate-200/80 rounded-[32px] flex items-center justify-between gap-4 shadow-xs hover:border-slate-300 transition">
                       <div className="min-w-0 pr-2">
                         <h4 className="font-bold text-sm text-slate-900 truncate">{item.title}</h4>
-                        <p className="text-xs text-slate-400 truncate">Client: {item.clientName} • {item.files?.length || 0} file(s)</p>
+                        <p className="text-xs text-slate-400 truncate">Client: {item.clientName} ({item.clientEmail}) • {item.files?.length || 0} file(s)</p>
                       </div>
-                      <div className="flex items-center gap-4 shrink-0">
+                      <div className="flex items-center gap-3 shrink-0">
                         <span className="font-bold text-xs font-mono">{formatCurrency(item.grossAmount, item.currency || 'INR')}</span>
+                        
+                        <button onClick={() => shareProject(item)} className="p-2 bg-[#F0F5EE] hover:bg-slate-200 rounded-xl text-slate-700 transition" title="Share Escrow Link">
+                          <Share2 className="w-4 h-4" />
+                        </button>
+
                         <button onClick={() => handleDelete(item.id)} className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition" title="Delete project">
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -653,7 +676,7 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* REVISIONS TAB */}
+          {/* REVISIONS TAB WITH RED NOTIFICATION BADGES */}
           {currentTab === 'revisions' && (
             <div className="space-y-6">
               <h1 className="text-2xl font-black text-slate-900 tracking-tight">Client Revisions</h1>
@@ -664,8 +687,18 @@ export default function Dashboard() {
                   deliveries.map(d => {
                     const hasMessages = d.messages && d.messages.length > 0
                     const lastMsg = hasMessages ? d.messages[d.messages.length - 1] : null
+                    const isUnreadClientMsg = lastMsg && lastMsg.sender === 'client'
+
                     return (
-                      <div key={d.id} className="p-6 bg-white border border-slate-200/80 rounded-[32px] flex justify-between items-center gap-4 shadow-xs hover:border-slate-300 transition">
+                      <div key={d.id} className={`p-6 bg-white border rounded-[32px] flex justify-between items-center gap-4 shadow-xs hover:border-slate-300 transition relative ${
+                        isUnreadClientMsg ? 'border-rose-300 bg-rose-50/20' : 'border-slate-200/80'
+                      }`}>
+                        {isUnreadClientMsg && (
+                          <div className="absolute -top-2 left-6 px-3 py-0.5 bg-rose-500 text-white font-mono text-[9px] font-black rounded-full shadow-md animate-bounce">
+                            NEW REVISION REQUEST
+                          </div>
+                        )}
+
                         <div className="space-y-1 min-w-0 pr-2">
                           <div className="flex items-center gap-2">
                             <h4 className="font-bold text-xs text-slate-900 truncate">{d.clientName}</h4>
@@ -673,14 +706,15 @@ export default function Dashboard() {
                             <span className="text-xs text-slate-500 truncate">{d.title}</span>
                           </div>
                           <p className="text-xs text-slate-600 truncate">
-                            {lastMsg ? lastMsg.text : 'No messages yet.'}
+                            {lastMsg ? lastMsg.text : 'No revision notes yet.'}
                           </p>
                         </div>
                         <button 
                           onClick={() => { setActiveThreadDelivery(d); setCurrentTab('chat-thread'); }} 
-                          className="px-4 py-2.5 bg-[#063D2A] hover:bg-[#094E36] text-white font-bold text-xs rounded-2xl transition shrink-0"
+                          className="px-4 py-2.5 bg-[#063D2A] hover:bg-[#094E36] text-white font-bold text-xs rounded-2xl transition shrink-0 flex items-center gap-1.5"
                         >
-                          Open Chat
+                          <span>Open Chat</span>
+                          {isUnreadClientMsg && <span className="w-2 h-2 rounded-full bg-rose-400 animate-ping" />}
                         </button>
                       </div>
                     )
@@ -1118,8 +1152,8 @@ export default function Dashboard() {
         >
           <MessageSquare className="w-5 h-5" />
           <span className="text-[10px]">Revisions</span>
-          {unreadRevisionsCount > 0 && (
-            <span className="absolute top-0 right-3 w-2 h-2 rounded-full bg-[#94EC36] animate-pulse" />
+          {unreadRevisions.length > 0 && (
+            <span className="absolute top-0 right-3 w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
           )}
         </button>
 
