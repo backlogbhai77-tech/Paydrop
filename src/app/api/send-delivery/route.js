@@ -9,7 +9,9 @@ export async function POST(req) {
     const body = await req.json()
     const { action } = body
 
-    // 1. CREATE PAYMENT ORDER (Direct REST API - Zero NPM Package Required)
+    // -------------------------------------------------------------
+    // 1. ACTION: CREATE RAZORPAY PAYMENT ORDER
+    // -------------------------------------------------------------
     if (action === 'create-order') {
       const { deliveryId, amount } = body
 
@@ -20,8 +22,9 @@ export async function POST(req) {
       const key_id = process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY
       const key_secret = process.env.RAZORPAY_KEY_SECRET
 
-      // Sandbox Mock Fallback (Agar keys set nahi hain toh UI crash nahi hoga)
+      // Sandbox / Mock Fallback if keys are missing
       if (!key_id || !key_secret) {
+        console.log(`[PayDrop Mock] Razorpay Order Created for Vault: ${deliveryId}`)
         return NextResponse.json({
           success: true,
           orderId: `order_mock_${Date.now()}`,
@@ -50,7 +53,7 @@ export async function POST(req) {
       const order = await rzpRes.json()
 
       if (!rzpRes.ok) {
-        return NextResponse.json({ success: false, error: order.error?.description || 'Razorpay order failed' }, { status: 400 })
+        return NextResponse.json({ success: false, error: order.error?.description || 'Razorpay order creation failed' }, { status: 400 })
       }
 
       return NextResponse.json({
@@ -62,15 +65,17 @@ export async function POST(req) {
       })
     }
 
-    // 2. VERIFY PAYMENT SIGNATURE & UNLOCK FILES
+    // -------------------------------------------------------------
+    // 2. ACTION: VERIFY PAYMENT SIGNATURE & UNLOCK ESCROW VAULT
+    // -------------------------------------------------------------
     if (action === 'verify-payment') {
       const { deliveryId, razorpay_order_id, razorpay_payment_id, razorpay_signature, isMock } = body
 
       if (!deliveryId) {
-        return NextResponse.json({ success: false, error: 'deliveryId is missing' }, { status: 400 })
+        return NextResponse.json({ success: false, error: 'deliveryId is required' }, { status: 400 })
       }
 
-      // Sandbox Verification
+      // Sandbox Verification Mode
       if (isMock) {
         const docRef = doc(db, 'deliveries', deliveryId)
         await updateDoc(docRef, {
@@ -88,7 +93,7 @@ export async function POST(req) {
         .digest('hex')
 
       if (expectedSignature !== razorpay_signature) {
-        return NextResponse.json({ success: false, error: 'Invalid signature' }, { status: 400 })
+        return NextResponse.json({ success: false, error: 'Invalid Razorpay Signature' }, { status: 400 })
       }
 
       const docRef = doc(db, 'deliveries', deliveryId)
@@ -101,7 +106,9 @@ export async function POST(req) {
       return NextResponse.json({ success: true, verified: true })
     }
 
-    // 3. DISPATCH CLIENT HANDOVER EMAIL
+    // -------------------------------------------------------------
+    // 3. ACTION: AUTOMATED BACKGROUND EMAIL DISPATCH (PayDrop Theme)
+    // -------------------------------------------------------------
     const { clientEmail, clientName, creatorName, projectTitle, amount, deliveryUrl, isReminder } = body
 
     if (!clientEmail) {
@@ -112,9 +119,10 @@ export async function POST(req) {
     const smtpPass = process.env.SMTP_PASS
 
     if (!smtpUser || !smtpPass) {
+      console.log(`[PayDrop Mock Email] Dispatched in background to ${clientEmail} -> URL: ${deliveryUrl}`)
       return NextResponse.json({
         success: true,
-        message: 'Mock email success (configure SMTP_USER/PASS for live dispatch)',
+        message: 'Mock email dispatch successful (Configure SMTP_USER & SMTP_PASS for live SMTP)',
         deliveryUrl
       })
     }
@@ -125,34 +133,60 @@ export async function POST(req) {
     })
 
     const subject = isReminder
-      ? `Payment Reminder: ${projectTitle} Deliverables Awaiting Release`
-      : `Vault Ready: ${projectTitle} Deliverables from ${creatorName || 'Creator'}`
+      ? `[Payment Reminder] ${projectTitle} - Deliverables Awaiting Escrow Release`
+      : `[PayDrop Vault] ${projectTitle} - Deliverables ready from ${creatorName || 'Creator'}`
 
+    // NEW BRANDED EMAIL TEMPLATE (Soft Mint + Emerald Theme)
     const htmlContent = `
-      <div style="font-family: sans-serif; max-width: 580px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 24px;">
-        <h2 style="color: #0f172a; margin-top: 0;">PayDrop Vault</h2>
-        <p>Hello <strong>${clientName}</strong>,</p>
-        <p>${creatorName || 'Your creator'} has uploaded deliverables for <strong>${projectTitle}</strong>.</p>
-        <div style="background: #f8fafc; border-radius: 12px; padding: 16px; text-align: center; margin: 20px 0;">
-          <span style="font-size: 11px; color: #64748b;">TOTAL DUE</span>
-          <div style="font-size: 24px; font-weight: 800; color: #0f172a;">₹${Number(amount || 0).toLocaleString('en-IN')}</div>
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 580px; margin: 0 auto; background: #F0F5EE; border-radius: 24px; padding: 32px; color: #0F172A;">
+        
+        <!-- Header -->
+        <div style="margin-bottom: 24px; text-align: left;">
+          <div style="display: inline-block; background: #94EC36; color: #063D2A; font-weight: 900; font-size: 18px; padding: 8px 16px; border-radius: 12px; margin-bottom: 12px;">
+            P
+          </div>
+          <h2 style="color: #063D2A; margin: 0; font-size: 22px; font-weight: 800;">PayDrop Studio</h2>
+          <p style="color: #64748B; font-size: 12px; margin-top: 4px;">Automated Escrow & Deliverable Handover</p>
         </div>
-        <div style="text-align: center;">
-          <a href="${deliveryUrl}" style="background: #2563eb; color: #ffffff; text-decoration: none; padding: 12px 28px; font-weight: bold; border-radius: 10px; display: inline-block;">
-            Inspect & Unlock Deliverables →
-          </a>
+
+        <!-- Body Box -->
+        <div style="background: #FFFFFF; border-radius: 20px; padding: 24px; border: 1px solid #E2E8F0; margin-bottom: 24px;">
+          <p style="font-size: 14px; margin-top: 0; color: #334155;">Hello <strong>${clientName || 'Client'}</strong>,</p>
+          <p style="font-size: 14px; color: #334155; leading-height: 1.6;">
+            <strong>${creatorName || 'Your Creator'}</strong> has uploaded secured master deliverables for project: <br/>
+            <span style="font-size: 16px; font-weight: 800; color: #063D2A;">"${projectTitle}"</span>
+          </p>
+
+          <div style="background: #063D2A; border-radius: 16px; padding: 20px; text-align: center; color: #FFFFFF; margin: 20px 0;">
+            <span style="font-size: 11px; color: #94EC36; letter-spacing: 1px; font-weight: 700; text-transform: uppercase;">SECURED ESCROW AMOUNT</span>
+            <div style="font-size: 28px; font-weight: 900; color: #FFFFFF; margin-top: 4px; font-family: monospace;">
+              ₹${Number(amount || 0).toLocaleString('en-IN')}
+            </div>
+            <span style="font-size: 10px; color: #A7F3D0;">Funds remain in escrow until you approve final files</span>
+          </div>
+
+          <div style="text-align: center; margin-top: 24px;">
+            <a href="${deliveryUrl}" style="background: #063D2A; color: #FFFFFF; text-decoration: none; padding: 14px 32px; font-weight: 800; font-size: 13px; border-radius: 14px; display: inline-block; border: 1px solid #063D2A;">
+              Inspect & Unlock Deliverables →
+            </a>
+          </div>
         </div>
+
+        <!-- Footer -->
+        <p style="text-align: center; font-size: 11px; color: #94A3B8; margin: 0;">
+          Protected by PayDrop Studio • SSL Encrypted Escrow Vault
+        </p>
       </div>
     `
 
     await transporter.sendMail({
-      from: `"PayDrop" <${smtpUser}>`,
+      from: `"PayDrop Vault" <${smtpUser}>`,
       to: clientEmail,
       subject,
       html: htmlContent
     })
 
-    return NextResponse.json({ success: true, message: 'Email dispatched' })
+    return NextResponse.json({ success: true, message: 'Background email dispatched successfully' })
   } catch (error) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 })
   }
