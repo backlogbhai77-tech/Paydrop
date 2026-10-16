@@ -6,7 +6,7 @@ import { doc, onSnapshot, updateDoc } from 'firebase/firestore'
 import { useParams } from 'next/navigation'
 import { 
   Lock, ShieldCheck, Download, Film, Image as ImageIcon, 
-  Send, CheckCircle2, AlertCircle, RefreshCw, FileArchive
+  Send, CheckCircle2, AlertCircle, RefreshCw, FileArchive, Printer, Check
 } from 'lucide-react'
 
 function formatCurrency(amount, currency = 'INR') {
@@ -53,7 +53,6 @@ export default function ClientDeliveryPortal() {
     return () => unsub()
   }, [deliveryId])
 
-  // Anti-Inspection & Blur Protection
   useEffect(() => {
     const handleBlur = () => setIsTabBlurred(true)
     const handleFocus = () => setIsTabBlurred(false)
@@ -116,6 +115,10 @@ export default function ClientDeliveryPortal() {
     }
   }
 
+  const handlePrintInvoice = () => {
+    window.print()
+  }
+
   const isPaid = delivery?.status === 'Paid'
 
   if (loading) {
@@ -144,7 +147,7 @@ export default function ClientDeliveryPortal() {
       
       {/* TAB BLUR OVERLAY */}
       {isTabBlurred && (
-        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-2xl flex flex-col items-center justify-center text-white p-6 text-center space-y-3">
+        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-2xl flex flex-col items-center justify-center text-white p-6 text-center space-y-3 print:hidden">
           <Lock className="w-10 h-10 text-[#94EC36] animate-bounce" />
           <h3 className="text-lg font-bold">Preview Session Suspended</h3>
           <p className="text-xs text-slate-300 max-w-sm">Switch back to this window to resume viewing your protected deliverables.</p>
@@ -152,7 +155,7 @@ export default function ClientDeliveryPortal() {
       )}
 
       {/* HEADER */}
-      <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-slate-200/80 px-6 sm:px-12 py-4 flex items-center justify-between">
+      <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-slate-200/80 px-6 sm:px-12 py-4 flex items-center justify-between print:hidden">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-2xl bg-[#94EC36] text-[#063D2A] font-black text-lg flex items-center justify-center shadow-xs">
             P
@@ -169,6 +172,16 @@ export default function ClientDeliveryPortal() {
         </div>
 
         <div className="flex items-center gap-2">
+          {isPaid && (
+            <button
+              onClick={handlePrintInvoice}
+              className="px-3 py-1.5 bg-[#063D2A] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 hover:bg-[#094E36] transition"
+            >
+              <Printer className="w-3.5 h-3.5 text-[#94EC36]" />
+              <span>Tax Invoice</span>
+            </button>
+          )}
+
           <span className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 ${
             isPaid ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'
           }`}>
@@ -178,8 +191,57 @@ export default function ClientDeliveryPortal() {
         </div>
       </header>
 
+      {/* PRINTABLE OFFICIAL TAX INVOICE FORMAT (PRINT-ONLY VIEW) */}
+      <div className="hidden print:block p-10 bg-white text-slate-900 space-y-6">
+        <div className="flex justify-between border-b pb-4">
+          <div>
+            <h1 className="text-2xl font-black text-[#063D2A]">PAYDROP STUDIO</h1>
+            <p className="text-xs text-slate-500">Official Escrow Receipt & Tax Invoice</p>
+          </div>
+          <div className="text-right text-xs">
+            <p className="font-bold">Invoice ID: #{delivery.id.slice(0, 8).toUpperCase()}</p>
+            <p className="text-slate-500">Date: {new Date(delivery.paidAt || Date.now()).toLocaleDateString()}</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 text-xs">
+          <div>
+            <p className="font-bold text-slate-400 uppercase">Creator</p>
+            <p className="font-extrabold">{delivery.userEmail}</p>
+          </div>
+          <div>
+            <p className="font-bold text-slate-400 uppercase">Client</p>
+            <p className="font-extrabold">{delivery.clientName} ({delivery.clientEmail})</p>
+          </div>
+        </div>
+
+        <table className="w-full text-xs border-collapse border border-slate-200">
+          <thead>
+            <tr className="bg-slate-50 text-left border-b border-slate-200">
+              <th className="p-3">Description</th>
+              <th className="p-3 text-right">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="border-b border-slate-200">
+              <td className="p-3 font-bold">{delivery.title}</td>
+              <td className="p-3 text-right font-mono">{formatCurrency(delivery.grossAmount, delivery.currency)}</td>
+            </tr>
+            <tr>
+              <td className="p-3 text-slate-500">Escrow Security Fee (Included)</td>
+              <td className="p-3 text-right font-mono text-slate-500">{formatCurrency(delivery.platformFee, delivery.currency)}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div className="text-right border-t pt-4">
+          <p className="text-sm font-black">Total Paid: {formatCurrency(delivery.grossAmount, delivery.currency)}</p>
+          <p className="text-[10px] text-emerald-600 font-bold mt-1">Status: Paid & Verified in Escrow Vault</p>
+        </div>
+      </div>
+
       {/* PORTAL MAIN BODY */}
-      <main className="max-w-5xl mx-auto p-4 sm:p-8 space-y-6">
+      <main className="max-w-5xl mx-auto p-4 sm:p-8 space-y-6 print:hidden">
 
         {/* HERO BANNER */}
         <div className="bg-[#063D2A] rounded-[36px] p-6 sm:p-8 text-white flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-2xl relative overflow-hidden">
@@ -238,7 +300,7 @@ export default function ClientDeliveryPortal() {
                   {(delivery.files || []).map((file, idx) => (
                     <div key={idx} className="p-4 bg-[#F0F5EE] rounded-2xl border border-slate-200/80 space-y-3 relative overflow-hidden">
                       
-                      {/* DYNAMIC ANTI-STEALTH WATERMARK OVERLAY */}
+                      {/* DYNAMIC WATERMARK */}
                       {!isPaid && (
                         <div className="absolute inset-0 pointer-events-none select-none z-10 flex items-center justify-center opacity-15 overflow-hidden">
                           <p className="text-xs font-mono font-bold text-slate-900 rotate-[-15deg] whitespace-nowrap">
@@ -276,7 +338,6 @@ export default function ClientDeliveryPortal() {
                         )}
                       </div>
 
-                      {/* MEDIA PROXY PREVIEWS */}
                       {!isPaid && file.type?.startsWith('video/') && (
                         <div className="rounded-xl overflow-hidden bg-black/90 aspect-video relative flex items-center justify-center z-20">
                           <video 
@@ -324,9 +385,16 @@ export default function ClientDeliveryPortal() {
                 </div>
 
                 {isPaid ? (
-                  <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs space-y-2 text-center font-semibold">
+                  <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs space-y-3 text-center font-semibold">
                     <CheckCircle2 className="w-6 h-6 text-emerald-600 mx-auto" />
                     <p>Escrow released! All master files are now unlocked for download.</p>
+                    <button
+                      onClick={handlePrintInvoice}
+                      className="w-full py-2 bg-[#063D2A] text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5"
+                    >
+                      <Printer className="w-3.5 h-3.5 text-[#94EC36]" />
+                      <span>Download Tax Receipt</span>
+                    </button>
                   </div>
                 ) : (
                   <button
