@@ -7,7 +7,7 @@ import { useParams } from 'next/navigation'
 import { 
   Lock, ShieldCheck, Download, Film, Image as ImageIcon, 
   Send, CheckCircle2, AlertCircle, RefreshCw, FileArchive, Printer,
-  Code, FileText, Maximize2, X, Eye
+  Code, Maximize2, X
 } from 'lucide-react'
 
 function formatCurrency(amount, currency = 'INR') {
@@ -27,7 +27,7 @@ export default function ClientDeliveryPortal() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  // Security & Lightbox States
+  // Security & Interactive States
   const [isTabBlurred, setIsTabBlurred] = useState(false)
   const [activeTab, setActiveTab] = useState('preview')
   const [messageText, setMessageText] = useState('')
@@ -46,7 +46,7 @@ export default function ClientDeliveryPortal() {
         setDelivery({ id: docSnap.id, ...data })
         setError(null)
 
-        // Fetch text/json/code files preview contents safely
+        // Fetch text/json/code previews safely
         if (data.files) {
           data.files.forEach(async (file) => {
             const ext = file.name?.split('.').pop()?.toLowerCase()
@@ -73,7 +73,7 @@ export default function ClientDeliveryPortal() {
     return () => unsub()
   }, [deliveryId])
 
-  // Anti-Inspection Listeners
+  // Anti-Inspection & Tab Blur Listeners
   useEffect(() => {
     const handleBlur = () => setIsTabBlurred(true)
     const handleFocus = () => setIsTabBlurred(false)
@@ -119,6 +119,7 @@ export default function ClientDeliveryPortal() {
     }
   }
 
+  // PHONE-FRIENDLY CONFETTI PAYMENT RELEASE 🚀
   const handleFundEscrow = async () => {
     setPaymentProcessing(true)
     try {
@@ -127,6 +128,24 @@ export default function ClientDeliveryPortal() {
           status: 'Paid',
           paidAt: new Date().toISOString()
         })
+        
+        // Dynamic Confetti script injection (No Terminal/npm install needed)
+        if (typeof window !== 'undefined') {
+          const script = document.createElement('script')
+          script.src = 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js'
+          script.onload = () => {
+            if (window.confetti) {
+              window.confetti({
+                particleCount: 100,
+                spread: 90,
+                origin: { y: 0.6 },
+                colors: ['#94EC36', '#10b981', '#063D2A', '#84cc16', '#34d399']
+              })
+            }
+          }
+          document.body.appendChild(script)
+        }
+
         setPaymentProcessing(false)
       }, 1500)
     } catch {
@@ -166,11 +185,11 @@ export default function ClientDeliveryPortal() {
         <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-2xl flex flex-col items-center justify-center text-white p-6 text-center space-y-3 print:hidden">
           <Lock className="w-10 h-10 text-[#94EC36] animate-bounce" />
           <h3 className="text-lg font-bold">Preview Session Suspended</h3>
-          <p className="text-xs text-slate-300 max-w-sm">Switch back to this window to resume viewing your protected deliverables.</p>
+          <p className="text-xs text-slate-300 max-w-sm">Switch back to this window to resume viewing deliverables.</p>
         </div>
       )}
 
-      {/* FULLSCREEN IMAGE LIGHTBOX MODAL */}
+      {/* FULLSCREEN IMAGE LIGHTBOX */}
       {fullscreenImage && (
         <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
           <button 
@@ -187,7 +206,7 @@ export default function ClientDeliveryPortal() {
         </div>
       )}
 
-      {/* RESPONSIVE NON-OVERLAPPING HEADER */}
+      {/* NON-OVERLAPPING RESPONSIVE HEADER */}
       <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-xl border-b border-slate-200/80 px-4 sm:px-8 py-3 print:hidden">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           
@@ -228,10 +247,9 @@ export default function ClientDeliveryPortal() {
         </div>
       </header>
 
-      {/* PORTAL BODY */}
+      {/* PORTAL CONTENT */}
       <main className="max-w-5xl mx-auto p-4 sm:p-8 space-y-6 print:hidden">
 
-        {/* HERO BANNER */}
         <div className="bg-[#063D2A] rounded-[32px] p-6 sm:p-8 text-white flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-2xl relative overflow-hidden">
           <div className="space-y-2 max-w-xl z-10">
             <span className="text-[10px] text-emerald-200/80 uppercase tracking-widest font-mono">DELIVERABLE VAULT</span>
@@ -248,7 +266,6 @@ export default function ClientDeliveryPortal() {
           </div>
         </div>
 
-        {/* NAVIGATION TABS */}
         <div className="flex bg-white/80 p-1.5 rounded-2xl border border-slate-200/80 max-w-md">
           <button
             onClick={() => setActiveTab('preview')}
@@ -273,7 +290,6 @@ export default function ClientDeliveryPortal() {
           </button>
         </div>
 
-        {/* PREVIEW TAB */}
         {activeTab === 'preview' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
@@ -292,7 +308,6 @@ export default function ClientDeliveryPortal() {
                     return (
                       <div key={idx} className="p-4 bg-[#F0F5EE] rounded-2xl border border-slate-200/80 space-y-3 relative overflow-hidden">
                         
-                        {/* WATERMARK OVERLAY */}
                         {!isPaid && (
                           <div className="absolute inset-0 pointer-events-none select-none z-10 flex items-center justify-center opacity-10 overflow-hidden">
                             <p className="text-xs font-mono font-bold text-slate-900 rotate-[-15deg] whitespace-nowrap">
@@ -332,7 +347,6 @@ export default function ClientDeliveryPortal() {
                           )}
                         </div>
 
-                        {/* INTERACTIVE PREVIEW RENDERING */}
                         {!isPaid && file.type?.startsWith('video/') && (
                           <div className="rounded-xl overflow-hidden bg-black/90 aspect-video relative flex items-center justify-center z-20">
                             <video 
@@ -372,7 +386,6 @@ export default function ClientDeliveryPortal() {
               </div>
             </div>
 
-            {/* UNLOCK CARD */}
             <div className="space-y-4">
               <div className="bg-white/90 backdrop-blur-xl border border-slate-200/80 rounded-[32px] p-6 shadow-xl space-y-5 sticky top-24">
                 <div className="space-y-1">
@@ -425,7 +438,6 @@ export default function ClientDeliveryPortal() {
           </div>
         )}
 
-        {/* CHAT TAB */}
         {activeTab === 'revisions' && (
           <div className="bg-white/90 backdrop-blur-xl border border-slate-200/80 rounded-[36px] p-6 shadow-xl space-y-4">
             <div className="border-b border-slate-100 pb-3">
