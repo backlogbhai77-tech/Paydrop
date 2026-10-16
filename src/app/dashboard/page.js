@@ -14,12 +14,10 @@ import {
   onSnapshot, serverTimestamp 
 } from 'firebase/firestore'
 import { 
-  Plus, Layers, MessageSquare, 
-  UploadCloud, Lock, ExternalLink, FileArchive, 
-  Trash2, RefreshCw, X, Menu, Search, LockKeyhole, Mail, AlertCircle,
-  Wallet, ShieldCheck, Eye, EyeOff, Check,
-  Home, Briefcase, FileText, ChevronRight, Sparkles, File, Film, Image as ImageIcon,
-  Send, Bot, Settings, Bell, HelpCircle, ArrowRight, ArrowLeft, CheckCircle2
+  Plus, Layers, MessageSquare, UploadCloud, Lock, ExternalLink, 
+  Trash2, RefreshCw, X, Search, Wallet, ShieldCheck, Eye, EyeOff,
+  Home, Briefcase, ChevronRight, Sparkles, File, Film, Image as ImageIcon,
+  Send, Bot, AlertCircle, ArrowRight, ArrowLeft
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -42,13 +40,13 @@ export default function Dashboard() {
   const [deliveries, setDeliveries] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
   
-  const [currentTab, setCurrentTab] = useState('home') // 'home', 'projects', 'revisions', 'wallet'
+  const [currentTab, setCurrentTab] = useState('home')
   const [copiedId, setCopiedId] = useState(null)
   const [toast, setToast] = useState(null)
   const [balanceVisible, setBalanceVisible] = useState(true)
   const [hoveredBarIndex, setHoveredBarIndex] = useState(null)
 
-  // Drawer / Menu Modals
+  // Drawer Modals
   const [aiDrawerOpen, setAiDrawerOpen] = useState(false)
   const [profileDrawerOpen, setProfileDrawerOpen] = useState(false)
 
@@ -73,12 +71,6 @@ export default function Dashboard() {
   const [activeThreadDelivery, setActiveThreadDelivery] = useState(null)
   const [threadReplyText, setThreadReplyText] = useState('')
   const chatBottomRef = useRef(null)
-  
-  // Auth State
-  const [authMode, setAuthMode] = useState('login')
-  const [emailInput, setEmailInput] = useState('')
-  const [passwordInput, setPasswordInput] = useState('')
-  const [authError, setAuthError] = useState('')
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type })
@@ -117,60 +109,6 @@ export default function Dashboard() {
       chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' })
     }
   }, [currentTab, activeThreadDelivery?.messages])
-
-  const handleEmailAuth = async (e) => {
-    e.preventDefault()
-    if (!emailInput || !passwordInput) {
-      setAuthError("Email and password are required")
-      return
-    }
-
-    try {
-      setAuthLoading(true)
-      setAuthError('')
-      if (authMode === 'login') {
-        await signInWithEmailAndPassword(auth, emailInput.trim(), passwordInput)
-        showToast("Welcome back!", "success")
-      } else {
-        await createUserWithEmailAndPassword(auth, emailInput.trim(), passwordInput)
-        showToast("Account created successfully!", "success")
-      }
-    } catch (error) {
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-        setAuthError("Invalid email or password.")
-      } else if (error.code === 'auth/email-already-in-use') {
-        setAuthError("Email already registered. Try logging in.")
-      } else if (error.code === 'auth/weak-password') {
-        setAuthError("Password should be at least 6 characters.")
-      } else {
-        setAuthError(error.message || "Authentication failed.")
-      }
-    } finally {
-      setAuthLoading(false)
-    }
-  }
-
-  const handleGoogleLogin = async () => {
-    try {
-      setAuthLoading(true)
-      setAuthError('')
-      await signInWithPopup(auth, googleProvider)
-      showToast("Signed in with Google", "success")
-    } catch {
-      setAuthError("Google Sign-In blocked by device. Please use Email/Password login.")
-    } finally {
-      setAuthLoading(false)
-    }
-  }
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth)
-      showToast("Logged out successfully", "success")
-    } catch {
-      showToast("Logout failed", "error")
-    }
-  }
 
   const handleFilesAdd = (files) => {
     const selected = Array.from(files)
@@ -317,6 +255,15 @@ export default function Dashboard() {
     }
   }
 
+  const handleLogout = async () => {
+    try {
+      await signOut(auth)
+      showToast("Logged out successfully", "success")
+    } catch {
+      showToast("Logout failed", "error")
+    }
+  }
+
   const paidDeliveries = deliveries.filter(d => d.status === 'Paid')
   const totalRevenueINR = paidDeliveries.filter(d => (d.currency || 'INR') === 'INR').reduce((acc, c) => acc + (Number(c.creatorPayout) || Number(c.grossAmount) || 0), 0)
   const totalRevenueUSD = paidDeliveries.filter(d => d.currency === 'USD').reduce((acc, c) => acc + (Number(c.creatorPayout) || Number(c.grossAmount) || 0), 0)
@@ -341,91 +288,18 @@ export default function Dashboard() {
     return (
       <div className="min-h-screen bg-[#F0F5EE] flex flex-col items-center justify-center text-xs text-slate-500 gap-3 font-mono">
         <div className="w-6 h-6 border-2 border-[#063D2A] border-t-transparent rounded-full animate-spin" />
-        <span>INITIALIZING PAYDROP STUDIO...</span>
+        <span>INITIALIZING STUDIO DASHBOARD...</span>
       </div>
     )
   }
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-[#F0F5EE] text-slate-900 flex flex-col justify-center items-center p-6 relative overflow-hidden font-sans">
-        <div className="w-full max-w-md relative z-10 space-y-6 animate-in fade-in zoom-in-95 duration-300">
-          <div className="text-center space-y-2">
-            <div className="w-14 h-14 rounded-2xl bg-[#94EC36] text-[#063D2A] font-black text-2xl flex items-center justify-center mx-auto shadow-xl shadow-[#94EC36]/20">
-              P
-            </div>
-            <h1 className="text-3xl font-black text-slate-900 tracking-tight">paydrop</h1>
-            <p className="text-xs text-slate-500">Secure Payment Escrow Studio</p>
-          </div>
-
-          <div className="bg-white/90 backdrop-blur-xl border border-slate-200/80 rounded-[32px] p-8 shadow-xl space-y-5">
-            {authError && (
-              <div className="p-3 bg-rose-50 border border-rose-200 rounded-2xl text-rose-700 text-xs flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
-                <span className="leading-tight">{authError}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleEmailAuth} className="space-y-4">
-              <div>
-                <label className="text-xs font-semibold text-slate-600 block mb-1.5">Email Address</label>
-                <input
-                  type="email"
-                  required
-                  placeholder="ankit@studio.com"
-                  value={emailInput}
-                  onChange={e => setEmailInput(e.target.value)}
-                  className="w-full px-4 py-3 bg-[#F0F5EE] border border-slate-200 rounded-2xl text-xs text-slate-900 focus:outline-none focus:border-[#94EC36] transition"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-slate-600 block mb-1.5">Password</label>
-                <input
-                  type="password"
-                  required
-                  placeholder="••••••••"
-                  value={passwordInput}
-                  onChange={e => setPasswordInput(e.target.value)}
-                  className="w-full px-4 py-3 bg-[#F0F5EE] border border-slate-200 rounded-2xl text-xs text-slate-900 focus:outline-none focus:border-[#94EC36] transition"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={authLoading}
-                className="w-full py-3.5 bg-[#063D2A] hover:bg-[#094E36] text-white font-bold text-xs rounded-2xl shadow-lg transition active:scale-95 flex items-center justify-center gap-2"
-              >
-                {authLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <span>{authMode === 'login' ? 'Sign In' : 'Create Account'}</span>}
-              </button>
-            </form>
-
-            <div className="flex items-center justify-between text-xs text-slate-500 pt-1">
-              <span>{authMode === 'login' ? "Need an account?" : "Already registered?"}</span>
-              <button
-                type="button"
-                onClick={() => { setAuthMode(authMode === 'login' ? 'signup' : 'login'); setAuthError(''); }}
-                className="text-[#063D2A] font-bold hover:underline"
-              >
-                {authMode === 'login' ? 'Sign Up' : 'Sign In'}
-              </button>
-            </div>
-
-            <div className="relative flex items-center my-3">
-              <div className="flex-grow border-t border-slate-200"></div>
-              <span className="shrink-0 px-3 text-[10px] text-slate-400 font-mono">OR</span>
-              <div className="flex-grow border-t border-slate-200"></div>
-            </div>
-
-            <button
-              onClick={handleGoogleLogin}
-              disabled={authLoading}
-              className="w-full py-3 bg-[#F0F5EE] hover:bg-slate-200/60 text-slate-800 font-bold text-xs rounded-2xl border border-slate-200 transition flex items-center justify-center gap-2"
-            >
-              <span>Continue with Google</span>
-            </button>
-          </div>
-        </div>
+      <div className="min-h-screen bg-[#F0F5EE] flex flex-col items-center justify-center p-6 text-center">
+        <p className="text-xs text-slate-500 mb-4">You are not signed in.</p>
+        <Link href="/" className="px-6 py-3 bg-[#063D2A] text-white text-xs font-bold rounded-2xl">
+          Go to Home / Login
+        </Link>
       </div>
     )
   }
@@ -532,7 +406,7 @@ export default function Dashboard() {
         </div>
       </aside>
 
-      {/* MAIN VIEW AREA */}
+      {/* MAIN VIEW */}
       <div className="flex-1 flex flex-col min-w-0">
         
         <header className="px-6 sm:px-10 pt-6 pb-2 flex items-center justify-between">
@@ -568,11 +442,11 @@ export default function Dashboard() {
 
         <main className="flex-1 max-w-xl lg:max-w-3xl w-full mx-auto p-4 sm:p-8 space-y-6 animate-in fade-in duration-300">
 
-          {/* TAB: HOME */}
+          {/* HOME TAB */}
           {currentTab === 'home' && (
             <div className="space-y-6">
               
-              {/* HERO AVAILABLE BALANCE CARD */}
+              {/* HERO BALANCE CARD */}
               <div className="bg-[#063D2A] rounded-[36px] p-7 sm:p-8 text-white relative overflow-hidden shadow-2xl shadow-[#063D2A]/15 backdrop-blur-xl">
                 <div className="absolute -right-12 -top-12 w-64 h-64 bg-[#0B4C35] rounded-full blur-2xl pointer-events-none opacity-50" />
                 <div className="absolute right-12 -bottom-24 w-72 h-72 bg-[#08422E] rounded-full blur-3xl pointer-events-none opacity-60" />
@@ -600,7 +474,7 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* DYNAMIC MONTHLY EARNINGS BAR GRAPH */}
+              {/* DYNAMIC MONTHLY BAR GRAPH */}
               <div className="bg-white/90 backdrop-blur-xl border border-slate-200/80 rounded-[36px] p-7 shadow-xs space-y-5">
                 <div className="flex items-start justify-between">
                   <div>
@@ -716,7 +590,7 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* TAB: PROJECTS */}
+          {/* PROJECTS TAB */}
           {currentTab === 'projects' && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
@@ -756,7 +630,7 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* TAB: REVISIONS LIST */}
+          {/* REVISIONS TAB */}
           {currentTab === 'revisions' && (
             <div className="space-y-6">
               <h1 className="text-2xl font-black text-slate-900 tracking-tight">Client Revisions</h1>
@@ -793,12 +667,11 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* TAB: CHAT THREAD (FULLSCREEN STUDIO VAULT) */}
+          {/* FULLSCREEN CHAT THREAD */}
           {currentTab === 'chat-thread' && activeThreadDelivery && (
             <div className="fixed inset-0 z-50 bg-[#F0F5EE] flex flex-col p-4 sm:p-8 animate-in fade-in duration-200">
               <div className="max-w-4xl w-full mx-auto bg-white border border-slate-200/80 rounded-[36px] flex-1 flex flex-col overflow-hidden shadow-2xl">
                 
-                {/* Header */}
                 <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-white">
                   <div className="flex items-center gap-3">
                     <button onClick={() => setCurrentTab('revisions')} className="p-2 bg-[#F0F5EE] hover:bg-slate-200 rounded-xl text-xs font-bold text-slate-600 transition">
@@ -815,7 +688,6 @@ export default function Dashboard() {
                   </Link>
                 </div>
 
-                {/* Messages Body */}
                 <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-[#F0F5EE]">
                   {(activeThreadDelivery.messages || []).length === 0 ? (
                     <div className="h-full flex items-center justify-center text-xs text-slate-400">No revision notes yet. Start the conversation.</div>
@@ -837,7 +709,6 @@ export default function Dashboard() {
                   <div ref={chatBottomRef} />
                 </div>
 
-                {/* Footer Controls */}
                 <div className="p-4 bg-white border-t border-slate-100 space-y-3">
                   <div className="flex items-center gap-2 overflow-x-auto pb-1 text-[10px]">
                     {["Working on this draft ✍️", "Uploaded revised files 📁", "Revision completed ✅"].map((pill, i) => (
@@ -874,7 +745,7 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* TAB: WALLET */}
+          {/* WALLET TAB */}
           {currentTab === 'wallet' && (
             <div className="space-y-6">
               <h1 className="text-2xl font-black text-slate-900 tracking-tight">Wallet & Payouts</h1>
@@ -889,7 +760,7 @@ export default function Dashboard() {
         </main>
       </div>
 
-      {/* FLOATING PLUS ACTION BUTTON */}
+      {/* FLOATING ACTION BUTTON */}
       <button
         onClick={() => { setWizardStep(1); setRequestModalOpen(true); }}
         className="fixed bottom-24 right-6 sm:bottom-10 sm:right-10 z-40 w-14 h-14 rounded-full bg-[#063D2A] text-white flex items-center justify-center shadow-2xl shadow-[#063D2A]/40 transition hover:scale-105 active:scale-95"
@@ -916,7 +787,6 @@ export default function Dashboard() {
                 </button>
               </div>
 
-              {/* Progress Bar */}
               <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
                 <div 
                   className="bg-[#063D2A] h-full transition-all duration-300"
@@ -924,7 +794,6 @@ export default function Dashboard() {
                 />
               </div>
 
-              {/* STEP 1: FILE ATTACHMENTS */}
               {wizardStep === 1 && (
                 <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-200">
                   <label className="text-xs font-bold text-slate-700 block">Attach Deliverables (ZIP, Videos, PDFs) *</label>
@@ -962,7 +831,6 @@ export default function Dashboard() {
                 </div>
               )}
 
-              {/* STEP 2: DETAILS */}
               {wizardStep === 2 && (
                 <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-200">
                   <div>
@@ -1000,7 +868,6 @@ export default function Dashboard() {
                 </div>
               )}
 
-              {/* STEP 3: PRICE & WATERMARK */}
               {wizardStep === 3 && (
                 <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-200">
                   <div>
@@ -1044,7 +911,6 @@ export default function Dashboard() {
                 </div>
               )}
 
-              {/* STEP 4: FINAL REVIEW & DEPLOY */}
               {wizardStep === 4 && (
                 <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-200">
                   <div className="p-6 bg-[#F0F5EE] rounded-3xl space-y-3 text-xs font-medium border border-slate-200">
@@ -1068,7 +934,6 @@ export default function Dashboard() {
               )}
             </div>
 
-            {/* Bottom Controls */}
             <div className="pt-6 border-t border-slate-100">
               {wizardStep === 1 && (
                 <button
@@ -1139,7 +1004,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* AI ASSISTANT DRAWER */}
+      {/* AI DRAWER */}
       {aiDrawerOpen && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex justify-end animate-in fade-in duration-200">
           <div className="w-80 bg-white h-full p-6 shadow-2xl flex flex-col justify-between animate-in slide-in-from-right duration-200">
@@ -1167,7 +1032,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* PROFILE SETTINGS DRAWER */}
+      {/* PROFILE DRAWER */}
       {profileDrawerOpen && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex justify-end animate-in fade-in duration-200">
           <div className="w-80 bg-white h-full p-6 shadow-2xl flex flex-col justify-between animate-in slide-in-from-right duration-200">
@@ -1200,7 +1065,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* MOBILE BOTTOM NAVIGATION BAR */}
+      {/* MOBILE BOTTOM NAVIGATION */}
       <div className="fixed bottom-0 left-0 right-0 z-30 lg:hidden bg-white/95 backdrop-blur-md border-t border-slate-200 px-6 py-3 flex items-center justify-between">
         <button
           onClick={() => setCurrentTab('home')}
