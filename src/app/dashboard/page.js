@@ -200,13 +200,28 @@ export default function Dashboard() {
         createdAt: serverTimestamp()
       })
 
-      // AUTOMATED CLIENT EMAIL DISPATCH LINK
+      // AUTOMATED BACKGROUND EMAIL DISPATCH TO API
       const clientPortalUrl = `${window.location.origin}/d/${newDocRef.id}`
       if (clientEmail) {
-        window.open(`mailto:${clientEmail}?subject=${encodeURIComponent(`[PayDrop Escrow] Protected Deliverables for ${title}`)}&body=${encodeURIComponent(`Hi ${clientName || 'Client'},\n\nI have created a secure deliverable vault for our project: ${title}.\n\nYou can review the protected preview and release the escrow payment to unlock original master files here:\n\n${clientPortalUrl}\n\nBest regards,\n${user.displayName || user.email}`)}`)
+        try {
+          await fetch('/api/paydrop-engine', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              clientEmail: clientEmail.trim(),
+              clientName: clientName.trim() || 'Client',
+              creatorName: user.displayName || user.email?.split('@')[0] || 'Creator',
+              projectTitle: title.trim(),
+              amount: numAmount,
+              deliveryUrl: clientPortalUrl
+            })
+          })
+        } catch (emailErr) {
+          console.error("Background email dispatch error:", emailErr)
+        }
       }
 
-      showToast("Escrow request deployed & notification email triggered!", "success")
+      showToast("Escrow request deployed & email dispatched in background!", "success")
       setTitle('')
       setClientName('')
       setClientEmail('')
