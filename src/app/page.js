@@ -10,17 +10,13 @@ import {
 } from 'firebase/auth'
 import { useRouter } from 'next/navigation'
 import { 
-  Plus, Layers, MessageSquare, UploadCloud, Lock, 
-  ShieldCheck, Eye, EyeOff, Wallet, ArrowRight, 
-  CheckCircle2, Sparkles, FileArchive, Film, Image as ImageIcon,
-  Zap, LockKeyhole, Mail, AlertCircle, ChevronDown, Check,
-  Play, DollarSign, Calculator, ArrowUpRight
+  Lock, ShieldCheck, ArrowRight, Sparkles, FileArchive, Film, 
+  Image as ImageIcon, AlertCircle, ChevronDown, Play
 } from 'lucide-react'
 import Link from 'next/link'
 
 export default function LandingPage() {
   const router = useRouter()
-  const [user, setUser] = useState(null)
   const [authChecking, setAuthChecking] = useState(true)
 
   // Auth Modal State
@@ -31,21 +27,18 @@ export default function LandingPage() {
   const [authError, setAuthError] = useState('')
   const [authLoading, setAuthLoading] = useState(false)
 
-  // Interactive Fee Calculator State
+  // Calculator State
   const [calcAmount, setCalcAmount] = useState(25000)
   const [calcCurrency, setCalcCurrency] = useState('INR')
 
-  // Active FAQ Accordion State
+  // FAQ Accordion
   const [openFaq, setOpenFaq] = useState(null)
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
-        setUser(currentUser)
-        // Direct redirect if already logged in!
         router.push('/dashboard')
       } else {
-        setUser(null)
         setAuthChecking(false)
       }
     })
@@ -116,8 +109,8 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-[#F0F5EE] text-slate-900 font-sans antialiased selection:bg-[#94EC36] selection:text-[#063D2A] overflow-x-hidden">
 
-      {/* FIXED TOP NAVBAR */}
-      <header className="sticky top-0 z-40 bg-[#F0F5EE]/80 backdrop-blur-xl border-b border-slate-200/80 px-6 sm:px-12 py-4 flex items-center justify-between transition-all">
+      {/* FIXED NAVBAR */}
+      <header className="sticky top-0 z-40 bg-[#F0F5EE]/80 backdrop-blur-xl border-b border-slate-200/80 px-6 sm:px-12 py-4 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2.5 group">
           <div className="w-10 h-10 rounded-2xl bg-[#94EC36] text-[#063D2A] font-black text-xl flex items-center justify-center shadow-md shadow-[#94EC36]/20 transition-transform group-hover:scale-105">
             P
@@ -128,7 +121,6 @@ export default function LandingPage() {
           </div>
         </Link>
 
-        {/* Center Navigation Links */}
         <nav className="hidden md:flex items-center gap-8 text-xs font-bold text-slate-600">
           <a href="#features" className="hover:text-[#063D2A] transition">Features</a>
           <a href="#how-it-works" className="hover:text-[#063D2A] transition">How It Works</a>
@@ -136,7 +128,6 @@ export default function LandingPage() {
           <a href="#faq" className="hover:text-[#063D2A] transition">FAQ</a>
         </nav>
 
-        {/* Right Auth Buttons */}
         <div className="flex items-center gap-3">
           <button
             onClick={() => { setAuthMode('login'); setAuthModalOpen(true); }}
@@ -159,7 +150,7 @@ export default function LandingPage() {
       <section className="relative px-6 sm:px-12 pt-16 pb-24 max-w-6xl mx-auto text-center space-y-10">
         <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-md border border-slate-200/80 rounded-full text-xs font-semibold text-[#063D2A] shadow-xs animate-in fade-in slide-in-from-top-4 duration-500">
           <Sparkles className="w-4 h-4 text-[#063D2A]" />
-          <span>Automated Freelancer Escrow & Watermark Vault</span>
+          <span>Automated Freelancer Escrow & Stealth Protection Vault</span>
         </div>
 
         <div className="space-y-4 max-w-4xl mx-auto">
@@ -190,7 +181,7 @@ export default function LandingPage() {
           </a>
         </div>
 
-        {/* HERO INTERACTIVE MOCKUP PREVIEW */}
+        {/* HERO INTERACTIVE MOCKUP */}
         <div className="pt-8 max-w-3xl mx-auto relative">
           <div className="absolute -inset-1.5 bg-gradient-to-r from-[#94EC36]/40 to-[#063D2A]/20 rounded-[42px] blur-xl opacity-75 animate-pulse" />
           
@@ -200,7 +191,7 @@ export default function LandingPage() {
                 <div className="w-3 h-3 rounded-full bg-rose-400" />
                 <div className="w-3 h-3 rounded-full bg-amber-400" />
                 <div className="w-3 h-3 rounded-full bg-emerald-400" />
-                <span className="text-xs font-mono text-slate-400 ml-2">paydrop.studio/escrow/preview</span>
+                <span className="text-xs font-mono text-slate-400 ml-2">paydrop.studio/d/escrow-vault-demo</span>
               </div>
               <span className="px-3 py-1 bg-[#94EC36]/20 text-[#063D2A] text-[10px] font-black rounded-full border border-[#94EC36]/40">
                 LIVE DEMO VAULT
@@ -225,18 +216,18 @@ export default function LandingPage() {
                 <Film className="w-5 h-5 text-blue-600" />
                 <div>
                   <div className="font-bold text-slate-900">Final_Master_Render_4K.mp4</div>
-                  <div className="text-[10px] text-slate-400">1.2 GB • Watermarked Preview Active</div>
+                  <div className="text-[10px] text-slate-400">1.2 GB • Low-Res Proxy Stream Active</div>
                 </div>
               </div>
               <span className="px-3 py-1 bg-amber-50 text-amber-700 font-bold border border-amber-200 rounded-xl text-[10px]">
-                Locked Until Payment Release
+                Master Unlocks Upon Release
               </span>
             </div>
           </div>
         </div>
       </section>
 
-      {/* TRUST BADGES / FILE TYPES */}
+      {/* TRUST BADGES */}
       <section className="bg-white/80 border-y border-slate-200/80 py-10 px-6 sm:px-12 text-center">
         <div className="max-w-5xl mx-auto space-y-4">
           <p className="text-xs font-extrabold text-slate-400 uppercase tracking-widest">
@@ -251,7 +242,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* HOW IT WORKS SECTION */}
+      {/* HOW IT WORKS */}
       <section id="how-it-works" className="py-20 px-6 sm:px-12 max-w-6xl mx-auto space-y-12">
         <div className="text-center space-y-3">
           <span className="text-xs font-bold text-[#063D2A] uppercase tracking-widest font-mono">WORKFLOW</span>
@@ -275,7 +266,7 @@ export default function LandingPage() {
             </div>
             <h3 className="text-lg font-bold text-slate-900">Client Funds Escrow</h3>
             <p className="text-xs text-slate-500 leading-relaxed">
-              Your client reviews the watermarked preview and deposits funds into escrow. PayDrop verifies the payment instantly.
+              Your client reviews the low-res proxy preview and deposits funds into escrow. PayDrop verifies the payment instantly.
             </p>
           </div>
 
@@ -285,13 +276,13 @@ export default function LandingPage() {
             </div>
             <h3 className="text-lg font-bold text-slate-900">Instant Auto-Release</h3>
             <p className="text-xs text-slate-500 leading-relaxed">
-              Upon approval, the master files automatically unlock for the client and funds transfer directly to your bank account.
+              Upon approval, the master uncompressed deliverables automatically unlock for the client and funds transfer directly to your bank account.
             </p>
           </div>
         </div>
       </section>
 
-      {/* FEE CALCULATOR SECTION */}
+      {/* CALCULATOR */}
       <section id="calculator" className="py-16 px-6 sm:px-12 bg-white/80 border-y border-slate-200/80">
         <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
           <div className="space-y-4">
@@ -343,7 +334,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* FAQ ACCORDION SECTION */}
+      {/* FAQ */}
       <section id="faq" className="py-20 px-6 sm:px-12 max-w-4xl mx-auto space-y-8">
         <div className="text-center space-y-2">
           <span className="text-xs font-bold text-[#063D2A] uppercase tracking-widest font-mono">GOT QUESTIONS?</span>
@@ -352,9 +343,9 @@ export default function LandingPage() {
 
         <div className="space-y-3">
           {[
-            { q: "How does PayDrop guarantee client payment?", a: "Clients deposit funds into PayDrop's secure escrow vault before they can download your unwatermarked master files. Once deposited, the funds are guaranteed for payout upon delivery." },
+            { q: "How does PayDrop guarantee client payment?", a: "Clients deposit funds into PayDrop's secure escrow vault before they can download your uncompressed master files. Once deposited, the funds are guaranteed for payout upon delivery." },
             { q: "What file types can I upload?", a: "You can attach any file format, including MP4/MOV videos, ZIP archives, PSDs, Figma files, PDFs, and code repositories." },
-            { q: "How do I withdraw my earnings?", a: "Funds are released directly to your linked bank account or UPI ID instantly once the client approves the escrow delivery." },
+            { q: "How does PayDrop protect against stealth screen recording?", a: "We serve compressed low-res proxy previews while keeping original 4K/ZIP master files locked on our CDN. Additionally, dynamic personal watermarks and tab-blur mechanisms prevent unauthorized capture." },
             { q: "Is there a monthly subscription fee?", a: "No! PayDrop is 100% free to join. We only charge a small 5% platform fee per successful escrow transaction." }
           ].map((item, idx) => (
             <div key={idx} className="bg-white/90 border border-slate-200/80 rounded-2xl overflow-hidden shadow-xs">
