@@ -2,26 +2,35 @@
 @tailwind components;
 @tailwind utilities;
 
-html, body {
-  max-width: 100vw;
-  overflow-x: hidden !important;
-  position: relative;
-  background-color: #F8FAFC;
-  color: #0F172A;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  margin: 0;
-  padding: 0;
-  -webkit-tap-highlight-color: transparent;
-  touch-action: pan-y;
+@layer base {
+  body {
+    font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    letter-spacing: -0.01em;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Professional Monospace for Numbers, Currency & IDs */
+  .font-mono, 
+  span[class*="currency"], 
+  div[class*="amount"], 
+  td[class*="price"] {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    letter-spacing: -0.03em;
+  }
 }
 
-/* Subtle Watermark Drift */
-@keyframes watermarkDrift {
-  0% { transform: translate(0px, 0px) rotate(-12deg); }
-  50% { transform: translate(10px, 8px) rotate(-11deg); }
-  100% { transform: translate(0px, 0px) rotate(-12deg); }
+/* Custom Smooth Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
 }
-
-.animate-watermark-drift {
-  animation: watermarkDrift 14s ease-in-out infinite;
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
 }
