@@ -6,9 +6,9 @@
   body {
     background-color: #ECFDF5;
     background-image: 
-      radial-gradient(at 10% 10%, rgba(163, 230, 53, 0.15) 0px, transparent 50%),
-      radial-gradient(at 90% 20%, rgba(52, 211, 153, 0.12) 0px, transparent 50%),
-      radial-gradient(at 50% 80%, rgba(110, 231, 183, 0.08) 0px, transparent 50%);
+      radial-gradient(at 10% 10%, rgba(163, 230, 53, 0.18) 0px, transparent 50%),
+      radial-gradient(at 90% 20%, rgba(52, 211, 153, 0.15) 0px, transparent 50%),
+      radial-gradient(at 50% 80%, rgba(110, 231, 183, 0.1) 0px, transparent 50%);
     background-attachment: fixed;
     color: #064E3B;
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif;
@@ -16,31 +16,30 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  /* SF Mono for Financial Amounts, Codes & Identifiers */
   .font-mono-data {
     font-family: "SF Mono", "Fira Code", monospace;
     letter-spacing: -0.03em;
   }
 }
 
-/* Glassmorphism Containers */
+/* Light Mint Glass Panels */
 .glass-mint {
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.88);
   backdrop-filter: blur(16px) saturate(180%);
   -webkit-backdrop-filter: blur(16px) saturate(180%);
   border: 1px solid rgba(163, 230, 53, 0.35);
-  box-shadow: 0 10px 30px rgba(6, 78, 59, 0.04);
+  box-shadow: 0 10px 30px rgba(6, 78, 59, 0.05);
 }
 
 .glass-mint-dark {
-  background: rgba(6, 78, 59, 0.96);
+  background: rgba(6, 78, 59, 0.95);
   backdrop-filter: blur(20px) saturate(190%);
   -webkit-backdrop-filter: blur(20px) saturate(190%);
-  border: 1px solid rgba(163, 230, 53, 0.3);
+  border: 1px solid rgba(163, 230, 53, 0.25);
   box-shadow: 0 20px 40px rgba(6, 78, 59, 0.15);
 }
 
-/* Custom Smooth Scrollbar */
+/* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 5px;
   height: 5px;
