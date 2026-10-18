@@ -200,7 +200,6 @@ export default function Dashboard() {
         createdAt: serverTimestamp()
       })
 
-      // BACKGROUND EMAIL DISPATCH VIA UNIFIED API ROUTE
       const clientPortalUrl = `${window.location.origin}/d/${newDocRef.id}`
       if (clientEmail) {
         try {
@@ -301,7 +300,6 @@ export default function Dashboard() {
     d.clientName?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  // SMOOTH DYNAMIC AREA CHART DATA CALCULATOR
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
   const currentYear = new Date().getFullYear()
   
