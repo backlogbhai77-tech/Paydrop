@@ -11,7 +11,7 @@ import {
   Plus, MessageSquare, UploadCloud, Lock, ExternalLink, 
   Trash2, RefreshCw, X, Search, Wallet, ShieldCheck, Eye, EyeOff,
   Home, Briefcase, ChevronRight, Sparkles, File, Film, Image as ImageIcon,
-  Send, Bot, ArrowRight, ArrowLeft, Share2
+  Send, Bot, ArrowRight, ArrowLeft, Share2, TrendingUp
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -28,8 +28,8 @@ function formatCurrency(amount, currency = 'INR') {
 }
 
 export default function Dashboard() {
-  const [user, setUser] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState(auth.currentUser || null)
+  const [loading, setLoading] = useState(!auth.currentUser)
   const [deliveries, setDeliveries] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
   
@@ -200,27 +200,25 @@ export default function Dashboard() {
         createdAt: serverTimestamp()
       })
 
+      // NON-BLOCKING BACKGROUND EMAIL DISPATCH
       const clientPortalUrl = `${window.location.origin}/d/${newDocRef.id}`
       if (clientEmail) {
-        try {
-          await fetch('/api/send-delivery', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              clientEmail: clientEmail.trim(),
-              clientName: clientName.trim() || 'Client',
-              creatorName: user.displayName || user.email?.split('@')[0] || 'Creator',
-              projectTitle: title.trim(),
-              amount: numAmount,
-              deliveryUrl: clientPortalUrl
-            })
+        fetch('/api/send-delivery', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            clientEmail: clientEmail.trim(),
+            clientName: clientName.trim() || 'Client',
+            creatorName: user.displayName || user.email?.split('@')[0] || 'Creator',
+            projectTitle: title.trim(),
+            amount: numAmount,
+            deliveryUrl: clientPortalUrl
           })
-        } catch (emailErr) {
-          console.error("Email dispatch failed:", emailErr)
-        }
+        }).catch(e => console.error("Async Email Error:", e))
       }
 
-      showToast("Vault deployed & background email sent!", "success")
+      // AUTOMATIC MODAL CLOSE & CLEANUP
+      showToast("Escrow Vault Deployed & Live!", "success")
       setTitle('')
       setClientName('')
       setClientEmail('')
@@ -315,29 +313,24 @@ export default function Dashboard() {
   const maxVal = Math.max(...monthlyDataPoints.map(p => p.amount), 5000)
   const chartPoints = monthlyDataPoints.map((p, idx) => {
     const x = (idx / 11) * 300
-    const y = 100 - (p.amount / maxVal) * 80
+    const y = 95 - (p.amount / maxVal) * 75
     return { x, y, month: p.month, amount: p.amount }
   })
 
-  const svgPathD = chartPoints.reduce((acc, p, i) => {
-    return i === 0 ? `M ${p.x} ${p.y}` : `${acc} L ${p.x} ${p.y}`
+  // GLOWING SPLINE CURVE GRAPH
+  const svgPathD = chartPoints.reduce((acc, p, i, a) => {
+    if (i === 0) return `M ${p.x} ${p.y}`
+    const prev = a[i - 1]
+    const cx = (prev.x + p.x) / 2
+    return `${acc} C ${cx} ${prev.y}, ${cx} ${p.y}, ${p.x} ${p.y}`
   }, '')
   const areaPathD = `${svgPathD} L 300 120 L 0 120 Z`
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center text-xs text-emerald-800 gap-3 font-mono">
-        <div className="w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
-        <span>INITIALIZING STUDIO DASHBOARD...</span>
-      </div>
-    )
-  }
-
-  if (!user) {
+  if (!user && !loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center">
         <p className="text-xs text-emerald-800 mb-4 font-mono">Session expired.</p>
-        <Link href="/" className="px-6 py-3 bg-emerald-700 text-white text-xs font-bold rounded-2xl">
+        <Link href="/" className="px-6 py-3 bg-emerald-800 text-white text-xs font-bold rounded-2xl">
           Return to Login
         </Link>
       </div>
@@ -348,8 +341,8 @@ export default function Dashboard() {
     <div className="min-h-screen text-slate-900 font-sans flex antialiased pb-32 lg:pb-8 relative selection:bg-lime-300 selection:text-emerald-950">
       {toast && (
         <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top duration-200">
-          <div className="glass-mint-dark flex items-center gap-2 px-5 py-2.5 rounded-full shadow-2xl text-white text-xs font-semibold border border-lime-400/40">
-            <span className="w-2 h-2 rounded-full bg-lime-400 animate-pulse" />
+          <div className="glass-mint-dark flex items-center gap-2.5 px-6 py-3 rounded-full shadow-2xl text-white text-xs font-semibold border border-lime-400/40">
+            <span className="w-2.5 h-2.5 rounded-full bg-lime-400 animate-pulse" />
             <span>{toast.message}</span>
           </div>
         </div>
@@ -437,11 +430,11 @@ export default function Dashboard() {
         <div className="pt-4 border-t border-emerald-200/60 flex items-center justify-between">
           <button onClick={() => setProfileDrawerOpen(true)} className="flex items-center gap-3 min-w-0 text-left hover:opacity-80 transition">
             <div className="w-9 h-9 rounded-full bg-lime-200 text-emerald-950 text-xs font-bold flex items-center justify-center shrink-0 border border-white shadow-xs">
-              {user.displayName ? user.displayName.slice(0, 2).toUpperCase() : 'AN'}
+              {user?.displayName ? user.displayName.slice(0, 2).toUpperCase() : 'AN'}
             </div>
             <div className="truncate">
-              <div className="text-xs font-bold text-emerald-950 truncate">{user.displayName || user.email?.split('@')[0]}</div>
-              <div className="text-[10px] text-emerald-700 truncate">{user.email}</div>
+              <div className="text-xs font-bold text-emerald-950 truncate">{user?.displayName || user?.email?.split('@')[0] || 'Ankit'}</div>
+              <div className="text-[10px] text-emerald-700 truncate">{user?.email}</div>
             </div>
           </button>
           <button onClick={handleLogout} className="text-emerald-600 hover:text-rose-600 text-xs p-1" title="Sign Out">✕</button>
@@ -461,7 +454,7 @@ export default function Dashboard() {
 
           <div className="hidden lg:block">
             <span className="text-xs font-medium text-emerald-700 uppercase tracking-wider font-mono">Mint Studio Dashboard</span>
-            <h1 className="text-2xl font-extrabold text-emerald-950 tracking-tight">Welcome back, {user.displayName?.split(' ')[0] || user.email?.split('@')[0] || 'Ankit'}</h1>
+            <h1 className="text-2xl font-extrabold text-emerald-950 tracking-tight">Welcome back, {user?.displayName?.split(' ')[0] || user?.email?.split('@')[0] || 'Ankit'}</h1>
           </div>
 
           <div className="flex items-center gap-3">
@@ -477,7 +470,7 @@ export default function Dashboard() {
               onClick={() => setProfileDrawerOpen(true)}
               className="w-10 h-10 rounded-full bg-lime-200 text-emerald-950 font-bold text-xs flex items-center justify-center border border-white shadow-xs hover:opacity-90 transition"
             >
-              {user.displayName ? user.displayName.slice(0, 2).toUpperCase() : 'AN'}
+              {user?.displayName ? user.displayName.slice(0, 2).toUpperCase() : 'AN'}
             </button>
           </div>
         </header>
@@ -488,8 +481,8 @@ export default function Dashboard() {
           {currentTab === 'home' && (
             <div className="space-y-6">
               
-              {/* HERO CARD (MINT DARK) */}
-              <div className="glass-mint-dark rounded-[36px] p-7 sm:p-8 text-white relative overflow-hidden shadow-2xl">
+              {/* HERO CARD */}
+              <div className="glass-mint-dark rounded-[36px] p-7 sm:p-8 text-white relative overflow-hidden shadow-2xl animate-pulse-glow">
                 <div className="absolute -right-12 -top-12 w-64 h-64 bg-emerald-700 rounded-full blur-2xl pointer-events-none opacity-40" />
 
                 <div className="relative z-10 space-y-6">
@@ -515,12 +508,15 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* REVENUE CHART */}
+              {/* NEW SPLINE REVENUE CHART */}
               <div className="glass-mint rounded-[36px] p-7 shadow-xs space-y-5">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h3 className="text-lg font-bold text-emerald-950 tracking-tight">Revenue Trend ({currentYear})</h3>
-                    <span className="text-xs text-emerald-700 font-medium">Real-time escrow settlement velocity</span>
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="w-5 h-5 text-emerald-800" />
+                      <h3 className="text-lg font-bold text-emerald-950 tracking-tight">Revenue Trend ({currentYear})</h3>
+                    </div>
+                    <span className="text-xs text-emerald-700 font-medium">Escrow settlement velocity graph</span>
                   </div>
 
                   <select
@@ -533,27 +529,28 @@ export default function Dashboard() {
                   </select>
                 </div>
 
-                <div className="relative h-40 pt-4">
+                <div className="relative h-44 pt-4">
                   <svg className="w-full h-full overflow-visible" viewBox="0 0 300 120" preserveAspectRatio="none">
                     <defs>
                       <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#84CC16" stopOpacity="0.4" />
-                        <stop offset="100%" stopColor="#84CC16" stopOpacity="0.0" />
+                        <stop offset="0%" stopColor="#A3E635" stopOpacity="0.45" />
+                        <stop offset="100%" stopColor="#A3E635" stopOpacity="0.0" />
                       </linearGradient>
                     </defs>
 
                     <path d={areaPathD} fill="url(#chartGradient)" />
-                    <path d={svgPathD} fill="none" stroke="#064E3B" strokeWidth="3" strokeLinecap="round" />
+                    <path d={svgPathD} fill="none" stroke="#064E3B" strokeWidth="3.5" strokeLinecap="round" />
 
                     {chartPoints.map((pt, idx) => (
                       <g key={idx} className="group cursor-pointer" onMouseEnter={() => setActiveChartPoint(pt)}>
-                        <circle cx={pt.x} cy={pt.y} r="4" className="fill-emerald-900 group-hover:fill-lime-500 transition-all" />
+                        <circle cx={pt.x} cy={pt.y} r="5" className="fill-emerald-950 group-hover:fill-lime-400 transition-all duration-200" />
+                        <circle cx={pt.x} cy={pt.y} r="8" className="fill-lime-400/30 opacity-0 group-hover:opacity-100 transition-all duration-200" />
                       </g>
                     ))}
                   </svg>
 
                   {activeChartPoint && (
-                    <div className="absolute top-2 left-1/2 -translate-x-1/2 px-3 py-1 bg-emerald-950 text-white text-[10px] font-mono rounded-xl shadow-xl animate-in fade-in duration-150">
+                    <div className="absolute top-2 left-1/2 -translate-x-1/2 px-3.5 py-1.5 bg-emerald-950 text-white text-[10px] font-mono rounded-xl shadow-xl animate-in fade-in duration-150">
                       {activeChartPoint.month}: {formatCurrency(activeChartPoint.amount, currency)}
                     </div>
                   )}
@@ -1135,11 +1132,11 @@ export default function Dashboard() {
 
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-full bg-lime-200 text-emerald-950 font-bold flex items-center justify-center text-sm border border-white shadow-xs">
-                  {user.displayName ? user.displayName.slice(0, 2).toUpperCase() : 'AN'}
+                  {user?.displayName ? user.displayName.slice(0, 2).toUpperCase() : 'AN'}
                 </div>
                 <div>
-                  <div className="font-bold text-xs text-emerald-950">{user.displayName || 'Ankit'}</div>
-                  <div className="text-[10px] text-emerald-700 font-mono">{user.email}</div>
+                  <div className="font-bold text-xs text-emerald-950">{user?.displayName || 'Ankit'}</div>
+                  <div className="text-[10px] text-emerald-700 font-mono">{user?.email}</div>
                 </div>
               </div>
 
