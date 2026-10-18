@@ -6,9 +6,9 @@
   body {
     background-color: #ECFDF5;
     background-image: 
-      radial-gradient(at 10% 10%, rgba(163, 230, 53, 0.18) 0px, transparent 50%),
-      radial-gradient(at 90% 20%, rgba(52, 211, 153, 0.15) 0px, transparent 50%),
-      radial-gradient(at 50% 80%, rgba(110, 231, 183, 0.1) 0px, transparent 50%);
+      radial-gradient(at 0% 0%, rgba(163, 230, 53, 0.22) 0px, transparent 50%),
+      radial-gradient(at 100% 0%, rgba(52, 211, 153, 0.18) 0px, transparent 50%),
+      radial-gradient(at 50% 100%, rgba(110, 231, 183, 0.15) 0px, transparent 50%);
     background-attachment: fixed;
     color: #064E3B;
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif;
@@ -22,24 +22,33 @@
   }
 }
 
-/* Light Mint Glass Panels */
+/* Glass Transparency & Glassmorphism */
 .glass-mint {
-  background: rgba(255, 255, 255, 0.88);
-  backdrop-filter: blur(16px) saturate(180%);
-  -webkit-backdrop-filter: blur(16px) saturate(180%);
-  border: 1px solid rgba(163, 230, 53, 0.35);
-  box-shadow: 0 10px 30px rgba(6, 78, 59, 0.05);
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(20px) saturate(190%);
+  -webkit-backdrop-filter: blur(20px) saturate(190%);
+  border: 1px solid rgba(163, 230, 53, 0.45);
+  box-shadow: 0 10px 30px rgba(6, 78, 59, 0.06);
 }
 
 .glass-mint-dark {
-  background: rgba(6, 78, 59, 0.95);
-  backdrop-filter: blur(20px) saturate(190%);
-  -webkit-backdrop-filter: blur(20px) saturate(190%);
-  border: 1px solid rgba(163, 230, 53, 0.25);
-  box-shadow: 0 20px 40px rgba(6, 78, 59, 0.15);
+  background: rgba(6, 78, 59, 0.92);
+  backdrop-filter: blur(24px) saturate(200%);
+  -webkit-backdrop-filter: blur(24px) saturate(200%);
+  border: 1px solid rgba(163, 230, 53, 0.3);
+  box-shadow: 0 20px 40px rgba(6, 78, 59, 0.2);
 }
 
-/* Custom Scrollbar */
+/* Custom Smooth Animations */
+@keyframes pulseGlow {
+  0%, 100% { opacity: 0.8; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.03); }
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 3s infinite ease-in-out;
+}
+
 ::-webkit-scrollbar {
   width: 5px;
   height: 5px;
@@ -48,6 +57,6 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(110, 231, 183, 0.6);
+  background: rgba(110, 231, 183, 0.7);
   border-radius: 999px;
 }
