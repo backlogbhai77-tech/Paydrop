@@ -3,10 +3,10 @@
 import React, { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { db } from '../../../lib/firebase'
-import { doc, getDoc, updateDoc, arrayUnion } from 'firebase/firestore'
+import { doc, onSnapshot, updateDoc, arrayUnion } from 'firebase/firestore'
 import { 
   ShieldCheck, Download, Lock, CheckCircle, MessageSquare, 
-  Send, ExternalLink, FileText, Film, Image as ImageIcon, Check 
+  Send, ExternalLink, FileText, Film, Image as ImageIcon 
 } from 'lucide-react'
 
 function formatCurrency(amount, currency = 'INR') {
@@ -29,50 +29,56 @@ export default function ClientDeliveryPortal() {
   const [paying, setPaying] = useState(false)
 
   useEffect(() => {
-    if (!id) return
-    const fetchDelivery = async () => {
-      try {
-        const docRef = doc(db, 'deliveries', id)
-        const docSnap = await getDoc(docRef)
+    if (!id) {
+      setError("Invalid vault URL.")
+      setLoading(false)
+      return
+    }
+
+    const docRef = doc(db, 'deliveries', id)
+    const unsubscribe = onSnapshot(
+      docRef,
+      (docSnap) => {
         if (docSnap.exists()) {
           setDelivery({ id: docSnap.id, ...docSnap.data() })
+          setError(null)
         } else {
-          setError("Escrow vault not found or link expired.")
+          setError("Escrow vault not found or link has expired.")
         }
-      } catch (err) {
+        setLoading(false)
+      },
+      (err) => {
+        console.error("Firestore error:", err)
         setError("Failed to load deliverable vault.")
-      } finally {
         setLoading(false)
       }
-    }
-    fetchDelivery()
+    )
+
+    return () => unsubscribe()
   }, [id])
 
   const handleSimulatePayment = async () => {
+    if (!id) return
     setPaying(true)
     try {
       const docRef = doc(db, 'deliveries', id)
       await updateDoc(docRef, { status: 'Paid' })
-      setDelivery(prev => ({ ...prev, status: 'Paid' }))
-      
-      // Trigger confetti celebration if available
-      if (window.confetti) {
+      if (typeof window !== 'undefined' && window.confetti) {
         window.confetti({ particleCount: 120, spread: 70, origin: { y: 0.6 } })
       }
-    } catch {
-      alert("Payment simulation error.")
+    } catch (e) {
+      alert("Payment processing error.")
     } finally {
       setPaying(false)
     }
   }
 
   const handleSendRevision = async () => {
-    if (!clientMessage.trim()) return
+    if (!clientMessage.trim() || !id) return
     try {
       const docRef = doc(db, 'deliveries', id)
       const newMsg = { sender: 'client', text: clientMessage.trim(), time: new Date().toISOString() }
       await updateDoc(docRef, { messages: arrayUnion(newMsg) })
-      setDelivery(prev => ({ ...prev, messages: [...(prev.messages || []), newMsg] }))
       setClientMessage('')
     } catch {
       alert("Failed to send revision note.")
@@ -140,7 +146,7 @@ export default function ClientDeliveryPortal() {
           </div>
         </div>
 
-        {/* DELIVERABLES SECTION */}
+        {/* DELIVERABLES */}
         <div className="glass-mint p-6 sm:p-8 rounded-[36px] space-y-4 border border-emerald-200">
           <h3 className="font-bold text-sm text-emerald-950">Master Deliverables</h3>
 
@@ -179,7 +185,7 @@ export default function ClientDeliveryPortal() {
           )}
         </div>
 
-        {/* REVISION CHAT THREAD */}
+        {/* REVISION CHAT */}
         <div className="glass-mint p-6 sm:p-8 rounded-[36px] space-y-4 border border-emerald-200">
           <h3 className="font-bold text-sm text-emerald-950">Revision Notes & Chat</h3>
           
