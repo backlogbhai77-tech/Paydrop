@@ -4,30 +4,53 @@
 
 @layer base {
   :root {
-    --bg-main: #F8FAFC;
-    --card-bg: #FFFFFF;
-    --border-color: #E2E8F0;
-    --primary-dark: #072217;
-    --accent-green: #059669;
+    --bg-main: #F1F5F9;
+    --glass-border: rgba(255, 255, 255, 0.6);
   }
 
   body {
-    background-color: var(--bg-main);
+    background-color: #F8FAFC;
+    background-image: 
+      radial-gradient(at 10% 10%, rgba(148, 236, 54, 0.15) 0px, transparent 50%),
+      radial-gradient(at 90% 20%, rgba(16, 185, 129, 0.12) 0px, transparent 50%),
+      radial-gradient(at 50% 80%, rgba(59, 130, 246, 0.1) 0px, transparent 50%);
+    background-attachment: fixed;
     color: #0F172A;
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Segoe UI", Roboto, sans-serif;
-    letter-spacing: -0.011em;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif;
+    letter-spacing: -0.015em;
     -webkit-font-smoothing: antialiased;
   }
 
-  /* Professional Monospace Data Styling */
   .font-mono-data {
-    font-family: "SF Mono", "Roboto Mono", "Fira Code", Consolas, monospace;
-    font-feature-settings: "tnum" on, "lnum" on;
-    letter-spacing: -0.02em;
+    font-family: "SF Mono", "Fira Code", monospace;
+    letter-spacing: -0.03em;
   }
 }
 
-/* Subtle Custom Scrollbar */
+/* iOS Liquid Glass Card Utilities */
+.liquid-glass {
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05);
+}
+
+.liquid-glass-dark {
+  background: rgba(6, 61, 42, 0.85);
+  backdrop-filter: blur(24px) saturate(190%);
+  -webkit-backdrop-filter: blur(24px) saturate(190%);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+}
+
+.liquid-[#063D2A]-pill {
+  background: rgba(6, 61, 42, 0.9);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+/* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 5px;
   height: 5px;
@@ -36,9 +59,6 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #CBD5E1;
-  border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #94A3B8;
+  background: rgba(148, 163, 184, 0.5);
+  border-radius: 999px;
 }
