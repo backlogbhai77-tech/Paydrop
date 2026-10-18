@@ -1,5 +1,5 @@
 {
-  "name": "releasedrop",
+  "name": "paydrop",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -9,15 +9,17 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "canvas-confetti": "^1.9.4",
     "firebase": "^10.12.0",
     "lucide-react": "^0.395.0",
-    "next": "14.2.3",
+    "next": "14.2.24",
     "nodemailer": "^6.9.13",
     "pdfjs-dist": "3.11.174",
     "react": "^18",
     "react-dom": "^18"
   },
   "devDependencies": {
+    "@types/canvas-confetti": "^1.9.0",
     "autoprefixer": "^10.4.19",
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.1"
