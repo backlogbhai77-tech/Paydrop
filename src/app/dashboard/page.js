@@ -200,7 +200,7 @@ export default function Dashboard() {
         createdAt: serverTimestamp()
       })
 
-      // NON-BLOCKING BACKGROUND EMAIL DISPATCH
+      // BACKGROUND ASYNC EMAIL
       const clientPortalUrl = `${window.location.origin}/d/${newDocRef.id}`
       if (clientEmail) {
         fetch('/api/send-delivery', {
@@ -214,11 +214,10 @@ export default function Dashboard() {
             amount: numAmount,
             deliveryUrl: clientPortalUrl
           })
-        }).catch(e => console.error("Async Email Error:", e))
+        }).catch(e => console.error("Async email dispatch failed:", e))
       }
 
-      // AUTOMATIC MODAL CLOSE & CLEANUP
-      showToast("Escrow Vault Deployed & Live!", "success")
+      showToast("Vault deployed & client notified", "success")
       setTitle('')
       setClientName('')
       setClientEmail('')
@@ -317,7 +316,6 @@ export default function Dashboard() {
     return { x, y, month: p.month, amount: p.amount }
   })
 
-  // GLOWING SPLINE CURVE GRAPH
   const svgPathD = chartPoints.reduce((acc, p, i, a) => {
     if (i === 0) return `M ${p.x} ${p.y}`
     const prev = a[i - 1]
@@ -328,9 +326,9 @@ export default function Dashboard() {
 
   if (!user && !loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center">
-        <p className="text-xs text-emerald-800 mb-4 font-mono">Session expired.</p>
-        <Link href="/" className="px-6 py-3 bg-emerald-800 text-white text-xs font-bold rounded-2xl">
+      <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center p-6 text-center">
+        <p className="text-xs text-slate-500 mb-4 font-mono">Session expired.</p>
+        <Link href="/" className="px-6 py-3 bg-slate-900 text-white text-xs font-bold rounded-2xl">
           Return to Login
         </Link>
       </div>
@@ -338,37 +336,37 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen text-slate-900 font-sans flex antialiased pb-32 lg:pb-8 relative selection:bg-lime-300 selection:text-emerald-950">
+    <div className="min-h-screen text-slate-900 font-sans flex antialiased pb-32 lg:pb-8 relative selection:bg-slate-900 selection:text-white">
       {toast && (
         <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top duration-200">
-          <div className="glass-mint-dark flex items-center gap-2.5 px-6 py-3 rounded-full shadow-2xl text-white text-xs font-semibold border border-lime-400/40">
-            <span className="w-2.5 h-2.5 rounded-full bg-lime-400 animate-pulse" />
+          <div className="glass-pro-dark flex items-center gap-2.5 px-6 py-3 rounded-full shadow-2xl text-white text-xs font-semibold border border-slate-700">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             <span>{toast.message}</span>
           </div>
         </div>
       )}
 
       {/* SIDEBAR (DESKTOP) */}
-      <aside className="hidden lg:flex w-64 glass-mint border-r border-emerald-200/60 flex-col justify-between p-6 sticky top-0 h-screen z-30 select-none shrink-0">
+      <aside className="hidden lg:flex w-64 glass-pro border-r border-slate-200/80 flex-col justify-between p-6 sticky top-0 h-screen z-30 select-none shrink-0">
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <button onClick={() => setCurrentTab('home')} className="flex items-center gap-2.5 text-left group">
-              <div className="w-10 h-10 rounded-2xl bg-lime-400 text-emerald-950 font-black text-xl flex items-center justify-center shadow-md shadow-lime-500/20 transition-transform group-hover:scale-105">
+              <div className="w-9 h-9 rounded-2xl bg-slate-900 text-white font-black text-xl flex items-center justify-center shadow-md transition-transform group-hover:scale-105">
                 P
               </div>
-              <span className="font-black text-2xl tracking-tight text-emerald-950">paydrop</span>
+              <span className="font-black text-2xl tracking-tight text-slate-900">paydrop</span>
             </button>
 
-            <button onClick={() => setAiDrawerOpen(true)} className="w-8 h-8 rounded-full bg-white/80 hover:bg-white flex items-center justify-center text-emerald-800 transition shadow-xs" title="AI Assistant">
-              <Sparkles className="w-4 h-4 text-emerald-700" />
+            <button onClick={() => setAiDrawerOpen(true)} className="w-8 h-8 rounded-full bg-white hover:bg-slate-100 flex items-center justify-center text-slate-700 transition shadow-xs" title="AI Assistant">
+              <Sparkles className="w-4 h-4 text-emerald-600" />
             </button>
           </div>
 
           <button
             onClick={() => { setWizardStep(1); setRequestModalOpen(true); }}
-            className="w-full py-3.5 bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold rounded-2xl shadow-lg transition active:scale-95 flex items-center justify-center gap-2 group"
+            className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-2xl shadow-md transition active:scale-95 flex items-center justify-center gap-2 group"
           >
-            <Plus className="w-4 h-4 text-lime-400 transition-transform group-hover:rotate-90 duration-200" />
+            <Plus className="w-4 h-4 text-emerald-400 transition-transform group-hover:rotate-90 duration-200" />
             <span>Request payment</span>
           </button>
 
@@ -376,24 +374,24 @@ export default function Dashboard() {
             <button
               onClick={() => setCurrentTab('home')}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-bold transition-all ${
-                currentTab === 'home' ? 'bg-emerald-800 text-white shadow-md' : 'text-emerald-800 hover:text-emerald-950 hover:bg-white/50'
+                currentTab === 'home' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
               }`}
             >
-              <Home className={`w-4 h-4 ${currentTab === 'home' ? 'text-lime-400' : ''}`} />
+              <Home className={`w-4 h-4 ${currentTab === 'home' ? 'text-emerald-400' : ''}`} />
               <span>Home</span>
             </button>
 
             <button
               onClick={() => setCurrentTab('projects')}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl text-xs font-bold transition-all ${
-                currentTab === 'projects' ? 'bg-emerald-800 text-white shadow-md' : 'text-emerald-800 hover:text-emerald-950 hover:bg-white/50'
+                currentTab === 'projects' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
               }`}
             >
               <div className="flex items-center gap-3">
-                <Briefcase className={`w-4 h-4 ${currentTab === 'projects' ? 'text-lime-400' : ''}`} />
+                <Briefcase className={`w-4 h-4 ${currentTab === 'projects' ? 'text-emerald-400' : ''}`} />
                 <span>Projects</span>
               </div>
-              <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono ${currentTab === 'projects' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-800'}`}>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono ${currentTab === 'projects' ? 'bg-white/20 text-white' : 'bg-slate-200/80 text-slate-700'}`}>
                 {deliveries.length}
               </span>
             </button>
@@ -401,11 +399,11 @@ export default function Dashboard() {
             <button
               onClick={() => setCurrentTab('revisions')}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl text-xs font-bold transition-all ${
-                currentTab === 'revisions' || currentTab === 'chat-thread' ? 'bg-emerald-800 text-white shadow-md' : 'text-emerald-800 hover:text-emerald-950 hover:bg-white/50'
+                currentTab === 'revisions' || currentTab === 'chat-thread' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
               }`}
             >
               <div className="flex items-center gap-3">
-                <MessageSquare className={`w-4 h-4 ${currentTab === 'revisions' || currentTab === 'chat-thread' ? 'text-lime-400' : ''}`} />
+                <MessageSquare className={`w-4 h-4 ${currentTab === 'revisions' || currentTab === 'chat-thread' ? 'text-emerald-400' : ''}`} />
                 <span>Revisions</span>
               </div>
               {unreadRevisions.length > 0 && (
@@ -418,26 +416,26 @@ export default function Dashboard() {
             <button
               onClick={() => setCurrentTab('wallet')}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-bold transition-all ${
-                currentTab === 'wallet' ? 'bg-emerald-800 text-white shadow-md' : 'text-emerald-800 hover:text-emerald-950 hover:bg-white/50'
+                currentTab === 'wallet' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
               }`}
             >
-              <Wallet className={`w-4 h-4 ${currentTab === 'wallet' ? 'text-lime-400' : ''}`} />
+              <Wallet className={`w-4 h-4 ${currentTab === 'wallet' ? 'text-emerald-400' : ''}`} />
               <span>Wallet</span>
             </button>
           </nav>
         </div>
 
-        <div className="pt-4 border-t border-emerald-200/60 flex items-center justify-between">
+        <div className="pt-4 border-t border-slate-200/80 flex items-center justify-between">
           <button onClick={() => setProfileDrawerOpen(true)} className="flex items-center gap-3 min-w-0 text-left hover:opacity-80 transition">
-            <div className="w-9 h-9 rounded-full bg-lime-200 text-emerald-950 text-xs font-bold flex items-center justify-center shrink-0 border border-white shadow-xs">
+            <div className="w-9 h-9 rounded-full bg-slate-200 text-slate-800 text-xs font-bold flex items-center justify-center shrink-0 border border-white shadow-xs">
               {user?.displayName ? user.displayName.slice(0, 2).toUpperCase() : 'AN'}
             </div>
             <div className="truncate">
-              <div className="text-xs font-bold text-emerald-950 truncate">{user?.displayName || user?.email?.split('@')[0] || 'Ankit'}</div>
-              <div className="text-[10px] text-emerald-700 truncate">{user?.email}</div>
+              <div className="text-xs font-bold text-slate-900 truncate">{user?.displayName || user?.email?.split('@')[0] || 'Ankit'}</div>
+              <div className="text-[10px] text-slate-500 truncate">{user?.email}</div>
             </div>
           </button>
-          <button onClick={handleLogout} className="text-emerald-600 hover:text-rose-600 text-xs p-1" title="Sign Out">✕</button>
+          <button onClick={handleLogout} className="text-slate-400 hover:text-rose-600 text-xs p-1" title="Sign Out">✕</button>
         </div>
       </aside>
 
@@ -446,29 +444,29 @@ export default function Dashboard() {
         
         <header className="px-6 sm:px-10 pt-6 pb-2 flex items-center justify-between">
           <div className="flex items-center gap-3 lg:hidden">
-            <div className="w-9 h-9 rounded-2xl bg-lime-400 text-emerald-950 font-black text-xl flex items-center justify-center shadow-sm">
+            <div className="w-9 h-9 rounded-2xl bg-slate-900 text-white font-black text-xl flex items-center justify-center shadow-sm">
               P
             </div>
-            <span className="font-black text-2xl tracking-tight text-emerald-950">paydrop</span>
+            <span className="font-black text-2xl tracking-tight text-slate-900">paydrop</span>
           </div>
 
           <div className="hidden lg:block">
-            <span className="text-xs font-medium text-emerald-700 uppercase tracking-wider font-mono">Mint Studio Dashboard</span>
-            <h1 className="text-2xl font-extrabold text-emerald-950 tracking-tight">Welcome back, {user?.displayName?.split(' ')[0] || user?.email?.split('@')[0] || 'Ankit'}</h1>
+            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider font-mono">SaaS Studio</span>
+            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Welcome back, {user?.displayName?.split(' ')[0] || user?.email?.split('@')[0] || 'Ankit'}</h1>
           </div>
 
           <div className="flex items-center gap-3">
             <button 
               onClick={() => setAiDrawerOpen(true)} 
-              className="w-10 h-10 rounded-full glass-mint flex items-center justify-center text-emerald-800 shadow-xs hover:scale-105 transition"
+              className="w-10 h-10 rounded-full glass-pro flex items-center justify-center text-slate-700 shadow-xs hover:scale-105 transition"
               title="AI Assistant"
             >
-              <Sparkles className="w-4 h-4 text-emerald-700" />
+              <Sparkles className="w-4 h-4 text-emerald-600" />
             </button>
 
             <button 
               onClick={() => setProfileDrawerOpen(true)}
-              className="w-10 h-10 rounded-full bg-lime-200 text-emerald-950 font-bold text-xs flex items-center justify-center border border-white shadow-xs hover:opacity-90 transition"
+              className="w-10 h-10 rounded-full bg-slate-200 text-slate-800 font-bold text-xs flex items-center justify-center border border-white shadow-xs hover:opacity-90 transition"
             >
               {user?.displayName ? user.displayName.slice(0, 2).toUpperCase() : 'AN'}
             </button>
@@ -481,21 +479,19 @@ export default function Dashboard() {
           {currentTab === 'home' && (
             <div className="space-y-6">
               
-              {/* HERO CARD */}
-              <div className="glass-mint-dark rounded-[36px] p-7 sm:p-8 text-white relative overflow-hidden shadow-2xl animate-pulse-glow">
-                <div className="absolute -right-12 -top-12 w-64 h-64 bg-emerald-700 rounded-full blur-2xl pointer-events-none opacity-40" />
-
+              {/* HERO CARD (MINIMAL PRO DARK) */}
+              <div className="glass-pro-dark rounded-[36px] p-7 sm:p-8 text-white relative overflow-hidden shadow-xl">
                 <div className="relative z-10 space-y-6">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-xs font-medium text-emerald-200/80">
+                    <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
                       <span>Available balance</span>
-                      <button onClick={() => setBalanceVisible(!balanceVisible)} className="p-1 text-lime-300 hover:text-white transition">
+                      <button onClick={() => setBalanceVisible(!balanceVisible)} className="p-1 text-slate-300 hover:text-white transition">
                         {balanceVisible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                       </button>
                     </div>
 
                     <div className="w-10 h-10 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center">
-                      <Wallet className="w-5 h-5 text-lime-400" />
+                      <Wallet className="w-5 h-5 text-emerald-400" />
                     </div>
                   </div>
 
@@ -503,26 +499,26 @@ export default function Dashboard() {
                     <div className="text-4xl sm:text-5xl font-black font-mono-data tracking-tight text-white">
                       {balanceVisible ? formatCurrency(currency === 'INR' ? totalRevenueINR : totalRevenueUSD, currency) : '••••••'}
                     </div>
-                    <p className="text-xs text-emerald-200/70 mt-1">Total settled earnings protected in escrow</p>
+                    <p className="text-xs text-slate-400 mt-1">Total settled earnings protected in escrow</p>
                   </div>
                 </div>
               </div>
 
-              {/* NEW SPLINE REVENUE CHART */}
-              <div className="glass-mint rounded-[36px] p-7 shadow-xs space-y-5">
+              {/* REVENUE SPLINE CHART */}
+              <div className="glass-pro rounded-[36px] p-7 shadow-xs space-y-5">
                 <div className="flex items-start justify-between">
                   <div>
                     <div className="flex items-center gap-2">
-                      <TrendingUp className="w-5 h-5 text-emerald-800" />
-                      <h3 className="text-lg font-bold text-emerald-950 tracking-tight">Revenue Trend ({currentYear})</h3>
+                      <TrendingUp className="w-4 h-4 text-emerald-600" />
+                      <h3 className="text-lg font-bold text-slate-900 tracking-tight">Revenue Trend ({currentYear})</h3>
                     </div>
-                    <span className="text-xs text-emerald-700 font-medium">Escrow settlement velocity graph</span>
+                    <span className="text-xs text-slate-400 font-medium">Real-time escrow settlement graph</span>
                   </div>
 
                   <select
                     value={currency}
                     onChange={e => setCurrency(e.target.value)}
-                    className="px-3 py-1.5 bg-white/90 border border-emerald-200 rounded-xl text-xs font-bold text-emerald-900 focus:outline-none cursor-pointer"
+                    className="px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none cursor-pointer"
                   >
                     <option value="INR">INR (₹)</option>
                     <option value="USD">USD ($)</option>
@@ -533,30 +529,29 @@ export default function Dashboard() {
                   <svg className="w-full h-full overflow-visible" viewBox="0 0 300 120" preserveAspectRatio="none">
                     <defs>
                       <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#A3E635" stopOpacity="0.45" />
-                        <stop offset="100%" stopColor="#A3E635" stopOpacity="0.0" />
+                        <stop offset="0%" stopColor="#10B981" stopOpacity="0.2" />
+                        <stop offset="100%" stopColor="#10B981" stopOpacity="0.0" />
                       </linearGradient>
                     </defs>
 
                     <path d={areaPathD} fill="url(#chartGradient)" />
-                    <path d={svgPathD} fill="none" stroke="#064E3B" strokeWidth="3.5" strokeLinecap="round" />
+                    <path d={svgPathD} fill="none" stroke="#0F172A" strokeWidth="3" strokeLinecap="round" />
 
                     {chartPoints.map((pt, idx) => (
                       <g key={idx} className="group cursor-pointer" onMouseEnter={() => setActiveChartPoint(pt)}>
-                        <circle cx={pt.x} cy={pt.y} r="5" className="fill-emerald-950 group-hover:fill-lime-400 transition-all duration-200" />
-                        <circle cx={pt.x} cy={pt.y} r="8" className="fill-lime-400/30 opacity-0 group-hover:opacity-100 transition-all duration-200" />
+                        <circle cx={pt.x} cy={pt.y} r="4" className="fill-slate-900 group-hover:fill-emerald-500 transition-all duration-200" />
                       </g>
                     ))}
                   </svg>
 
                   {activeChartPoint && (
-                    <div className="absolute top-2 left-1/2 -translate-x-1/2 px-3.5 py-1.5 bg-emerald-950 text-white text-[10px] font-mono rounded-xl shadow-xl animate-in fade-in duration-150">
+                    <div className="absolute top-2 left-1/2 -translate-x-1/2 px-3.5 py-1.5 bg-slate-900 text-white text-[10px] font-mono rounded-xl shadow-xl animate-in fade-in duration-150">
                       {activeChartPoint.month}: {formatCurrency(activeChartPoint.amount, currency)}
                     </div>
                   )}
                 </div>
 
-                <div className="flex justify-between text-[10px] text-emerald-700 font-mono pt-2 border-t border-emerald-200/50">
+                <div className="flex justify-between text-[10px] text-slate-400 font-mono pt-2 border-t border-slate-200/60">
                   {monthNames.map((m, i) => <span key={i}>{m}</span>)}
                 </div>
               </div>
@@ -565,59 +560,59 @@ export default function Dashboard() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-xl font-bold text-emerald-950 tracking-tight">Active projects</h3>
-                    <p className="text-xs text-emerald-700">Payments protected in escrow</p>
+                    <h3 className="text-xl font-bold text-slate-900 tracking-tight">Active projects</h3>
+                    <p className="text-xs text-slate-400">Protected in escrow</p>
                   </div>
-                  <button onClick={() => setCurrentTab('projects')} className="text-xs font-bold text-emerald-800 hover:underline">
+                  <button onClick={() => setCurrentTab('projects')} className="text-xs font-bold text-slate-800 hover:underline">
                     View all
                   </button>
                 </div>
 
                 {deliveries.length === 0 ? (
-                  <div className="p-12 text-center text-xs text-emerald-700 glass-mint rounded-[32px] font-mono">
+                  <div className="p-12 text-center text-xs text-slate-400 glass-pro rounded-[32px] font-mono">
                     [ NO ACTIVE VAULTS DEPLOYED ]
                   </div>
                 ) : (
                   <div className="space-y-3">
                     {deliveries.map(item => (
-                      <div key={item.id} className="p-6 glass-mint rounded-[32px] shadow-xs space-y-4 hover:border-emerald-300 transition-all duration-200">
+                      <div key={item.id} className="p-6 glass-pro rounded-[32px] shadow-xs space-y-4 hover:border-slate-300 transition-all duration-200">
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex items-center gap-3.5 min-w-0">
-                            <div className="w-12 h-12 rounded-2xl bg-lime-300/60 text-emerald-950 font-bold text-sm flex items-center justify-center shrink-0 border border-emerald-200">
+                            <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-800 font-bold text-sm flex items-center justify-center shrink-0 border border-slate-200">
                               {item.clientName ? item.clientName.slice(0, 2).toUpperCase() : 'CL'}
                             </div>
                             <div className="min-w-0 pr-2">
-                              <h4 className="text-base font-bold text-emerald-950 tracking-tight truncate">{item.title}</h4>
-                              <p className="text-xs text-emerald-700 mt-0.5 truncate">with {item.clientName} ({item.clientEmail})</p>
+                              <h4 className="text-base font-bold text-slate-900 tracking-tight truncate">{item.title}</h4>
+                              <p className="text-xs text-slate-500 mt-0.5 truncate">with {item.clientName} ({item.clientEmail})</p>
                             </div>
                           </div>
 
                           <div className="text-right shrink-0">
-                            <div className="font-black text-base text-emerald-950 font-mono-data">{formatCurrency(item.grossAmount, item.currency || 'INR')}</div>
-                            <div className="text-xs text-emerald-700 font-medium mt-0.5">{item.status === 'Paid' ? 'Released' : 'In escrow'}</div>
+                            <div className="font-black text-base text-slate-900 font-mono-data">{formatCurrency(item.grossAmount, item.currency || 'INR')}</div>
+                            <div className="text-xs text-slate-400 font-medium mt-0.5">{item.status === 'Paid' ? 'Released' : 'In escrow'}</div>
                           </div>
                         </div>
 
                         <div className="space-y-2">
-                          <div className="w-full h-2.5 bg-emerald-100 rounded-full overflow-hidden">
-                            <div className={`h-full rounded-full transition-all duration-500 ${item.status === 'Paid' ? 'w-full bg-lime-500' : 'w-2/3 bg-lime-400'}`} />
+                          <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full transition-all duration-500 ${item.status === 'Paid' ? 'w-full bg-emerald-500' : 'w-2/3 bg-slate-900'}`} />
                           </div>
 
                           <div className="flex items-center justify-between text-xs pt-0.5">
-                            <span className="flex items-center gap-1.5 font-bold text-emerald-900">
-                              <span className={`w-2 h-2 rounded-full ${item.status === 'Paid' ? 'bg-emerald-600' : 'bg-lime-500 animate-ping'}`} />
+                            <span className="flex items-center gap-1.5 font-bold text-slate-800">
+                              <span className={`w-2 h-2 rounded-full ${item.status === 'Paid' ? 'bg-emerald-500' : 'bg-slate-900 animate-ping'}`} />
                               {item.status === 'Paid' ? 'Funds Released' : 'Funded • In Progress'}
                             </span>
 
                             <div className="flex items-center gap-3">
-                              <button onClick={() => shareProject(item)} className="p-1.5 bg-white/90 hover:bg-white rounded-xl text-emerald-800 transition" title="Share Escrow Link">
+                              <button onClick={() => shareProject(item)} className="p-1.5 bg-white hover:bg-slate-100 rounded-xl text-slate-700 transition" title="Share Escrow Link">
                                 <Share2 className="w-3.5 h-3.5" />
                               </button>
-                              <button onClick={() => copyLink(item.id)} className="text-emerald-800 font-bold hover:text-emerald-950 transition">
+                              <button onClick={() => copyLink(item.id)} className="text-slate-700 font-bold hover:text-slate-900 transition">
                                 {copiedId === item.id ? 'Copied!' : 'Copy link'}
                               </button>
-                              <span className="text-emerald-300">•</span>
-                              <Link href={`/d/${item.id}`} target="_blank" className="text-emerald-800 font-bold flex items-center gap-0.5 hover:underline">
+                              <span className="text-slate-300">•</span>
+                              <Link href={`/d/${item.id}`} target="_blank" className="text-slate-900 font-bold flex items-center gap-0.5 hover:underline">
                                 <span>Portal</span> <ChevronRight className="w-4 h-4" />
                               </Link>
                             </div>
@@ -636,33 +631,33 @@ export default function Dashboard() {
           {currentTab === 'projects' && (
             <div className="space-y-6">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <h1 className="text-2xl font-black text-emerald-950 tracking-tight">All Projects</h1>
+                <h1 className="text-2xl font-black text-slate-900 tracking-tight">All Projects</h1>
                 <div className="relative w-full sm:w-64">
-                  <Search className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-emerald-700" />
+                  <Search className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type="text"
                     placeholder="Search projects..."
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 glass-mint rounded-2xl text-xs focus:outline-none focus:border-lime-500 transition"
+                    className="w-full pl-9 pr-3 py-2 glass-pro rounded-2xl text-xs focus:outline-none focus:border-slate-900 transition"
                   />
                 </div>
               </div>
 
               <div className="space-y-3">
                 {filteredDeliveries.length === 0 ? (
-                  <div className="p-12 text-center text-xs text-emerald-700 glass-mint rounded-[32px]">No projects found.</div>
+                  <div className="p-12 text-center text-xs text-slate-400 glass-pro rounded-[32px]">No projects found.</div>
                 ) : (
                   filteredDeliveries.map(item => (
-                    <div key={item.id} className="p-6 glass-mint rounded-[32px] flex items-center justify-between gap-4 shadow-xs hover:border-emerald-300 transition">
+                    <div key={item.id} className="p-6 glass-pro rounded-[32px] flex items-center justify-between gap-4 shadow-xs hover:border-slate-300 transition">
                       <div className="min-w-0 pr-2">
-                        <h4 className="font-bold text-sm text-emerald-950 truncate">{item.title}</h4>
-                        <p className="text-xs text-emerald-700 truncate">Client: {item.clientName} ({item.clientEmail}) • {item.files?.length || 0} file(s)</p>
+                        <h4 className="font-bold text-sm text-slate-900 truncate">{item.title}</h4>
+                        <p className="text-xs text-slate-500 truncate">Client: {item.clientName} ({item.clientEmail}) • {item.files?.length || 0} file(s)</p>
                       </div>
                       <div className="flex items-center gap-3 shrink-0">
-                        <span className="font-bold text-xs font-mono-data text-emerald-950">{formatCurrency(item.grossAmount, item.currency || 'INR')}</span>
+                        <span className="font-bold text-xs font-mono-data text-slate-900">{formatCurrency(item.grossAmount, item.currency || 'INR')}</span>
                         
-                        <button onClick={() => shareProject(item)} className="p-2 bg-white/90 hover:bg-white rounded-xl text-emerald-800 transition" title="Share Escrow Link">
+                        <button onClick={() => shareProject(item)} className="p-2 bg-white hover:bg-slate-100 rounded-xl text-slate-700 transition" title="Share Escrow Link">
                           <Share2 className="w-4 h-4" />
                         </button>
 
@@ -680,10 +675,10 @@ export default function Dashboard() {
           {/* REVISIONS TAB */}
           {currentTab === 'revisions' && (
             <div className="space-y-6">
-              <h1 className="text-2xl font-black text-emerald-950 tracking-tight">Client Revisions</h1>
+              <h1 className="text-2xl font-black text-slate-900 tracking-tight">Client Revisions</h1>
               <div className="space-y-3">
                 {deliveries.length === 0 ? (
-                  <div className="p-12 text-center text-xs text-emerald-700 glass-mint rounded-[32px]">No revision threads found.</div>
+                  <div className="p-12 text-center text-xs text-slate-400 glass-pro rounded-[32px]">No revision threads found.</div>
                 ) : (
                   deliveries.map(d => {
                     const hasMessages = d.messages && d.messages.length > 0
@@ -691,7 +686,7 @@ export default function Dashboard() {
                     const isUnreadClientMsg = lastMsg && lastMsg.sender === 'client'
 
                     return (
-                      <div key={d.id} className={`p-6 glass-mint rounded-[32px] flex justify-between items-center gap-4 shadow-xs hover:border-emerald-300 transition relative ${
+                      <div key={d.id} className={`p-6 glass-pro rounded-[32px] flex justify-between items-center gap-4 shadow-xs hover:border-slate-300 transition relative ${
                         isUnreadClientMsg ? 'border-rose-300 bg-rose-50/20' : ''
                       }`}>
                         {isUnreadClientMsg && (
@@ -702,17 +697,17 @@ export default function Dashboard() {
 
                         <div className="space-y-1 min-w-0 pr-2">
                           <div className="flex items-center gap-2">
-                            <h4 className="font-bold text-xs text-emerald-950 truncate">{d.clientName}</h4>
-                            <span className="text-emerald-400">•</span>
-                            <span className="text-xs text-emerald-700 truncate">{d.title}</span>
+                            <h4 className="font-bold text-xs text-slate-900 truncate">{d.clientName}</h4>
+                            <span className="text-slate-300">•</span>
+                            <span className="text-xs text-slate-500 truncate">{d.title}</span>
                           </div>
-                          <p className="text-xs text-emerald-800 truncate">
+                          <p className="text-xs text-slate-600 truncate">
                             {lastMsg ? lastMsg.text : 'No revision notes yet.'}
                           </p>
                         </div>
                         <button 
                           onClick={() => { setActiveThreadDelivery(d); setCurrentTab('chat-thread'); }} 
-                          className="px-4 py-2.5 bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-xs rounded-2xl transition shrink-0 flex items-center gap-1.5"
+                          className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-2xl transition shrink-0 flex items-center gap-1.5"
                         >
                           <span>Open Chat</span>
                           {isUnreadClientMsg && <span className="w-2 h-2 rounded-full bg-rose-400 animate-ping" />}
@@ -727,39 +722,39 @@ export default function Dashboard() {
 
           {/* FULLSCREEN CHAT THREAD */}
           {currentTab === 'chat-thread' && activeThreadDelivery && (
-            <div className="fixed inset-0 z-50 bg-emerald-950/40 backdrop-blur-md flex flex-col p-4 sm:p-8 animate-in fade-in duration-200">
-              <div className="max-w-4xl w-full mx-auto glass-mint rounded-[36px] flex-1 flex flex-col overflow-hidden shadow-2xl">
+            <div className="fixed inset-0 z-50 bg-slate-900/30 backdrop-blur-md flex flex-col p-4 sm:p-8 animate-in fade-in duration-200">
+              <div className="max-w-4xl w-full mx-auto glass-pro rounded-[36px] flex-1 flex flex-col overflow-hidden shadow-2xl">
                 
-                <div className="p-6 border-b border-emerald-200/50 flex items-center justify-between bg-white/70 gap-4">
+                <div className="p-6 border-b border-slate-200/80 flex items-center justify-between bg-white/80 gap-4">
                   <div className="flex items-center gap-3 min-w-0">
-                    <button onClick={() => setCurrentTab('revisions')} className="p-2 bg-white/90 hover:bg-white rounded-xl text-xs font-bold text-emerald-800 transition shrink-0">
+                    <button onClick={() => setCurrentTab('revisions')} className="p-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-bold text-slate-700 transition shrink-0">
                       <ArrowLeft className="w-4 h-4" />
                     </button>
                     <div className="min-w-0">
-                      <h3 className="font-extrabold text-sm text-emerald-950 truncate">{activeThreadDelivery.clientName}</h3>
-                      <p className="text-xs text-emerald-700 truncate">{activeThreadDelivery.title} • {formatCurrency(activeThreadDelivery.grossAmount, activeThreadDelivery.currency)}</p>
+                      <h3 className="font-extrabold text-sm text-slate-900 truncate">{activeThreadDelivery.clientName}</h3>
+                      <p className="text-xs text-slate-500 truncate">{activeThreadDelivery.title} • {formatCurrency(activeThreadDelivery.grossAmount, activeThreadDelivery.currency)}</p>
                     </div>
                   </div>
 
-                  <Link href={`/d/${activeThreadDelivery.id}`} target="_blank" className="px-4 py-2 bg-emerald-800 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 hover:bg-emerald-900 transition shrink-0">
+                  <Link href={`/d/${activeThreadDelivery.id}`} target="_blank" className="px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 hover:bg-slate-800 transition shrink-0">
                     <span>Portal</span> <ExternalLink className="w-3.5 h-3.5" />
                   </Link>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-emerald-50/40">
+                <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-slate-50/50">
                   {(activeThreadDelivery.messages || []).length === 0 ? (
-                    <div className="h-full flex items-center justify-center text-xs text-emerald-700 font-mono">No revision notes yet. Start conversation.</div>
+                    <div className="h-full flex items-center justify-center text-xs text-slate-400 font-mono">No revision notes yet. Start conversation.</div>
                   ) : (
                     activeThreadDelivery.messages.map((m, idx) => {
                       const isCreator = m.sender === 'creator'
                       return (
                         <div key={idx} className={`flex flex-col ${isCreator ? 'items-end' : 'items-start'}`}>
                           <div className={`p-4 text-xs rounded-2xl max-w-md ${
-                            isCreator ? 'bg-emerald-800 text-white rounded-br-xs shadow-md' : 'bg-white text-emerald-950 shadow-xs rounded-bl-xs border border-emerald-200'
+                            isCreator ? 'bg-slate-900 text-white rounded-br-xs shadow-md' : 'bg-white text-slate-900 shadow-xs rounded-bl-xs border border-slate-200'
                           }`}>
                             <p className="leading-relaxed">{m.text}</p>
                           </div>
-                          <span className="text-[9px] text-emerald-600 mt-1 font-mono">{new Date(m.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                          <span className="text-[9px] text-slate-400 mt-1 font-mono">{new Date(m.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                         </div>
                       )
                     })
@@ -767,13 +762,13 @@ export default function Dashboard() {
                   <div ref={chatBottomRef} />
                 </div>
 
-                <div className="p-4 bg-white/80 border-t border-emerald-200/50 space-y-3">
+                <div className="p-4 bg-white border-t border-slate-200/80 space-y-3">
                   <div className="flex items-center gap-2 overflow-x-auto pb-1 text-[10px]">
                     {["Working on this draft ✍️", "Uploaded revised files 📁", "Revision completed ✅"].map((pill, i) => (
                       <button
                         key={i}
                         onClick={() => setThreadReplyText(pill)}
-                        className="px-3 py-1 bg-white hover:bg-emerald-50 text-emerald-900 font-semibold rounded-full shrink-0 transition shadow-xs border border-emerald-200"
+                        className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold rounded-full shrink-0 transition shadow-xs border border-slate-200"
                       >
                         {pill}
                       </button>
@@ -787,13 +782,13 @@ export default function Dashboard() {
                       value={threadReplyText}
                       onChange={e => setThreadReplyText(e.target.value)}
                       onKeyDown={e => e.key === 'Enter' && handleSendThreadReply(activeThreadDelivery.id)}
-                      className="flex-1 bg-white px-4 py-3 rounded-2xl text-xs border border-emerald-200 focus:outline-none focus:border-lime-500 transition"
+                      className="flex-1 bg-white px-4 py-3 rounded-2xl text-xs border border-slate-200 focus:outline-none focus:border-slate-900 transition"
                     />
                     <button 
                       onClick={() => handleSendThreadReply(activeThreadDelivery.id)} 
-                      className="px-6 py-3 bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold rounded-2xl transition active:scale-95 flex items-center gap-1.5 shrink-0"
+                      className="px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-2xl transition active:scale-95 flex items-center gap-1.5 shrink-0"
                     >
-                      <Send className="w-3.5 h-3.5 text-lime-400" />
+                      <Send className="w-3.5 h-3.5 text-emerald-400" />
                       <span>Send</span>
                     </button>
                   </div>
@@ -806,11 +801,11 @@ export default function Dashboard() {
           {/* WALLET TAB */}
           {currentTab === 'wallet' && (
             <div className="space-y-6">
-              <h1 className="text-2xl font-black text-emerald-950 tracking-tight">Wallet & Payouts</h1>
-              <div className="p-8 glass-mint rounded-[36px] space-y-4 shadow-xs">
-                <div className="text-xs text-emerald-700 font-medium">Available Balance for Bank Payout</div>
-                <div className="text-4xl font-black text-emerald-950 font-mono-data">{formatCurrency(currency === 'INR' ? totalRevenueINR : totalRevenueUSD, currency)}</div>
-                <p className="text-xs text-emerald-700 leading-relaxed">Funds are locked in escrow and released to bank upon client approval.</p>
+              <h1 className="text-2xl font-black text-slate-900 tracking-tight">Wallet & Payouts</h1>
+              <div className="p-8 glass-pro rounded-[36px] space-y-4 shadow-xs">
+                <div className="text-xs text-slate-500 font-medium">Available Balance for Bank Payout</div>
+                <div className="text-4xl font-black text-slate-900 font-mono-data">{formatCurrency(currency === 'INR' ? totalRevenueINR : totalRevenueUSD, currency)}</div>
+                <p className="text-xs text-slate-500 leading-relaxed">Funds are locked in escrow and released to bank upon client approval.</p>
               </div>
             </div>
           )}
@@ -821,14 +816,14 @@ export default function Dashboard() {
       {/* FLOATING ACTION BUTTON */}
       <button
         onClick={() => { setWizardStep(1); setRequestModalOpen(true); }}
-        className="fixed bottom-28 right-6 sm:bottom-10 sm:right-10 z-40 w-14 h-14 rounded-full bg-emerald-800 text-white flex items-center justify-center shadow-2xl transition hover:scale-105 active:scale-95"
+        className="fixed bottom-28 right-6 sm:bottom-10 sm:right-10 z-40 w-14 h-14 rounded-full bg-slate-900 text-white flex items-center justify-center shadow-xl transition hover:scale-105 active:scale-95"
       >
-        <Plus className="w-7 h-7 text-lime-400" />
+        <Plus className="w-7 h-7 text-emerald-400" />
       </button>
 
-      {/* iOS FLOATING LIQUID MINT NAVIGATION BAR (MOBILE) */}
+      {/* MOBILE NAVIGATION BAR */}
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 lg:hidden w-[90%] max-w-md">
-        <div className="glass-mint-dark p-2 rounded-full shadow-2xl flex items-center justify-around border border-lime-400/30">
+        <div className="glass-pro-dark p-2 rounded-full shadow-2xl flex items-center justify-around border border-slate-700">
           {[
             { id: 'home', label: 'Home', icon: Home },
             { id: 'projects', label: 'Projects', icon: Briefcase },
@@ -842,10 +837,10 @@ export default function Dashboard() {
                 key={tab.id}
                 onClick={() => setCurrentTab(tab.id)}
                 className={`relative flex flex-col items-center justify-center py-2 px-4 rounded-full transition-all duration-300 ${
-                  active ? 'bg-white/20 text-white shadow-lg' : 'text-emerald-200/70 hover:text-white'
+                  active ? 'bg-white/20 text-white shadow-lg' : 'text-slate-400 hover:text-white'
                 }`}
               >
-                <Icon className={`w-5 h-5 ${active ? 'text-lime-400 scale-110' : 'text-emerald-200/80'} transition-transform`} />
+                <Icon className={`w-5 h-5 ${active ? 'text-emerald-400 scale-110' : 'text-slate-400'} transition-transform`} />
                 <span className="text-[9px] font-semibold tracking-tight mt-0.5">{tab.label}</span>
                 {tab.badge > 0 && (
                   <span className="absolute top-1 right-3 w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
@@ -858,60 +853,60 @@ export default function Dashboard() {
 
       {/* FULLSCREEN WIZARD MODAL */}
       {requestModalOpen && (
-        <div className="fixed inset-0 z-50 bg-emerald-950/40 backdrop-blur-md flex flex-col p-4 sm:p-8 animate-in fade-in duration-200">
-          <div className="max-w-2xl w-full mx-auto glass-mint rounded-[40px] flex-1 p-8 shadow-2xl flex flex-col justify-between overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-md flex flex-col p-4 sm:p-8 animate-in fade-in duration-200">
+          <div className="max-w-2xl w-full mx-auto glass-pro rounded-[40px] flex-1 p-8 shadow-2xl flex flex-col justify-between overflow-y-auto">
             
             <div className="space-y-6">
-              <div className="flex items-start justify-between border-b border-emerald-200/60 pb-4">
+              <div className="flex items-start justify-between border-b border-slate-200/80 pb-4">
                 <div>
-                  <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-widest font-mono">STEP {wizardStep} OF 4</span>
-                  <h3 className="text-2xl font-black text-emerald-950 tracking-tight mt-0.5">Request a payment</h3>
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest font-mono">STEP {wizardStep} OF 4</span>
+                  <h3 className="text-2xl font-black text-slate-900 tracking-tight mt-0.5">Request a payment</h3>
                 </div>
                 <button 
                   onClick={() => setRequestModalOpen(false)} 
-                  className="w-10 h-10 rounded-full bg-white/90 hover:bg-white flex items-center justify-center text-emerald-800 transition"
+                  className="w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-700 transition"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              <div className="w-full bg-emerald-200/60 h-2 rounded-full overflow-hidden">
+              <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
                 <div 
-                  className="bg-emerald-800 h-full transition-all duration-300"
+                  className="bg-slate-900 h-full transition-all duration-300"
                   style={{ width: `${(wizardStep / 4) * 100}%` }}
                 />
               </div>
 
               {wizardStep === 1 && (
                 <div className="space-y-5 animate-in fade-in duration-200">
-                  <label className="text-xs font-bold text-emerald-900 block">Attach Deliverables (ZIP, Videos, Code, PDFs) *</label>
+                  <label className="text-xs font-bold text-slate-900 block">Attach Deliverables (ZIP, Videos, Code, PDFs) *</label>
                   <div
                     onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
                     onDragLeave={() => setIsDragging(false)}
                     onDrop={(e) => { e.preventDefault(); setIsDragging(false); handleFilesAdd(e.dataTransfer.files); }}
                     className={`border-2 border-dashed rounded-3xl p-10 text-center transition-all ${
-                      isDragging ? 'border-emerald-800 bg-emerald-100/50' : 'border-emerald-300/80 bg-white/60 hover:border-lime-500'
+                      isDragging ? 'border-slate-900 bg-slate-100' : 'border-slate-300 bg-white hover:border-slate-900'
                     }`}
                   >
-                    <UploadCloud className="w-10 h-10 text-emerald-800 mx-auto mb-3 animate-bounce" />
-                    <span className="text-sm font-bold text-emerald-950 block">Drop ZIP / Videos / Code files here</span>
-                    <label className="mt-4 inline-block px-5 py-2.5 bg-emerald-800 text-white text-xs font-bold rounded-2xl cursor-pointer shadow-md transition hover:scale-105">
+                    <UploadCloud className="w-10 h-10 text-slate-900 mx-auto mb-3 animate-bounce" />
+                    <span className="text-sm font-bold text-slate-900 block">Drop ZIP / Videos / Code files here</span>
+                    <label className="mt-4 inline-block px-5 py-2.5 bg-slate-900 text-white text-xs font-bold rounded-2xl cursor-pointer shadow-md transition hover:scale-105">
                       Browse Files
                       <input type="file" multiple onChange={e => handleFilesAdd(e.target.files)} className="hidden" />
                     </label>
                   </div>
 
                   {fileList.length > 0 && (
-                    <div className="space-y-2 bg-white/80 p-4 rounded-2xl border border-emerald-200/80 max-h-40 overflow-y-auto">
+                    <div className="space-y-2 bg-white p-4 rounded-2xl border border-slate-200 max-h-40 overflow-y-auto">
                       {fileList.map((f, i) => (
                         <div key={i} className="flex justify-between text-xs items-center px-1">
-                          <span className="truncate max-w-[280px] font-medium text-emerald-950 flex items-center gap-2">
+                          <span className="truncate max-w-[280px] font-medium text-slate-900 flex items-center gap-2">
                             {f.type.startsWith('video/') ? <Film className="w-4 h-4 text-blue-600" /> : 
                              f.type.startsWith('image/') ? <ImageIcon className="w-4 h-4 text-emerald-600" /> : 
-                             <File className="w-4 h-4 text-emerald-700" />}
+                             <File className="w-4 h-4 text-slate-600" />}
                             {f.name}
                           </span>
-                          <button onClick={() => removeFile(i)} className="text-emerald-500 hover:text-rose-600 font-bold">✕</button>
+                          <button onClick={() => removeFile(i)} className="text-slate-400 hover:text-rose-600 font-bold">✕</button>
                         </div>
                       ))}
                     </div>
@@ -922,35 +917,35 @@ export default function Dashboard() {
               {wizardStep === 2 && (
                 <div className="space-y-5 animate-in fade-in duration-200">
                   <div>
-                    <label className="text-xs font-bold text-emerald-900 block mb-1.5">Client Email *</label>
+                    <label className="text-xs font-bold text-slate-900 block mb-1.5">Client Email *</label>
                     <input
                       type="email"
                       placeholder="client@company.com"
                       value={clientEmail}
                       onChange={e => setClientEmail(e.target.value)}
-                      className="w-full px-4 py-3.5 bg-white/90 border border-emerald-200 rounded-2xl text-xs font-medium text-emerald-950 focus:outline-none focus:border-lime-500 transition"
+                      className="w-full px-4 py-3.5 bg-white border border-slate-200 rounded-2xl text-xs font-medium text-slate-900 focus:outline-none focus:border-slate-900 transition"
                     />
                   </div>
 
                   <div>
-                    <label className="text-xs font-bold text-emerald-900 block mb-1.5">Project Name *</label>
+                    <label className="text-xs font-bold text-slate-900 block mb-1.5">Project Name *</label>
                     <input
                       type="text"
                       placeholder="e.g. Website Redesign & Source Code"
                       value={title}
                       onChange={e => setTitle(e.target.value)}
-                      className="w-full px-4 py-3.5 bg-white/90 border border-emerald-200 rounded-2xl text-xs font-medium text-emerald-950 focus:outline-none focus:border-lime-500 transition"
+                      className="w-full px-4 py-3.5 bg-white border border-slate-200 rounded-2xl text-xs font-medium text-slate-900 focus:outline-none focus:border-slate-900 transition"
                     />
                   </div>
 
                   <div>
-                    <label className="text-xs font-bold text-emerald-900 block mb-1.5">Handover Message</label>
+                    <label className="text-xs font-bold text-slate-900 block mb-1.5">Handover Message</label>
                     <textarea
                       rows={3}
                       placeholder="Final master draft attached. Unlocks upon escrow release."
                       value={clientMessage}
                       onChange={e => setClientMessage(e.target.value)}
-                      className="w-full px-4 py-3.5 bg-white/90 border border-emerald-200 rounded-2xl text-xs font-medium text-emerald-950 focus:outline-none focus:border-lime-500 transition"
+                      className="w-full px-4 py-3.5 bg-white border border-slate-200 rounded-2xl text-xs font-medium text-slate-900 focus:outline-none focus:border-slate-900 transition"
                     />
                   </div>
                 </div>
@@ -959,12 +954,12 @@ export default function Dashboard() {
               {wizardStep === 3 && (
                 <div className="space-y-5 animate-in fade-in duration-200">
                   <div>
-                    <label className="text-xs font-bold text-emerald-900 block mb-1.5">Escrow Amount *</label>
-                    <div className="flex bg-white/90 border border-emerald-200 rounded-2xl overflow-hidden focus-within:border-lime-500 transition">
+                    <label className="text-xs font-bold text-slate-900 block mb-1.5">Escrow Amount *</label>
+                    <div className="flex bg-white border border-slate-200 rounded-2xl overflow-hidden focus-within:border-slate-900 transition">
                       <select
                         value={currency}
                         onChange={e => setCurrency(e.target.value)}
-                        className="px-4 py-3.5 bg-transparent text-xs font-bold text-emerald-800 focus:outline-none border-r border-emerald-200 cursor-pointer"
+                        className="px-4 py-3.5 bg-transparent text-xs font-bold text-slate-700 focus:outline-none border-r border-slate-200 cursor-pointer"
                       >
                         <option value="INR">INR (₹)</option>
                         <option value="USD">USD ($)</option>
@@ -974,13 +969,13 @@ export default function Dashboard() {
                         placeholder="0.00"
                         value={amount}
                         onChange={e => setAmount(e.target.value)}
-                        className="w-full px-4 py-3.5 bg-transparent text-xs font-bold text-emerald-950 focus:outline-none font-mono"
+                        className="w-full px-4 py-3.5 bg-transparent text-xs font-bold text-slate-900 focus:outline-none font-mono"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="text-xs font-bold text-emerald-900 block mb-1.5">Link Expiry</label>
+                    <label className="text-xs font-bold text-slate-900 block mb-1.5">Link Expiry</label>
                     <div className="grid grid-cols-4 gap-2 text-xs font-semibold">
                       {['7', '14', '30', 'never'].map(opt => (
                         <button
@@ -988,7 +983,7 @@ export default function Dashboard() {
                           type="button"
                           onClick={() => setExpirySelection(opt)}
                           className={`py-3 rounded-2xl border transition ${
-                            expirySelection === opt ? 'bg-lime-200/60 border-emerald-800 text-emerald-950 font-bold' : 'border-emerald-200 text-emerald-800 bg-white/50'
+                            expirySelection === opt ? 'bg-slate-900 border-slate-900 text-white font-bold' : 'border-slate-200 text-slate-600 bg-white'
                           }`}
                         >
                           {opt === 'never' ? 'Never' : `${opt} Days`}
@@ -1001,19 +996,19 @@ export default function Dashboard() {
 
               {wizardStep === 4 && (
                 <div className="space-y-5 animate-in fade-in duration-200">
-                  <div className="p-6 bg-white/90 rounded-3xl space-y-3 text-xs font-medium border border-emerald-200/80">
-                    <div className="flex justify-between font-extrabold text-sm text-emerald-950 border-b border-emerald-200 pb-3">
+                  <div className="p-6 bg-white rounded-3xl space-y-3 text-xs font-medium border border-slate-200">
+                    <div className="flex justify-between font-extrabold text-sm text-slate-900 border-b border-slate-200 pb-3">
                       <span>{title}</span>
                       <span>{formatCurrency(amount, currency)}</span>
                     </div>
-                    <div className="flex justify-between text-emerald-800 pt-1">
+                    <div className="flex justify-between text-slate-600 pt-1">
                       <span>Client: {clientEmail}</span>
                       <span>{fileList.length} files attached</span>
                     </div>
                   </div>
 
-                  <div className="p-4 bg-lime-100 border border-lime-300 rounded-2xl flex items-start gap-3">
-                    <ShieldCheck className="w-5 h-5 text-emerald-800 shrink-0 mt-0.5" />
+                  <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-start gap-3">
+                    <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
                     <p className="text-xs text-emerald-900 leading-relaxed font-semibold">
                       Client deposits funds in escrow to unlock master deliverables.
                     </p>
@@ -1022,65 +1017,65 @@ export default function Dashboard() {
               )}
             </div>
 
-            <div className="pt-6 border-t border-emerald-200/60">
+            <div className="pt-6 border-t border-slate-200/80">
               {wizardStep === 1 && (
                 <button
                   disabled={fileList.length === 0}
                   onClick={() => setWizardStep(2)}
-                  className="w-full py-4 bg-emerald-800 hover:bg-emerald-900 disabled:opacity-40 text-white font-bold text-xs rounded-2xl shadow-lg transition active:scale-95 flex items-center justify-center gap-2"
+                  className="w-full py-4 bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-white font-bold text-xs rounded-2xl shadow-lg transition active:scale-95 flex items-center justify-center gap-2"
                 >
                   <span>Next: Project Details</span>
-                  <ArrowRight className="w-4 h-4 text-lime-400" />
+                  <ArrowRight className="w-4 h-4 text-emerald-400" />
                 </button>
               )}
 
               {wizardStep === 2 && (
                 <div className="flex gap-3">
-                  <button onClick={() => setWizardStep(1)} className="w-1/3 py-4 border border-emerald-200 bg-white/70 text-emerald-800 font-bold text-xs rounded-2xl">Back</button>
+                  <button onClick={() => setWizardStep(1)} className="w-1/3 py-4 border border-slate-200 bg-white text-slate-700 font-bold text-xs rounded-2xl">Back</button>
                   <button
                     disabled={!clientEmail || !title}
                     onClick={() => setWizardStep(3)}
-                    className="w-2/3 py-4 bg-emerald-800 hover:bg-emerald-900 disabled:opacity-40 text-white font-bold text-xs rounded-2xl shadow-lg transition active:scale-95 flex items-center justify-center gap-2"
+                    className="w-2/3 py-4 bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-white font-bold text-xs rounded-2xl shadow-lg transition active:scale-95 flex items-center justify-center gap-2"
                   >
                     <span>Next: Pricing</span>
-                    <ArrowRight className="w-4 h-4 text-lime-400" />
+                    <ArrowRight className="w-4 h-4 text-emerald-400" />
                   </button>
                 </div>
               )}
 
               {wizardStep === 3 && (
                 <div className="flex gap-3">
-                  <button onClick={() => setWizardStep(2)} className="w-1/3 py-4 border border-emerald-200 bg-white/70 text-emerald-800 font-bold text-xs rounded-2xl">Back</button>
+                  <button onClick={() => setWizardStep(2)} className="w-1/3 py-4 border border-slate-200 bg-white text-slate-700 font-bold text-xs rounded-2xl">Back</button>
                   <button
                     disabled={!amount}
                     onClick={() => setWizardStep(4)}
-                    className="w-2/3 py-4 bg-emerald-800 hover:bg-emerald-900 disabled:opacity-40 text-white font-bold text-xs rounded-2xl shadow-lg transition active:scale-95 flex items-center justify-center gap-2"
+                    className="w-2/3 py-4 bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-white font-bold text-xs rounded-2xl shadow-lg transition active:scale-95 flex items-center justify-center gap-2"
                   >
                     <span>Review & Deploy</span>
-                    <ArrowRight className="w-4 h-4 text-lime-400" />
+                    <ArrowRight className="w-4 h-4 text-emerald-400" />
                   </button>
                 </div>
               )}
 
               {wizardStep === 4 && (
                 uploading ? (
-                  <div className="p-4 bg-emerald-800 text-white rounded-2xl space-y-2">
+                  <div className="p-4 bg-slate-900 text-white rounded-2xl space-y-2">
                     <div className="flex items-center justify-between text-xs font-semibold">
                       <span>Uploading & Deploying Vault...</span>
                       <span>{uploadProgress}%</span>
                     </div>
-                    <div className="w-full h-1.5 bg-emerald-900 rounded-full overflow-hidden">
-                      <div className="h-full bg-lime-400 transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
+                    <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                      <div className="h-full bg-emerald-400 transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
                     </div>
                   </div>
                 ) : (
                   <div className="flex gap-3">
-                    <button onClick={() => setWizardStep(3)} className="w-1/3 py-4 border border-emerald-200 bg-white/70 text-emerald-800 font-bold text-xs rounded-2xl">Back</button>
+                    <button onClick={() => setWizardStep(3)} className="w-1/3 py-4 border border-slate-200 bg-white text-slate-700 font-bold text-xs rounded-2xl">Back</button>
                     <button
                       onClick={handleDeployVault}
-                      className="w-2/3 py-4 bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-xs rounded-2xl shadow-lg transition active:scale-95 flex items-center justify-center gap-2"
+                      className="w-2/3 py-4 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-2xl shadow-lg transition active:scale-95 flex items-center justify-center gap-2"
                     >
-                      <Lock className="w-4 h-4 text-lime-400" />
+                      <Lock className="w-4 h-4 text-emerald-400" />
                       <span>Create secure payment</span>
                     </button>
                   </div>
@@ -1094,26 +1089,26 @@ export default function Dashboard() {
 
       {/* AI DRAWER */}
       {aiDrawerOpen && (
-        <div className="fixed inset-0 z-50 bg-emerald-950/40 backdrop-blur-md flex justify-end animate-in fade-in duration-200">
-          <div className="w-80 glass-mint h-full p-6 shadow-2xl flex flex-col justify-between animate-in slide-in-from-right duration-200">
+        <div className="fixed inset-0 z-50 bg-slate-900/30 backdrop-blur-xs flex justify-end animate-in fade-in duration-200">
+          <div className="w-80 glass-pro h-full p-6 shadow-2xl flex flex-col justify-between animate-in slide-in-from-right duration-200">
             <div className="space-y-4">
-              <div className="flex items-center justify-between border-b border-emerald-200/60 pb-3">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-3">
                 <div className="flex items-center gap-2">
-                  <Bot className="w-5 h-5 text-emerald-800" />
-                  <span className="font-bold text-sm text-emerald-950">AI Escrow Assistant</span>
+                  <Bot className="w-5 h-5 text-slate-900" />
+                  <span className="font-bold text-sm text-slate-900">AI Escrow Assistant</span>
                 </div>
-                <button onClick={() => setAiDrawerOpen(false)} className="text-emerald-700 hover:text-emerald-950">✕</button>
+                <button onClick={() => setAiDrawerOpen(false)} className="text-slate-400 hover:text-slate-700">✕</button>
               </div>
 
-              <div className="p-4 bg-white/90 rounded-2xl text-xs space-y-2 border border-emerald-200/60">
-                <div className="font-bold text-emerald-900">💡 Quick Insights</div>
-                <p className="text-emerald-800 leading-relaxed">
+              <div className="p-4 bg-white rounded-2xl text-xs space-y-2 border border-slate-200">
+                <div className="font-bold text-slate-900">💡 Quick Insights</div>
+                <p className="text-slate-600 leading-relaxed">
                   You have {paidDeliveries.length} cleared payouts totaling {formatCurrency(currency === 'INR' ? totalRevenueINR : totalRevenueUSD, currency)}.
                 </p>
               </div>
             </div>
 
-            <button onClick={() => setAiDrawerOpen(false)} className="w-full py-3 bg-emerald-800 text-white font-bold text-xs rounded-2xl">
+            <button onClick={() => setAiDrawerOpen(false)} className="w-full py-3 bg-slate-900 text-white font-bold text-xs rounded-2xl">
               Close Assistant
             </button>
           </div>
@@ -1122,27 +1117,27 @@ export default function Dashboard() {
 
       {/* PROFILE DRAWER */}
       {profileDrawerOpen && (
-        <div className="fixed inset-0 z-50 bg-emerald-950/40 backdrop-blur-md flex justify-end animate-in fade-in duration-200">
-          <div className="w-80 glass-mint h-full p-6 shadow-2xl flex flex-col justify-between animate-in slide-in-from-right duration-200">
+        <div className="fixed inset-0 z-50 bg-slate-900/30 backdrop-blur-xs flex justify-end animate-in fade-in duration-200">
+          <div className="w-80 glass-pro h-full p-6 shadow-2xl flex flex-col justify-between animate-in slide-in-from-right duration-200">
             <div className="space-y-6">
-              <div className="flex items-center justify-between border-b border-emerald-200/60 pb-3">
-                <span className="font-bold text-sm text-emerald-950">Account Settings</span>
-                <button onClick={() => setProfileDrawerOpen(false)} className="text-emerald-700 hover:text-emerald-950">✕</button>
+              <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+                <span className="font-bold text-sm text-slate-900">Account Settings</span>
+                <button onClick={() => setProfileDrawerOpen(false)} className="text-slate-400 hover:text-slate-700">✕</button>
               </div>
 
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-lime-200 text-emerald-950 font-bold flex items-center justify-center text-sm border border-white shadow-xs">
+                <div className="w-12 h-12 rounded-full bg-slate-200 text-slate-800 font-bold flex items-center justify-center text-sm border border-white shadow-xs">
                   {user?.displayName ? user.displayName.slice(0, 2).toUpperCase() : 'AN'}
                 </div>
                 <div>
-                  <div className="font-bold text-xs text-emerald-950">{user?.displayName || 'Ankit'}</div>
-                  <div className="text-[10px] text-emerald-700 font-mono">{user?.email}</div>
+                  <div className="font-bold text-xs text-slate-900">{user?.displayName || 'Ankit'}</div>
+                  <div className="text-[10px] text-slate-500 font-mono">{user?.email}</div>
                 </div>
               </div>
 
-              <div className="space-y-2 text-xs font-semibold text-emerald-900">
-                <button onClick={() => showToast("Payout settings updated", "success")} className="w-full text-left p-3 bg-white/90 rounded-xl flex items-center gap-2 border border-emerald-200/60">
-                  <Wallet className="w-4 h-4 text-emerald-800" /> Bank & UPI Details
+              <div className="space-y-2 text-xs font-semibold text-slate-800">
+                <button onClick={() => showToast("Payout settings updated", "success")} className="w-full text-left p-3 bg-white rounded-xl flex items-center gap-2 border border-slate-200">
+                  <Wallet className="w-4 h-4 text-slate-900" /> Bank & UPI Details
                 </button>
                 <button onClick={handleLogout} className="w-full text-left p-3 bg-rose-50 text-rose-600 rounded-xl flex items-center gap-2 font-bold">
                   Sign Out
