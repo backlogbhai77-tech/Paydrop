@@ -1,8 +1,8 @@
-
 'use client'
 
 import React, { useState } from 'react'
-import { auth, googleProvider } from '../../lib/firebase'
+// FIX HERE: Correct relative path to lib/firebase
+import { auth, googleProvider } from '../lib/firebase'
 import { signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth'
 import { useRouter } from 'next/navigation'
 import { ArrowRight, ShieldCheck } from 'lucide-react'
