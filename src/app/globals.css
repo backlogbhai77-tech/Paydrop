@@ -3,52 +3,31 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --bg-main: #F8FAFC;
+    --card-bg: #FFFFFF;
+    --border-color: #E2E8F0;
+    --primary-dark: #072217;
+    --accent-green: #059669;
+  }
+
   body {
-    background-color: #ECFDF5;
-    background-image: 
-      radial-gradient(at 0% 0%, rgba(163, 230, 53, 0.22) 0px, transparent 50%),
-      radial-gradient(at 100% 0%, rgba(52, 211, 153, 0.18) 0px, transparent 50%),
-      radial-gradient(at 50% 100%, rgba(110, 231, 183, 0.15) 0px, transparent 50%);
-    background-attachment: fixed;
-    color: #064E3B;
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif;
-    letter-spacing: -0.015em;
+    background-color: var(--bg-main);
+    color: #0F172A;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Segoe UI", Roboto, sans-serif;
+    letter-spacing: -0.011em;
     -webkit-font-smoothing: antialiased;
   }
 
+  /* Professional Monospace Data Styling for Financial Numbers */
   .font-mono-data {
-    font-family: "SF Mono", "Fira Code", monospace;
-    letter-spacing: -0.03em;
+    font-family: "SF Mono", "Roboto Mono", "Fira Code", Consolas, monospace;
+    font-feature-settings: "tnum" on, "lnum" on;
+    letter-spacing: -0.025em;
   }
 }
 
-/* Glass Transparency & Glassmorphism */
-.glass-mint {
-  background: rgba(255, 255, 255, 0.78);
-  backdrop-filter: blur(20px) saturate(190%);
-  -webkit-backdrop-filter: blur(20px) saturate(190%);
-  border: 1px solid rgba(163, 230, 53, 0.45);
-  box-shadow: 0 10px 30px rgba(6, 78, 59, 0.06);
-}
-
-.glass-mint-dark {
-  background: rgba(6, 78, 59, 0.92);
-  backdrop-filter: blur(24px) saturate(200%);
-  -webkit-backdrop-filter: blur(24px) saturate(200%);
-  border: 1px solid rgba(163, 230, 53, 0.3);
-  box-shadow: 0 20px 40px rgba(6, 78, 59, 0.2);
-}
-
-/* Custom Smooth Animations */
-@keyframes pulseGlow {
-  0%, 100% { opacity: 0.8; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.03); }
-}
-
-.animate-pulse-glow {
-  animation: pulseGlow 3s infinite ease-in-out;
-}
-
+/* Subtle Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 5px;
   height: 5px;
@@ -57,6 +36,9 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(110, 231, 183, 0.7);
-  border-radius: 999px;
+  background: #CBD5E1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
 }
