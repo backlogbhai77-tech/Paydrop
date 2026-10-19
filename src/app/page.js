@@ -1,4 +1,3 @@
-
 'use client'
 
 import React, { useEffect, useState } from 'react'
@@ -66,15 +65,15 @@ const faqs = [
   },
   {
     q: 'What files can I work with?',
-    a: 'PayDrop is designed for digital projects involving video exports, images, design assets, PDFs, archives, and software deliverables. Actual upload limits and supported previews depend on your configured storage backend.',
+    a: 'PayDrop is designed for digital projects involving video exports, images, design assets, PDFs, archives, and software deliverables.',
   },
   {
     q: 'Does PayDrop charge a subscription?',
-    a: 'This landing page illustrates a proposed 5% platform fee. Confirm the actual fee policy, minimum charges, payment-provider fees, and applicable taxes before publishing it as a live pricing promise.',
+    a: 'This landing page illustrates a proposed 5% platform fee.',
   },
   {
     q: 'Are payments held in escrow?',
-    a: 'The actual escrow or payment-protection arrangement depends on your payment provider and backend implementation. Review the applicable terms before representing a transaction as funded or protected.',
+    a: 'The actual escrow or payment-protection arrangement depends on your payment provider and backend implementation.',
   },
 ]
 
@@ -173,10 +172,10 @@ export default function LandingPage() {
           </nav>
 
           <div className="hidden items-center gap-3 md:flex">
-            <Link href="/auth?mode=login" className="rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-white">
+            <Link href="/login" className="rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-white">
               Log in
             </Link>
-            <Link href="/auth?mode=signup" className="group inline-flex items-center gap-2 rounded-xl bg-emerald-950 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-950/10 transition hover:bg-emerald-900">
+            <Link href="/login" className="group inline-flex items-center gap-2 rounded-xl bg-emerald-950 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-950/10 transition hover:bg-emerald-900">
               Get started <ArrowUpRight size={16} className="text-lime-300 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
             </Link>
           </div>
@@ -205,8 +204,8 @@ export default function LandingPage() {
               </a>
             ))}
             <div className="grid grid-cols-2 gap-3 pt-3">
-              <Link href="/auth?mode=login" className="rounded-xl border border-slate-200 px-4 py-3 text-center text-sm font-bold">Log in</Link>
-              <Link href="/auth?mode=signup" className="rounded-xl bg-emerald-950 px-4 py-3 text-center text-sm font-bold text-white">Get started</Link>
+              <Link href="/login" className="rounded-xl border border-slate-200 px-4 py-3 text-center text-sm font-bold">Log in</Link>
+              <Link href="/login" className="rounded-xl bg-emerald-950 px-4 py-3 text-center text-sm font-bold text-white">Get started</Link>
             </div>
           </nav>
         )}
@@ -239,7 +238,7 @@ export default function LandingPage() {
             </p>
 
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-              <Link href="/auth?mode=signup" className="group inline-flex min-h-14 items-center justify-center gap-3 rounded-2xl bg-emerald-950 px-7 text-sm font-bold text-white shadow-xl shadow-emerald-950/15 transition hover:-translate-y-0.5 hover:bg-emerald-900">
+              <Link href="/login" className="group inline-flex min-h-14 items-center justify-center gap-3 rounded-2xl bg-emerald-950 px-7 text-sm font-bold text-white shadow-xl shadow-emerald-950/15 transition hover:-translate-y-0.5 hover:bg-emerald-900">
                 Create your free account
                 <ArrowRight size={17} className="text-lime-300 transition group-hover:translate-x-1" />
               </Link>
@@ -372,7 +371,7 @@ export default function LandingPage() {
             <p className="mt-5 max-w-lg text-sm leading-7 text-emerald-100/70 sm:text-base">
               A clearer workflow helps you and your client understand what happens next at every stage.
             </p>
-            <Link href="/auth?mode=signup" className="mt-8 inline-flex items-center gap-2 rounded-xl bg-lime-300 px-5 py-3.5 text-sm font-extrabold text-emerald-950 transition hover:bg-lime-200">
+            <Link href="/login" className="mt-8 inline-flex items-center gap-2 rounded-xl bg-lime-300 px-5 py-3.5 text-sm font-extrabold text-emerald-950 transition hover:bg-lime-200">
               Start your workspace <ArrowRight size={16} />
             </Link>
           </div>
@@ -402,7 +401,7 @@ export default function LandingPage() {
             </p>
             <div className="mt-8 flex items-start gap-3 rounded-2xl border border-emerald-900/10 bg-white p-4">
               <CircleHelp size={20} className="mt-0.5 shrink-0 text-emerald-800" />
-              <p className="text-xs leading-6 text-slate-500">This calculator is an estimate, not a live payment quote. It does not include currency conversion or third-party charges.</p>
+              <p className="text-xs leading-6 text-slate-500">This calculator is an estimate, not a live payment quote.</p>
             </div>
           </div>
 
@@ -452,10 +451,6 @@ export default function LandingPage() {
             <SectionLabel>Questions, answered</SectionLabel>
             <h2 className="mt-6 text-3xl font-black tracking-tight sm:text-5xl">Good work deserves clear terms.</h2>
             <p className="mt-5 text-sm leading-7 text-slate-600">Have a question about your workflow? Start with these essentials.</p>
-            <a href="mailto:support@paydrop.example" className="mt-6 inline-flex items-center gap-2 text-sm font-bold text-emerald-900 hover:underline">
-              Contact support <ArrowUpRight size={15} />
-            </a>
-            <p className="mt-2 text-xs leading-5 text-slate-400">Replace this example address with your real support email before launch.</p>
           </div>
 
           <div className="space-y-3">
@@ -480,7 +475,7 @@ export default function LandingPage() {
             <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-emerald-900/65">Make your next project simpler</p>
             <h2 className="mt-5 text-3xl font-black tracking-tight text-emerald-950 sm:text-5xl">Spend more time creating. Less time chasing.</h2>
             <p className="mx-auto mt-5 max-w-xl text-sm leading-7 text-emerald-950/70 sm:text-base">Create your PayDrop account and organize your next client project in one place.</p>
-            <Link href="/auth?mode=signup" className="mt-8 inline-flex min-h-14 items-center justify-center gap-3 rounded-2xl bg-emerald-950 px-7 text-sm font-bold text-white shadow-xl transition hover:-translate-y-0.5 hover:bg-emerald-900">
+            <Link href="/login" className="mt-8 inline-flex min-h-14 items-center justify-center gap-3 rounded-2xl bg-emerald-950 px-7 text-sm font-bold text-white shadow-xl transition hover:-translate-y-0.5 hover:bg-emerald-900">
               Create your account <ArrowRight size={17} className="text-lime-300" />
             </Link>
           </div>
@@ -492,9 +487,7 @@ export default function LandingPage() {
         <div className="mx-auto flex max-w-7xl flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
           <div><Brand /><p className="mt-3 text-xs text-slate-500">A more organized workflow for independent creators.</p></div>
           <div className="flex flex-wrap gap-x-5 gap-y-3 text-xs font-semibold text-slate-500">
-            <Link href="/privacy" className="hover:text-emerald-900">Privacy</Link>
-            <Link href="/terms" className="hover:text-emerald-900">Terms</Link>
-            <Link href="/auth?mode=login" className="hover:text-emerald-900">Log in</Link>
+            <Link href="/login" className="hover:text-emerald-900">Log in</Link>
           </div>
           <p className="text-xs text-slate-400">© {new Date().getFullYear()} PayDrop</p>
         </div>
