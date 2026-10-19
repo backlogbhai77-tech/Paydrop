@@ -4,7 +4,7 @@ import React, { useState } from 'react'
 import { auth, googleProvider } from '../lib/firebase'
 import { signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth'
 import { useRouter } from 'next/navigation'
-import { Lock, ArrowRight, ShieldCheck, Mail } from 'lucide-react'
+import { Lock, ArrowRight, ShieldCheck } from 'lucide-react'
 
 export default function AuthPage() {
   const [isSignup, setIsSignup] = useState(false)
@@ -12,7 +12,9 @@ export default function AuthPage() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-  const router = Router = useRouter()
+  
+  // FIX HERE: Properly initialized useRouter hook
+  const router = useRouter()
 
   const handleEmailAuth = async (e) => {
     e.preventDefault()
