@@ -1,51 +1,194 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
 
-@layer base {
-  body {
-    background-color: #F8FAFC;
-    background-image: 
-      radial-gradient(at 0% 0%, rgba(16, 185, 129, 0.08) 0px, transparent 40%),
-      radial-gradient(at 100% 100%, rgba(59, 130, 246, 0.05) 0px, transparent 40%);
-    background-attachment: fixed;
-    color: #0F172A;
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif;
-    letter-spacing: -0.015em;
-    -webkit-font-smoothing: antialiased;
+/* PayDrop — Premium Mint UI */
+:root {
+  --pd-bg: #07110e;
+  --pd-panel: #0c1914;
+  --pd-panel-raised: #10231b;
+  --pd-border: rgba(183, 255, 213, 0.1);
+  --pd-text: #effcf4;
+  --pd-muted: #8da99a;
+  --pd-mint: #a7f3d0;
+  --pd-green: #34d399;
+  --pd-lime: #d9f99d;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--pd-bg);
+  color: var(--pd-text);
+  font-feature-settings: "ss01" on, "cv11" on;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  color: #07110e;
+  background: var(--pd-lime);
+}
+
+.glass-mint {
+  background:
+    radial-gradient(
+      circle at 0% 0%,
+      rgba(110, 231, 183, 0.07),
+      transparent 42%
+    ),
+    rgba(12, 25, 20, 0.82);
+  border: 1px solid var(--pd-border);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    0 12px 35px rgba(0, 0, 0, 0.12);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.glass-mint-dark {
+  background: rgba(7, 17, 14, 0.92);
+  border: 1px solid var(--pd-border);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+.pd-card {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--pd-border);
+  border-radius: 22px;
+  background: linear-gradient(
+    145deg,
+    rgba(18, 39, 29, 0.92),
+    rgba(10, 23, 17, 0.95)
+  );
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  transition:
+    border-color 220ms ease,
+    background 220ms ease,
+    box-shadow 220ms ease,
+    transform 220ms ease;
+}
+
+.pd-card:hover {
+  border-color: rgba(167, 243, 208, 0.22);
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.2);
+}
+
+.pd-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border: 1px solid rgba(217, 249, 157, 0.24);
+  border-radius: 14px;
+  background: linear-gradient(135deg, #d9f99d, #a7f3d0);
+  color: #10231b;
+  font-weight: 700;
+  transition:
+    transform 160ms ease,
+    box-shadow 180ms ease,
+    filter 180ms ease;
+}
+
+.pd-button:hover {
+  filter: brightness(1.04);
+  box-shadow: 0 6px 24px rgba(52, 211, 153, 0.14);
+}
+
+.pd-button:active {
+  transform: scale(0.97);
+}
+
+.pd-button:focus-visible,
+.pd-nav-item:focus-visible {
+  outline: 2px solid var(--pd-lime);
+  outline-offset: 3px;
+}
+
+.pd-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  border: 1px solid transparent;
+  border-radius: 13px;
+  padding: 0 13px;
+  color: #8da99a;
+  transition:
+    color 180ms ease,
+    background 180ms ease,
+    border-color 180ms ease;
+}
+
+.pd-nav-item:hover {
+  color: #effcf4;
+  background: rgba(167, 243, 208, 0.055);
+}
+
+.pd-nav-item[data-active="true"] {
+  color: #d9f99d;
+  background: rgba(167, 243, 208, 0.085);
+  border-color: rgba(167, 243, 208, 0.12);
+}
+
+.pd-metric-value {
+  letter-spacing: -0.055em;
+  font-variant-numeric: tabular-nums;
+}
+
+.pd-grid-glow {
+  background-image:
+    linear-gradient(rgba(167, 243, 208, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(167, 243, 208, 0.025) 1px, transparent 1px);
+  background-size: 36px 36px;
+  mask-image: linear-gradient(to bottom, black, transparent 90%);
+}
+
+.pd-status-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #6ee7b7;
+  box-shadow: 0 0 12px rgba(110, 231, 183, 0.45);
+}
+
+.pd-skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(167, 243, 208, 0.035) 25%,
+    rgba(167, 243, 208, 0.09) 50%,
+    rgba(167, 243, 208, 0.035) 75%
+  );
+  background-size: 200% 100%;
+  animation: pd-shimmer 1.7s ease-in-out infinite;
+}
+
+@keyframes pd-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+
+@keyframes pd-pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 rgba(52, 211, 153, 0);
   }
-
-  .font-mono-data {
-    font-family: "SF Mono", "Fira Code", monospace;
-    letter-spacing: -0.03em;
+  50% {
+    box-shadow: 0 0 28px rgba(52, 211, 153, 0.09);
   }
 }
 
-/* Professional Soft Glass Panels */
-.glass-pro {
-  background: rgba(255, 255, 255, 0.88);
-  backdrop-filter: blur(16px) saturate(180%);
-  -webkit-backdrop-filter: blur(16px) saturate(180%);
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.03), 0 2px 6px -1px rgba(15, 23, 42, 0.02);
+.animate-pulse-glow {
+  animation: pd-pulse-glow 3.5s ease-in-out infinite;
 }
 
-.glass-pro-dark {
-  background: #0F172A;
-  color: #FFFFFF;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 20px 30px -10px rgba(15, 23, 42, 0.25);
-}
-
-/* Custom Minimal Scrollbar */
-::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: rgba(203, 213, 225, 0.8);
-  border-radius: 999px;
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
