@@ -7,6 +7,12 @@ export const metadata = {
     template: '%s | ReleaseDrop'
   },
   description: 'Deliver final client work with automated preview watermarking. High-res assets unlock instantly post-settlement. Zero ghosting.',
+  
+  // GOOGLE SEARCH CONSOLE VERIFICATION CODE ADDED
+  verification: {
+    google: '2tu_DgsS_BUGesMcnM970b8diwIg6dF4laozMXb2bXk',
+  },
+
   keywords: ['file transfer', 'freelancer escrow', 'payment locked download', 'client deliverables', 'video editor invoicing'],
   authors: [{ name: 'ReleaseDrop Studio' }],
   creator: 'ReleaseDrop',
