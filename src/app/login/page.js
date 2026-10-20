@@ -1,8 +1,8 @@
 'use client'
 
 import React, { useState } from 'react'
-// FIX: Absolute import (@/ points directly to your src/ folder)
-import { auth, googleProvider } from '@/lib/firebase'
+// FIX: Exact relative path from src/app/login to src/lib/firebase
+import { auth, googleProvider } from '../../lib/firebase'
 import { signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth'
 import { useRouter } from 'next/navigation'
 import { ArrowRight, ShieldCheck } from 'lucide-react'
