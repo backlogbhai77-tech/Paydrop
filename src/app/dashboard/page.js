@@ -4,7 +4,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { auth, db } from '../../lib/firebase';
 import { signOut, onAuthStateChanged } from 'firebase/auth';
 import { collection, addDoc, query, where, deleteDoc, doc, updateDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
-import { Plus, MessageSquare, UploadCloud, Lock, ExternalLink, Trash2, X, Search, Wallet, ShieldCheck, Eye, EyeOff, Home, Briefcase, Sparkles, File, Film, Image as ImageIcon, Send, Bot, ArrowRight, ArrowLeft, Share2, CircleHelp, TrendingUp, Files, Menu, Copy, Check, LogOut, LoaderCircle, CircleDollarSign } from 'lucide-react';
+import { Plus, MessageSquare, UploadCloud, Lock, ExternalLink, Trash2, X, Search, Wallet, ShieldCheck, Eye, EyeOff, Home, Briefcase, Sparkles, File, Film, Image as ImageIcon, Send, Bot, ArrowRight, ArrowLeft, Share2, CircleHelp, TrendingUp, Files, Menu, Copy, Check, LogOut, LoaderCircle, CircleDollarSign, MoreHorizontal, Clock3, ArrowUpRight, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 
 const CLOUDINARY_CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'mrfujhf8';
