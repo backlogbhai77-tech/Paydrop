@@ -313,6 +313,45 @@ export default function Dashboard() {
         @media (max-width: 1023px) { .pd-premium-shell .lg\:pl-\[250px\] { padding-left:0; } .pd-premium-shell header.sticky { height:66px; } .pd-premium-shell main { padding-top:22px; } .pd-premium-shell .pd-panel { border-radius:19px; } }
         @media (max-width: 640px) { .pd-premium-shell main { padding-left:14px; padding-right:14px; } .pd-premium-shell main h2 { font-size:27px; line-height:1.15; } .pd-premium-shell .pd-primary { min-height:43px; padding-left:14px; padding-right:14px; } .pd-premium-shell .pd-secondary { min-height:38px; padding-left:10px; padding-right:10px; } .pd-premium-shell .pd-panel { border-radius:18px; } .pd-premium-shell nav.fixed.bottom-0 button { min-width:0; flex:1; padding-left:6px; padding-right:6px; } }
         @media (prefers-reduced-motion: reduce) { .pd-premium-shell *, .pd-premium-shell *::before, .pd-premium-shell *::after { animation-duration:.01ms !important; transition-duration:.01ms !important; scroll-behavior:auto !important; } }
+
+        /* PayDrop brand-aligned light UI — matched to the login/signup palette */
+        .pd-premium-shell { background:#f5f8f6 !important; color:#10251b !important; }
+        .pd-premium-shell .pd-grid-glow { opacity:.24; background-image:linear-gradient(rgba(6,61,42,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(6,61,42,.035) 1px,transparent 1px); }
+        .pd-premium-shell aside.fixed.inset-y-0.left-0 { background:rgba(255,255,255,.96) !important; border-color:#e5ebe7 !important; box-shadow:8px 0 34px rgba(15,40,26,.045) !important; }
+        .pd-premium-shell .pd-nav-item { color:#64746b !important; }
+        .pd-premium-shell .pd-nav-item:hover { color:#063d2a !important; background:#f5f8f6 !important; border-color:#e5ebe7 !important; }
+        .pd-premium-shell .pd-nav-item[data-active="true"] { color:#063d2a !important; background:#eef8e7 !important; border-color:#d9edc9 !important; box-shadow:inset 3px 0 0 #94ec36 !important; }
+        .pd-premium-shell .pd-primary { background:linear-gradient(135deg,#063d2a,#09523a) !important; color:#fff !important; border-color:#063d2a !important; box-shadow:0 8px 20px rgba(6,61,42,.13) !important; }
+        .pd-premium-shell .pd-primary:hover { background:#09523a !important; box-shadow:0 10px 25px rgba(6,61,42,.18) !important; }
+        .pd-premium-shell .pd-secondary { color:#244236 !important; border-color:#dce6df !important; background:#fff !important; }
+        .pd-premium-shell .pd-secondary:hover { background:#f4f8f5 !important; border-color:#c6d8cc !important; }
+        .pd-premium-shell .pd-panel, .pd-premium-shell section.pd-panel { background:#fff !important; border-color:#e4ebe6 !important; box-shadow:0 8px 26px rgba(18,48,31,.045),inset 0 1px 0 rgba(255,255,255,.9) !important; }
+        .pd-premium-shell .pd-panel:hover { border-color:#d1e1d6 !important; box-shadow:0 12px 32px rgba(18,48,31,.07) !important; }
+        .pd-premium-shell header.sticky { background:rgba(255,255,255,.88) !important; border-color:#e4ebe6 !important; box-shadow:0 6px 24px rgba(18,48,31,.035) !important; backdrop-filter:blur(18px); }
+        .pd-premium-shell .pd-icon-button { color:#52655a !important; border-color:#e1e9e3 !important; background:#fff !important; }
+        .pd-premium-shell .pd-icon-button:hover { color:#063d2a !important; border-color:#c6d8cc !important; background:#f4f9f5 !important; }
+        .pd-premium-shell .pd-input { color:#142b20 !important; border-color:#dce6df !important; background:#fff !important; box-shadow:0 1px 2px rgba(15,40,26,.02); }
+        .pd-premium-shell .pd-input::placeholder { color:#9aa8a0 !important; }
+        .pd-premium-shell .pd-input:focus { border-color:#79a98b !important; box-shadow:0 0 0 4px rgba(6,61,42,.07) !important; }
+        .pd-premium-shell [class*="text-white"] { color:#172b20 !important; }
+        .pd-premium-shell [class*="text-emerald-100/"] { color:#687b70 !important; }
+        .pd-premium-shell [class*="text-emerald-50/"] { color:#52685b !important; }
+        .pd-premium-shell [class*="text-emerald-100"] { color:#687b70 !important; }
+        .pd-premium-shell [class*="text-emerald-200"] { color:#356a4d !important; }
+        .pd-premium-shell [class*="text-lime-100"] { color:#47752e !important; }
+        .pd-premium-shell [class*="text-lime-200"] { color:#47752e !important; }
+        .pd-premium-shell [class*="border-white/"] { border-color:#e6ece8 !important; }
+        .pd-premium-shell [class*="border-emerald-100/"] { border-color:#e4ebe6 !important; }
+        .pd-premium-shell [class*="bg-[#07110e"], .pd-premium-shell [class*="bg-[#07110d"], .pd-premium-shell [class*="bg-[#09140f"], .pd-premium-shell [class*="bg-[#0b1912"], .pd-premium-shell [class*="bg-[#10251b"] { background:#fff !important; }
+        .pd-premium-shell [class*="bg-black/"] { background:rgba(15,35,24,.42) !important; }
+        .pd-premium-shell nav.fixed.bottom-0 { background:rgba(255,255,255,.96) !important; border-color:#e3eae5 !important; box-shadow:0 -8px 28px rgba(18,48,31,.08) !important; }
+        .pd-premium-shell .pd-fab { background:linear-gradient(135deg,#063d2a,#09523a) !important; color:#fff !important; }
+        .pd-premium-shell main h2 { color:#10251b !important; }
+        .pd-premium-shell main h3 { color:#183729; }
+        .pd-premium-shell .pd-premium-shell section { background:#fff !important; }
+        @media (max-width:1023px) { .pd-premium-shell aside.fixed.inset-y-0.left-0 { display:none; } }
+        @media (max-width:640px) { .pd-premium-shell main { padding-left:14px; padding-right:14px; } .pd-premium-shell .pd-panel { border-radius:18px; } .pd-premium-shell nav.fixed.bottom-0 button { min-width:0; flex:1; padding-left:5px; padding-right:5px; } }
+
       `}</style>
       <div className="pointer-events-none fixed inset-0 overflow-hidden"><div className="pd-grid-glow absolute inset-0" /><div className="absolute -left-40 -top-40 size-[400px] rounded-full bg-emerald-400/[0.06] blur-[120px]" /><div className="absolute right-[-100px] top-[25%] size-[340px] rounded-full bg-lime-200/[0.035] blur-[110px]" /></div>
 
