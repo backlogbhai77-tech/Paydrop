@@ -1,1815 +1,1254 @@
-'use client';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { auth, db } from '../../lib/firebase';
-import { signOut, onAuthStateChanged } from 'firebase/auth';
-import { collection, addDoc, query, where, deleteDoc, doc, updateDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
-import { Plus, MessageSquare, UploadCloud, Lock, ExternalLink, Trash2, X, Search, Wallet, ShieldCheck, Eye, EyeOff, Home, Briefcase, Sparkles, File, Film, Image as ImageIcon, Send, Bot, ArrowRight, ArrowLeft, Share2, CircleHelp, TrendingUp, Files, Menu, Copy, Check, LogOut, LoaderCircle, CircleDollarSign, MoreHorizontal, Clock3, ArrowUpRight, CheckCircle2 } from 'lucide-react';
-import Link from 'next/link';
+'use client'
 
-const CLOUDINARY_CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'mrfujhf8';
-const CLOUDINARY_UPLOAD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_PRESET || 'releasedrop_vault';
-const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+import React, { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
+import { auth, db } from '../../lib/firebase'
+import { onAuthStateChanged, signOut } from 'firebase/auth'
+import {
+  addDoc, collection, deleteDoc, doc, onSnapshot, query,
+  serverTimestamp, updateDoc, where
+} from 'firebase/firestore'
+import {
+  Activity, ArrowDownRight, ArrowLeft, ArrowRight, ArrowUpRight, Bell,
+  BriefcaseBusiness, Check, CheckCircle2, ChevronDown, ChevronRight,
+  CircleHelp, Clock3, Copy, CreditCard, ExternalLink, Eye, EyeOff,
+  File, FileArchive, Film, Home, Image as ImageIcon, LayoutDashboard,
+  LockKeyhole, LogOut, Menu, MessageCircle, MessageSquare,
+  MoreHorizontal, Plus, Search, Send, Settings2, Share2, ShieldCheck,
+  Sparkles, Trash2, UploadCloud, Wallet, X
+} from 'lucide-react'
 
-function formatCurrency(amount, currency = 'INR') {
-    const num = Number(amount);
-    if (!Number.isFinite(num))
-        return currency === 'USD' ? '$0.00' : '₹0';
-    return new Intl.NumberFormat(currency === 'USD' ? 'en-US' : 'en-IN', {
+const CLOUDINARY_CLOUD_NAME =
+  process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'mrfujhf8'
+
+const CLOUDINARY_UPLOAD_PRESET =
+  process.env.NEXT_PUBLIC_CLOUDINARY_PRESET || 'releasedrop_vault'
+
+const BRAND = {
+  forest: '#063D2A',
+  lime: '#94EC36',
+  canvas: '#F4F7F2',
+}
+
+function formatCurrency(value, currency = 'INR') {
+  const amount = Number(value) || 0
+
+  try {
+    return new Intl.NumberFormat(
+      currency === 'USD' ? 'en-US' : 'en-IN',
+      {
         style: 'currency',
         currency,
-        maximumFractionDigits: currency === 'USD' ? 2 : 0,
-    }).format(num);
+        maximumFractionDigits: currency === 'INR' ? 0 : 2,
+      }
+    ).format(amount)
+  } catch {
+    return `${currency} ${amount.toFixed(2)}`
+  }
 }
 
-function haptic(pattern = 8) {
-    if (typeof navigator !== 'undefined' && 'vibrate' in navigator)
-        navigator.vibrate(pattern);
+function initials(name = 'Creator') {
+  return (
+    name.trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map(part => part[0])
+      .join('')
+      .toUpperCase() || 'CR'
+  )
 }
 
-function initials(name) {
-    return name?.trim().split(/\s+/).slice(0, 2).map(s => s[0]).join('').toUpperCase() || 'PD';
+function StatusBadge({ status }) {
+  const paid = status === 'Paid'
+  const expired = status === 'Expired' || status === 'Cancelled'
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold ${
+        paid
+          ? 'bg-emerald-50 text-emerald-700'
+          : expired
+            ? 'bg-slate-100 text-slate-500'
+            : 'bg-amber-50 text-amber-700'
+      }`}
+    >
+      <span
+        className={`h-1.5 w-1.5 rounded-full ${
+          paid
+            ? 'bg-emerald-500'
+            : expired
+              ? 'bg-slate-400'
+              : 'bg-amber-500'
+        }`}
+      />
+      {status || 'Pending'}
+    </span>
+  )
 }
 
-function statusTone(status) {
-    if (status === 'Paid')
-        return 'bg-lime-300/10 text-lime-200 border-lime-200/15';
-    if (status?.toLowerCase().includes('revision'))
-        return 'bg-amber-300/10 text-amber-200 border-amber-200/15';
-    return 'bg-emerald-300/10 text-emerald-200 border-emerald-200/15';
-}
+function MiniStat({ icon: Icon, label, value, note, tone = 'green' }) {
+  const tones = {
+    green: 'bg-emerald-50 text-emerald-800',
+    lime: 'bg-lime-50 text-lime-800',
+    blue: 'bg-blue-50 text-blue-700',
+    amber: 'bg-amber-50 text-amber-700',
+  }
 
-function BrandMark({ small = false }) {
-    return (
-        <div className={`grid shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-lime-200 to-emerald-300 font-black text-emerald-950 shadow-lg shadow-emerald-500/10 ${small ? 'size-9 text-lg' : 'size-11 text-2xl'}`}>
-            P
+  return (
+    <div className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-sm sm:p-6">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold text-slate-500">{label}</p>
+          <p className="mt-3 truncate text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">
+            {value}
+          </p>
         </div>
-    );
-}
-
-function Panel({ children, className = '' }) {
-    return (
-        <section className={`relative overflow-hidden rounded-[24px] border border-emerald-100/[0.09] bg-[linear-gradient(145deg,rgba(17,38,28,.92),rgba(9,22,16,.96))] shadow-[0_12px_36px_rgba(0,0,0,.12)] ${className}`}>
-            {children}
-        </section>
-    );
+        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${tones[tone]}`}>
+          <Icon size={18} />
+        </div>
+      </div>
+      {note && <p className="mt-3 text-xs text-slate-500">{note}</p>}
+    </div>
+  )
 }
 
 export default function Dashboard() {
-    const reduceMotion = useReducedMotion();
-    const [user, setUser] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [deliveries, setDeliveries] = useState([]);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [currentTab, setCurrentTab] = useState('home');
-    const [copiedId, setCopiedId] = useState(null);
-    const [toast, setToast] = useState(null);
-    const [balanceVisible, setBalanceVisible] = useState(true);
-    const [currency, setCurrency] = useState('INR');
-    const [activeChartPoint, setActiveChartPoint] = useState(null);
-    const [aiDrawerOpen, setAiDrawerOpen] = useState(false);
-    const [profileDrawerOpen, setProfileDrawerOpen] = useState(false);
-    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-    const [requestModalOpen, setRequestModalOpen] = useState(false);
-    const [wizardStep, setWizardStep] = useState(1);
-    const [title, setTitle] = useState('');
-    const [clientName, setClientName] = useState('');
-    const [clientEmail, setClientEmail] = useState('');
-    const [clientMessage, setClientMessage] = useState('');
-    const [amount, setAmount] = useState('');
-    const [expirySelection, setExpirySelection] = useState('7');
-    const watermarkText = 'PAYDROP • PREVIEW COPY';
-    const [fileList, setFileList] = useState([]);
-    const [uploadProgress, setUploadProgress] = useState(0);
-    const [uploading, setUploading] = useState(false);
-    const [isDragging, setIsDragging] = useState(false);
-    const [activeThreadDelivery, setActiveThreadDelivery] = useState(null);
-    const [threadReplyText, setThreadReplyText] = useState('');
-    const chatBottomRef = useRef(null);
-    const toastTimerRef = useRef(null);
+  const [user, setUser] = useState(null)
+  const [authLoading, setAuthLoading] = useState(true)
+  const [deliveries, setDeliveries] = useState([])
+  const [dataLoading, setDataLoading] = useState(true)
 
-    const showToast = useCallback((message, type = 'success') => {
-        setToast({ message, type });
-        if (toastTimerRef.current)
-            clearTimeout(toastTimerRef.current);
-        toastTimerRef.current = setTimeout(() => setToast(null), 3000);
-    }, []);
+  const [tab, setTab] = useState('overview')
+  const [currency, setCurrency] = useState('INR')
+  const [balanceVisible, setBalanceVisible] = useState(true)
+  const [search, setSearch] = useState('')
+  const [toast, setToast] = useState(null)
 
-    useEffect(() => () => {
-        if (toastTimerRef.current)
-            clearTimeout(toastTimerRef.current);
-    }, []);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
+  const [assistantOpen, setAssistantOpen] = useState(false)
+  const [wizardOpen, setWizardOpen] = useState(false)
 
-    useEffect(() => {
-        let unsubFirestore;
-        const unsubAuth = onAuthStateChanged(auth, currentUser => {
-            setUser(currentUser);
-            setLoading(false);
+  const [step, setStep] = useState(1)
+  const [title, setTitle] = useState('')
+  const [clientName, setClientName] = useState('')
+  const [clientEmail, setClientEmail] = useState('')
+  const [clientMessage, setClientMessage] = useState('')
+  const [amount, setAmount] = useState('')
+  const [expiry, setExpiry] = useState('7')
+  const [files, setFiles] = useState([])
+  const [dragging, setDragging] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [progress, setProgress] = useState(0)
 
-            if (unsubFirestore) {
-                unsubFirestore();
-                unsubFirestore = undefined;
-            }
+  const [activeChat, setActiveChat] = useState(null)
+  const [reply, setReply] = useState('')
+  const [busyId, setBusyId] = useState(null)
 
-            if (!currentUser) {
-                setDeliveries([]);
-                return;
-            }
+  const notify = (message, type = 'success') => {
+    setToast({ message, type })
+    if (typeof window !== 'undefined') {
+      window.setTimeout(() => setToast(null), 3200)
+    }
+  }
 
-            const q = query(
-                collection(db, 'deliveries'),
-                where('userId', '==', currentUser.uid)
-            );
+  useEffect(() => {
+    let stopSnapshot = null
 
-            unsubFirestore = onSnapshot(q, snap => {
-                const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                docs.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-                setDeliveries(docs);
-                setActiveThreadDelivery(previous =>
-                    previous ? docs.find(d => d.id === previous.id) || previous : null
-                );
-            }, error => showToast(error.message || 'Unable to sync projects', 'error'));
-        });
+    const stopAuth = onAuthStateChanged(auth, currentUser => {
+      setUser(currentUser)
+      setAuthLoading(false)
 
-        return () => {
-            unsubAuth();
-            unsubFirestore?.();
-        };
-    }, [showToast]);
+      if (stopSnapshot) {
+        stopSnapshot()
+        stopSnapshot = null
+      }
 
-    useEffect(() => {
-        if (currentTab === 'chat-thread' || activeThreadDelivery)
-            chatBottomRef.current?.scrollIntoView({
-                behavior: reduceMotion ? 'auto' : 'smooth'
-            });
-    }, [currentTab, activeThreadDelivery?.messages, reduceMotion]);
+      if (currentUser) {
+        setDataLoading(true)
 
-    const handleFilesAdd = (files) => {
-        const selected = Array.from(files);
-        if (!selected.length)
-            return;
-        setFileList(prev => [...prev, ...selected]);
-        haptic();
-    };
+        const q = query(
+          collection(db, 'deliveries'),
+          where('userId', '==', currentUser.uid)
+        )
 
-    const removeFile = (idx) =>
-        setFileList(prev => prev.filter((_, i) => i !== idx));
+        stopSnapshot = onSnapshot(
+          q,
+          snap => {
+            const items = snap.docs.map(item => ({
+              id: item.id,
+              ...item.data(),
+            }))
 
-    const uploadFileToCloudinary = (file) => new Promise((resolve, reject) => {
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+            items.sort(
+              (a, b) =>
+                (b.createdAt?.seconds || 0) -
+                (a.createdAt?.seconds || 0)
+            )
 
-        const xhr = new XMLHttpRequest();
-        xhr.open(
-            'POST',
-            `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`
-        );
+            setDeliveries(items)
+            setDataLoading(false)
 
-        xhr.upload.onprogress = event => {
-            if (event.lengthComputable)
-                setUploadProgress(Math.round((event.loaded / event.total) * 98));
-        };
+            setActiveChat(previous =>
+              previous
+                ? items.find(item => item.id === previous.id) || previous
+                : null
+            )
+          },
+          error => {
+            console.error('Firestore subscription failed:', error)
+            setDataLoading(false)
+            notify(
+              'Could not load projects. Check your connection.',
+              'error'
+            )
+          }
+        )
+      } else {
+        setDeliveries([])
+        setDataLoading(false)
+      }
+    })
 
-        xhr.onload = () => {
-            try {
-                const res = JSON.parse(xhr.responseText);
+    return () => {
+      stopAuth()
+      if (stopSnapshot) stopSnapshot()
+    }
+  }, [])
 
-                if (xhr.status === 200 && (res.secure_url || res.url)) {
-                    const rawUrl = res.secure_url || res.url;
-                    const previewUrl = file.type.startsWith('image/')
-                        ? rawUrl.replace(
-                            '/upload/',
-                            `/upload/l_text:Arial_24_bold:${encodeURIComponent(watermarkText)},o_35,a_-30/`
-                        )
-                        : rawUrl;
+  const paid = useMemo(
+    () => deliveries.filter(item => item.status === 'Paid'),
+    [deliveries]
+  )
 
-                    resolve({
-                        name: file.name,
-                        size: `${(file.size / (1024 * 1024)).toFixed(2)} MB`,
-                        type: file.type || 'application/octet-stream',
-                        rawUrl,
-                        previewUrl
-                    });
-                } else {
-                    reject(new Error(res?.error?.message || 'Storage error'));
-                }
-            } catch {
-                reject(new Error('Upload parsing error'));
-            }
-        };
+  const pending = useMemo(
+    () => deliveries.filter(item => item.status !== 'Paid'),
+    [deliveries]
+  )
 
-        xhr.onerror = () => reject(new Error('Network connection interrupted'));
-        xhr.send(formData);
-    });
+  const unread = useMemo(
+    () =>
+      deliveries.filter(
+        item =>
+          item.messages?.length &&
+          item.messages[item.messages.length - 1]?.sender === 'client'
+      ),
+    [deliveries]
+  )
 
-    const handleDeployVault = async () => {
-        if (!title.trim() || !amount || Number(amount) <= 0 || !fileList.length || !user) {
-            showToast('Add a project name, valid amount and at least one file', 'error');
-            return;
-        }
+  const totalRevenue = useMemo(
+    () =>
+      paid
+        .filter(item => (item.currency || 'INR') === currency)
+        .reduce(
+          (sum, item) =>
+            sum +
+            (Number(item.creatorPayout) || Number(item.grossAmount) || 0),
+          0
+        ),
+    [paid, currency]
+  )
 
-        setUploading(true);
+  const pendingValue = useMemo(
+    () =>
+      pending
+        .filter(item => (item.currency || 'INR') === currency)
+        .reduce((sum, item) => sum + (Number(item.grossAmount) || 0), 0),
+    [pending, currency]
+  )
 
-        try {
-            const manifest = [];
+  const totalGross = useMemo(
+    () =>
+      deliveries
+        .filter(item => (item.currency || 'INR') === currency)
+        .reduce((sum, item) => sum + (Number(item.grossAmount) || 0), 0),
+    [deliveries, currency]
+  )
 
-            for (let i = 0; i < fileList.length; i++) {
-                setUploadProgress(Math.round((i / fileList.length) * 100));
-                manifest.push(await uploadFileToCloudinary(fileList[i]));
-            }
+  const filtered = useMemo(
+    () =>
+      deliveries.filter(item =>
+        `${item.title || ''} ${item.clientName || ''} ${item.clientEmail || ''}`
+          .toLowerCase()
+          .includes(search.toLowerCase())
+      ),
+    [deliveries, search]
+  )
+    const monthly = useMemo(() => {
+    const now = new Date()
+    const year = now.getFullYear()
 
-            setUploadProgress(100);
-
-            const numAmount = Number(amount);
-            const platformFee = Math.max(Math.round(numAmount * 0.05), 1);
-            const creatorPayout = Math.max(numAmount - platformFee, 0);
-
-            const expiresAt = expirySelection === 'never'
-                ? null
-                : (() => {
-                    const date = new Date();
-                    date.setDate(date.getDate() + Number.parseInt(expirySelection, 10));
-                    return date.toISOString();
-                })();
-
-            const newDocRef = await addDoc(collection(db, 'deliveries'), {
-                userId: user.uid,
-                userEmail: user.email,
-                title: title.trim(),
-                clientName: clientName.trim() || clientEmail.split('@')[0] || 'Client',
-                clientEmail: clientEmail.trim(),
-                clientMessage: clientMessage.trim(),                grossAmount: numAmount,
-                currency,
-                platformFee,
-                creatorPayout,
-                watermarkText,
-                status: 'Awaiting Payment',
-                files: manifest,
-                expiresAt,
-                viewCount: 0,
-                messages: [],
-                createdAt: serverTimestamp(),
-            });
-
-            const clientPortalUrl = `${window.location.origin}/d/${newDocRef.id}`;
-
-            if (clientEmail.trim()) {
-                try {
-                    const emailResponse = await fetch('/api/paydrop-engine', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            action: 'send-email',
-                            clientEmail: clientEmail.trim(),
-                            clientName: clientName.trim() || 'Client',
-                            creatorName: user.displayName || user.email?.split('@')[0] || 'Creator',
-                            projectTitle: title.trim(),
-                            amount: numAmount,
-                            deliveryUrl: clientPortalUrl,
-                        }),
-                    });
-
-                    if (!emailResponse.ok) {
-                        console.error('Email dispatch returned', emailResponse.status);
-                    }
-                } catch (emailErr) {
-                    console.error('Email dispatch failed:', emailErr);
-                }
-            }
-
-            showToast('Vault created successfully', 'success');
-            setTitle('');
-            setClientName('');
-            setClientEmail('');
-            setClientMessage('');
-            setAmount('');
-            setFileList([]);
-            setWizardStep(1);
-            setRequestModalOpen(false);
-        } catch (err) {
-            showToast(
-                err instanceof Error ? err.message : 'Failed to create vault',
-                'error'
-            );
-        } finally {
-            setUploading(false);
-            setUploadProgress(0);
-        }
-    };
-
-    const handleDelete = async (id) => {
-        if (!window.confirm('Permanently delete this project?')) return;
-
-        try {
-            await deleteDoc(doc(db, 'deliveries', id));
-            showToast('Project deleted', 'success');
-        } catch {
-            showToast('Failed to delete project', 'error');
-        }
-    };
-
-    const copyLink = async (id) => {
-        try {
-            await navigator.clipboard.writeText(
-                `${window.location.origin}/d/${id}`
-            );
-            setCopiedId(id);
-            showToast('Escrow link copied', 'success');
-            haptic([10, 25, 10]);
-            setTimeout(() => setCopiedId(null), 2500);
-        } catch {
-            showToast('Could not copy link. Check browser permissions.', 'error');
-        }
-    };
-
-    const shareProject = async (item) => {
-        const url = `${window.location.origin}/d/${item.id}`;
-
-        if (navigator.share) {
-            try {
-                await navigator.share({
-                    title: `PayDrop Escrow: ${item.title}`,
-                    text: `Review protected deliverables for ${item.title}`,
-                    url,
-                });
-            } catch (error) {
-                if (error instanceof Error && error.name !== 'AbortError') {
-                    await copyLink(item.id);
-                }
-            }
-        } else {
-            await copyLink(item.id);
-        }
-    };
-
-    const handleSendThreadReply = async (deliveryId) => {
-        if (!threadReplyText.trim()) return;
-
-        try {
-            const target = deliveries.find(d => d.id === deliveryId);
-            const updated = [
-                ...(target?.messages || []),
-                {
-                    sender: 'creator',
-                    text: threadReplyText.trim(),
-                    time: new Date().toISOString(),
-                },
-            ];
-
-            await updateDoc(doc(db, 'deliveries', deliveryId), {
-                messages: updated,
-            });
-
-            setThreadReplyText('');
-            showToast('Reply sent to client', 'success');
-            haptic();
-        } catch {
-            showToast('Failed to send reply', 'error');
-        }
-    };
-
-    const handleLogout = async () => {
-        try {
-            await signOut(auth);
-            showToast('Logged out successfully', 'success');
-        } catch {
-            showToast('Logout failed', 'error');
-        }
-    };
-
-    const paidDeliveries = useMemo(
-        () => deliveries.filter(d => d.status === 'Paid'),
-        [deliveries]
-    );
-
-    const totalRevenueINR = useMemo(
-        () => paidDeliveries
-            .filter(d => (d.currency || 'INR') === 'INR')
-            .reduce(
-                (acc, d) => acc + (Number(d.creatorPayout) || Number(d.grossAmount) || 0),
-                0
-            ),
-        [paidDeliveries]
-    );
-
-    const totalRevenueUSD = useMemo(
-        () => paidDeliveries
-            .filter(d => d.currency === 'USD')
-            .reduce(
-                (acc, d) => acc + (Number(d.creatorPayout) || Number(d.grossAmount) || 0),
-                0
-            ),
-        [paidDeliveries]
-    );
-
-    const selectedRevenue = currency === 'INR'
-        ? totalRevenueINR
-        : totalRevenueUSD;
-
-    const unreadRevisions = deliveries.filter(
-        d => d.messages?.length &&
-            d.messages[d.messages.length - 1]?.sender === 'client'
-    );
-
-    const filteredDeliveries = deliveries.filter(d =>
-        d.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        d.clientName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        d.clientEmail?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-
-    const currentYear = new Date().getFullYear();
-
-    const monthlyDataPoints = monthNames.map((month, i) => {
-        const monthItems = paidDeliveries.filter(d => {
-            const date = d.createdAt?.seconds
-                ? new Date(d.createdAt.seconds * 1000)
-                : null;
-
-            return date &&
-                date.getMonth() === i &&
-                date.getFullYear() === currentYear &&
-                (d.currency || 'INR') === currency;
-        });
-
-        return {
-            month,
-            amount: monthItems.reduce(
-                (sum, d) => sum + (Number(d.creatorPayout) || Number(d.grossAmount) || 0),
-                0
-            ),
-        };
-    });
-
-    const maxVal = Math.max(
-        ...monthlyDataPoints.map(p => p.amount),
+    return Array.from({ length: 6 }, (_, index) => {
+      const monthDate = new Date(
+        year,
+        now.getMonth() - 5 + index,
         1
-    );
+      )
 
-    const chartPoints = monthlyDataPoints.map((p, idx) => ({
-        x: (idx / 11) * 300,
-        y: 100 - (p.amount / maxVal) * 80,
-        month: p.month,
-        amount: p.amount,
-    }));
+      const sum = paid
+        .filter(item => {
+          if (
+            (item.currency || 'INR') !== currency ||
+            !item.createdAt?.seconds
+          ) {
+            return false
+          }
 
-    const svgPathD = chartPoints.reduce(
-        (path, p, i) => i === 0
-            ? `M ${p.x} ${p.y}`
-            : `${path} L ${p.x} ${p.y}`,
-        ''
-    );
+          const date = new Date(item.createdAt.seconds * 1000)
 
-    const areaPathD = `${svgPathD} L 300 120 L 0 120 Z`;
+          return (
+            date.getMonth() === monthDate.getMonth() &&
+            date.getFullYear() === monthDate.getFullYear()
+          )
+        })
+        .reduce(
+          (total, item) =>
+            total +
+            (Number(item.creatorPayout) || Number(item.grossAmount) || 0),
+          0
+        )
 
-    const openRequest = () => {
-        haptic();
-        setWizardStep(1);
-        setRequestModalOpen(true);
-    };
+      return {
+        label: monthDate.toLocaleDateString('en-US', { month: 'short' }),
+        value: sum,
+      }
+    })
+  }, [paid, currency])
 
-    const navItems = [
-        { id: 'home', label: 'Overview', icon: Home },
-        {
-            id: 'projects',
-            label: 'Projects',
-            icon: Briefcase,
-            count: deliveries.length,
-        },
-        {
-            id: 'revisions',
-            label: 'Revisions',
-            icon: MessageSquare,
-            count: unreadRevisions.length,
-        },
-        { id: 'wallet', label: 'Wallet', icon: Wallet },
-    ];
+  const uploadFile = file =>
+    new Promise((resolve, reject) => {
+      const form = new FormData()
+      form.append('file', file)
+      form.append('upload_preset', CLOUDINARY_UPLOAD_PRESET)
 
-    if (loading) {
-        return (
-            <div className="pd-root flex min-h-screen items-center justify-center">
-                <div className="flex flex-col items-center gap-4 text-center">
-                    <BrandMark />
-                    <LoaderCircle
-                        className="animate-spin text-emerald-200"
-                        size={22}
-                    />
-                    <p className="text-[11px] font-semibold tracking-[.2em] text-emerald-100/40">
-                        PREPARING YOUR WORKSPACE
-                    </p>
-                </div>
-            </div>
-        );
+      const xhr = new XMLHttpRequest()
+
+      xhr.open(
+        'POST',
+        `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`
+      )
+
+      xhr.upload.onprogress = event => {
+        if (event.lengthComputable) {
+          setProgress(Math.round((event.loaded / event.total) * 95))
+        }
+      }
+
+      xhr.onload = () => {
+        try {
+          const result = JSON.parse(xhr.responseText)
+
+          if (
+            xhr.status >= 200 &&
+            xhr.status < 300 &&
+            result.secure_url
+          ) {
+            const previewUrl = file.type.startsWith('image/')
+              ? result.secure_url.replace(
+                  '/upload/',
+                  '/upload/l_text:Arial_24_bold:PAYDROP%20%E2%80%A2%20PREVIEW%20COPY,o_35,a_-30/'
+                )
+              : result.secure_url
+
+            resolve({
+              name: file.name,
+              size: `${(file.size / (1024 * 1024)).toFixed(2)} MB`,
+              type: file.type || 'application/octet-stream',
+              rawUrl: result.secure_url,
+              previewUrl,
+            })
+          } else {
+            reject(new Error(result?.error?.message || 'Upload failed'))
+          }
+        } catch (error) {
+          reject(
+            error instanceof Error
+              ? error
+              : new Error('Could not process upload response')
+          )
+        }
+      }
+
+      xhr.onerror = () =>
+        reject(new Error('Network connection interrupted during upload'))
+
+      xhr.send(form)
+    })
+
+  const deploy = async () => {
+    if (
+      !user ||
+      !title.trim() ||
+      !clientEmail.trim() ||
+      !amount ||
+      Number(amount) <= 0 ||
+      !files.length
+    ) {
+      notify(
+        'Add a project name, valid client email, amount and at least one file.',
+        'error'
+      )
+      return
     }
 
-    if (!user) {
-        return (
-            <div className="pd-root flex min-h-screen items-center justify-center p-6">
-                <div className="pd-panel max-w-sm p-8 text-center">
-                    <BrandMark />
-                    <h1 className="mt-5 text-xl font-bold text-white">
-                        You’re signed out
-                    </h1>
-                    <p className="mt-2 text-sm text-emerald-100/50">
-                        Sign in again to access your workspace.
-                    </p>
-                    <Link
-                        href="/login"
-                        className="pd-primary mt-6 inline-flex w-full justify-center"
-                    >
-                        Return to login <ArrowRight size={16} />
-                    </Link>
-                </div>
-            </div>
-        );
+    setUploading(true)
+    setProgress(0)
+
+    try {
+      const manifest = []
+
+      for (let index = 0; index < files.length; index++) {
+        setProgress(Math.round((index / files.length) * 100))
+        manifest.push(await uploadFile(files[index]))
+      }
+
+      setProgress(98)
+
+      const gross = Number(amount)
+      const fee = Math.max(Math.round(gross * 0.05), 1)
+      const expiresAt = new Date()
+
+      expiresAt.setDate(
+        expiresAt.getDate() + (expiry === 'never' ? 3650 : Number(expiry))
+      )
+
+      const ref = await addDoc(collection(db, 'deliveries'), {
+        userId: user.uid,
+        userEmail: user.email || '',
+        title: title.trim(),
+        clientName:
+          clientName.trim() || clientEmail.split('@')[0] || 'Client',
+        clientEmail: clientEmail.trim(),
+        clientMessage: clientMessage.trim(),
+        grossAmount: gross,
+        currency,
+        platformFee: fee,
+        creatorPayout: Math.max(gross - fee, 0),
+        watermarkText: 'PAYDROP • PREVIEW COPY',
+        status: 'Awaiting Payment',
+        files: manifest,
+        expiresAt: expiresAt.toISOString(),
+        viewCount: 0,
+        messages: [],
+        createdAt: serverTimestamp(),
+      })
+
+      const portalUrl = `${window.location.origin}/d/${ref.id}`
+
+      if (clientEmail.trim()) {
+        fetch('/api/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            clientEmail: clientEmail.trim(),
+            clientName: clientName.trim() || 'Client',
+            creatorName:
+              user.displayName ||
+              user.email?.split('@')[0] ||
+              'Creator',
+            projectTitle: title.trim(),
+            amount: gross,
+            currency,
+            portalUrl,
+          }),
+        }).catch(error =>
+          console.error('Email dispatch failed:', error)
+        )
+      }
+
+      setProgress(100)
+      notify('Payment request created successfully.')
+
+      setTitle('')
+      setClientName('')
+      setClientEmail('')
+      setClientMessage('')
+      setAmount('')
+      setFiles([])
+      setExpiry('7')
+      setStep(1)
+      setWizardOpen(false)
+      setTab('projects')
+    } catch (error) {
+      console.error(error)
+      notify(error.message || 'Could not create payment request.', 'error')
+    } finally {
+      setUploading(false)
+      setProgress(0)
     }
-      const renderDeliveryCard = (item, index) => {
-        const Icon = item.files?.some(f => f.type?.startsWith('video/'))
-            ? Film
-            : item.files?.some(f => f.type?.startsWith('image/'))
-                ? ImageIcon
-                : File;
+  }
 
-        return (
-            <motion.article
-                key={item.id}
-                initial={reduceMotion ? false : { opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: Math.min(index * 0.04, 0.2) }}
-                className="pd-card group"
-            >
-                <div className="flex items-start justify-between gap-3">
-                    <div className="flex min-w-0 items-start gap-3">
-                        <div className="pd-file-icon">
-                            <Icon size={20} />
-                        </div>
-                        <div className="min-w-0">
-                            <h3 className="truncate font-semibold text-white">
-                                {item.title || 'Untitled project'}
-                            </h3>
-                            <p className="mt-1 truncate text-xs text-emerald-100/45">
-                                {item.clientName || 'Client'}{item.clientEmail ? ` · ${item.clientEmail}` : ''}
-                            </p>
-                        </div>
-                    </div>
-                    <button
-                        onClick={() => handleDelete(item.id)}
-                        aria-label="Delete project"
-                        className="rounded-xl p-2 text-emerald-100/40 transition hover:bg-red-400/10 hover:text-red-300"
-                    >
-                        <Trash2 size={16} />
-                    </button>
-                </div>
+  const copyPortal = async id => {
+    const url = `${window.location.origin}/d/${id}`
 
-                <div className="my-5 flex flex-wrap items-center justify-between gap-3">
-                    <span className={`rounded-full border px-3 py-1.5 text-[10px] font-bold ${statusTone(item.status)}`}>
-                        {item.status || 'Awaiting Payment'}
-                    </span>
-                    <span className="text-lg font-bold text-white">
-                        {formatCurrency(item.grossAmount, item.currency || 'INR')}
-                    </span>
-                </div>
+    try {
+      await navigator.clipboard.writeText(url)
+      notify('Client portal link copied.')
+    } catch {
+      notify(url, 'error')
+    }
+  }
 
-                <div className="grid grid-cols-2 gap-3 border-t border-white/[0.07] pt-4">
-                    <div>
-                        <p className="text-[10px] uppercase tracking-wider text-emerald-100/35">
-                            Deliverables
-                        </p>
-                        <p className="mt-1 text-sm font-semibold text-emerald-50">
-                            {item.files?.length || 0} files
-                        </p>
-                    </div>
-                    <div>
-                        <p className="text-[10px] uppercase tracking-wider text-emerald-100/35">
-                            Client views
-                        </p>
-                        <p className="mt-1 text-sm font-semibold text-emerald-50">
-                            {item.viewCount || 0} views
-                        </p>
-                    </div>
-                </div>
+  const shareProject = async item => {
+    const url = `${window.location.origin}/d/${item.id}`
 
-                <div className="mt-5 flex flex-wrap gap-2">
-                    <button
-                        onClick={() => copyLink(item.id)}
-                        className="pd-secondary flex flex-1 items-center justify-center gap-2"
-                    >
-                        {copiedId === item.id
-                            ? <Check size={15} />
-                            : <Copy size={15} />}
-                        {copiedId === item.id ? 'Copied' : 'Copy link'}
-                    </button>
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: `PayDrop: ${item.title}`,
+          text: `Review deliverables for ${item.title}`,
+          url,
+        })
+      } else {
+        await navigator.clipboard.writeText(url)
+      }
 
-                    <button
-                        onClick={() => shareProject(item)}
-                        className="pd-secondary flex items-center justify-center gap-2"
-                        aria-label="Share project"
-                    >
-                        <Share2 size={15} />
-                    </button>
+      notify(navigator.share ? 'Share sheet opened.' : 'Portal link copied.')
+    } catch (error) {
+      if (error?.name !== 'AbortError') copyPortal(item.id)
+    }
+  }
 
-                    <button
-                        onClick={() => {
-                            setActiveThreadDelivery(item);
-                            setCurrentTab('chat-thread');
-                        }}
-                        className="pd-secondary flex items-center justify-center gap-2"
-                        aria-label="Open project messages"
-                    >
-                        <MessageSquare size={15} />
-                        {item.messages?.length ? item.messages.length : ''}
-                    </button>
+  const removeProject = async id => {
+    if (
+      !window.confirm(
+        'Permanently delete this project? This cannot be undone.'
+      )
+    ) {
+      return
+    }
 
-                    <Link
-                        href={`/d/${item.id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="pd-secondary flex items-center justify-center gap-2"
-                        aria-label="Preview client portal"
-                    >
-                        <ExternalLink size={15} />
-                    </Link>
-                </div>
-            </motion.article>
-        );
-    };
+    try {
+      await deleteDoc(doc(db, 'deliveries', id))
+      notify('Project deleted.')
+    } catch (error) {
+      console.error(error)
+      notify('Could not delete this project.', 'error')
+    }
+  }
 
+  const sendReply = async () => {
+    if (!activeChat || !reply.trim()) return
+
+    try {
+      const existing = activeChat.messages || []
+
+      await updateDoc(doc(db, 'deliveries', activeChat.id), {
+        messages: [
+          ...existing,
+          {
+            sender: 'creator',
+            text: reply.trim(),
+            time: new Date().toISOString(),
+          },
+        ],
+      })
+
+      setReply('')
+      notify('Reply sent.')
+    } catch (error) {
+      console.error(error)
+      notify('Could not send reply.', 'error')
+    }
+  }
+
+  const logout = async () => {
+    try {
+      await signOut(auth)
+    } catch (error) {
+      console.error(error)
+      notify('Sign out failed.', 'error')
+    }
+  }
+
+  const openWizard = () => {
+    setStep(1)
+    setWizardOpen(true)
+  }
+
+  const navItems = [
+    { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+    {
+      id: 'projects',
+      label: 'Projects',
+      icon: BriefcaseBusiness,
+      count: deliveries.length,
+    },
+    {
+      id: 'revisions',
+      label: 'Client messages',
+      icon: MessageSquare,
+      count: unread.length,
+    },
+    { id: 'wallet', label: 'Wallet & payouts', icon: Wallet },
+  ]
+
+  if (authLoading) {
     return (
-        <div className="pd-root min-h-screen text-white">
-            <style jsx global>{`
-                .pd-root {
-                    --pd-bg: #07130e;
-                    --pd-panel: #0d1e15;
-                    --pd-green: #063d2a;
-                    --pd-lime: #94ec36;
-                    background:
-                        radial-gradient(ellipse at 70% -10%, rgba(72, 160, 87, .12), transparent 40%),
-                        #07130e;
-                    color: #f3f8f3;
-                    font-family: Inter, ui-sans-serif, system-ui, sans-serif;
-                }
-                .pd-root * { box-sizing: border-box; }
-                .pd-panel {
-                    border: 1px solid rgba(210,255,221,.09);
-                    border-radius: 24px;
-                    background: linear-gradient(145deg,rgba(17,38,28,.95),rgba(9,22,16,.98));
-                    box-shadow: 0 12px 36px rgba(0,0,0,.12);
-                }
-                .pd-card {
-                    min-width: 0;
-                    padding: 20px;
-                    border: 1px solid rgba(210,255,221,.09);
-                    border-radius: 22px;
-                    background: linear-gradient(145deg,rgba(17,38,28,.9),rgba(9,22,16,.96));
-                    transition: border-color .2s, transform .2s;
-                }
-                .pd-card:hover {
-                    border-color: rgba(148,236,54,.3);
-                    transform: translateY(-2px);
-                }
-                .pd-file-icon {
-                    display: grid;
-                    width: 44px;
-                    height: 44px;
-                    flex-shrink: 0;
-                    place-items: center;
-                    border: 1px solid rgba(148,236,54,.15);
-                    border-radius: 14px;
-                    background: rgba(148,236,54,.08);
-                    color: #b9f77c;
-                }
-                .pd-primary {
-                    display: inline-flex;
-                    align-items: center;
-                    justify-content: center;
-                    gap: 8px;
-                    border: 0;
-                    border-radius: 14px;
-                    background: #94ec36;
-                    padding: 12px 17px;
-                    color: #092115;
-                    font-size: 13px;
-                    font-weight: 800;
-                    transition: filter .2s, transform .2s;
-                    cursor: pointer;
-                }
-                .pd-primary:hover { filter: brightness(1.08); }
-                .pd-primary:disabled { opacity: .5; cursor: not-allowed; }
-                .pd-secondary {
-                    min-height: 40px;
-                    border: 1px solid rgba(210,255,221,.1);
-                    border-radius: 12px;
-                    background: rgba(255,255,255,.025);
-                    padding: 9px 12px;
-                    color: #d9e9dc;
-                    font-size: 12px;
-                    font-weight: 650;
-                    transition: background .2s, border-color .2s;
-                    cursor: pointer;
-                }
-                .pd-secondary:hover {
-                    border-color: rgba(148,236,54,.25);
-                    background: rgba(148,236,54,.07);
-                }
-                .pd-input {
-                    width: 100%;
-                    border: 1px solid rgba(210,255,221,.12);
-                    border-radius: 13px;
-                    outline: none;
-                    background: rgba(0,0,0,.15);
-                    padding: 12px 14px;
-                    color: white;
-                    font-size: 13px;
-                    transition: border-color .2s;
-                }
-                .pd-input:focus { border-color: rgba(148,236,54,.65); }
-                .pd-input::placeholder { color: rgba(221,240,225,.3); }
-                .pd-label {
-                    display: block;
-                    margin-bottom: 8px;
-                    color: rgba(221,240,225,.7);
-                    font-size: 12px;
-                    font-weight: 650;
-                }
-                .pd-nav {
-                    display: flex;
-                    width: 100%;
-                    align-items: center;
-                    gap: 12px;
-                    border-radius: 13px;
-                    padding: 12px 13px;
-                    color: rgba(221,240,225,.55);
-                    font-size: 13px;
-                    font-weight: 650;
-                    text-align: left;
-                    transition: .2s;
-                }
-                .pd-nav:hover { background: rgba(255,255,255,.04); color: white; }
-                .pd-nav-active {
-                    background: rgba(148,236,54,.1);
-                    color: #c8f69c;
-                    box-shadow: inset 2px 0 #94ec36;
-                }
-                .pd-muted { color: rgba(221,240,225,.48); }
-                .pd-stat {
-                    padding: 20px;
-                    border: 1px solid rgba(210,255,221,.09);
-                    border-radius: 20px;
-                    background: rgba(16,35,24,.78);
-                }
-                .pd-stat-label {
-                    color: rgba(221,240,225,.48);
-                    font-size: 11px;
-                    font-weight: 650;
-                }
-                .pd-stat-value {
-                    margin-top: 14px;
-                    font-size: clamp(22px, 2.5vw, 30px);
-                    font-weight: 800;
-                    letter-spacing: -.04em;
-                }
-                .pd-scrollbar::-webkit-scrollbar { width: 5px; }
-                .pd-scrollbar::-webkit-scrollbar-thumb {
-                    border-radius: 8px;
-                    background: rgba(148,236,54,.2);
-                }
-                @media(max-width:767px) {
-                    .pd-card { padding: 15px; }
-                    .pd-stat { padding: 15px; }
-                }
-            `}</style>
+      <div className="flex min-h-screen items-center justify-center bg-[#F4F7F2] text-sm font-semibold text-slate-500">
+        <div className="mr-3 h-5 w-5 animate-spin rounded-full border-2 border-[#063D2A] border-t-transparent" />
+        Securing your workspace…
+      </div>
+    )
+  }
 
-            <div className="flex min-h-screen">
-                <AnimatePresence>
-                    {mobileMenuOpen && (
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="fixed inset-0 z-40 bg-black/70 md:hidden"
-                            onClick={() => setMobileMenuOpen(false)}
-                        />
-                    )}
-                </AnimatePresence>
+  if (!user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#F4F7F2] p-6">
+        <div className="w-full max-w-md rounded-[32px] border border-slate-200 bg-white p-8 text-center shadow-xl">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#94EC36] text-2xl font-black text-[#063D2A]">
+            P
+          </div>
 
-                <aside className={`fixed inset-y-0 left-0 z-50 flex w-[260px] flex-col border-r border-white/[0.07] bg-[#09170f] p-5 transition-transform duration-300 md:sticky md:top-0 md:h-screen md:translate-x-0 ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-                    <div className="flex items-center gap-3 px-1">
-                        <BrandMark />
-                        <div>
-                            <p className="text-lg font-black tracking-tight">PayDrop</p>
-                            <p className="text-[9px] font-bold tracking-[.22em] text-lime-300/55">
-                                CREATOR WORKSPACE
-                            </p>
-                        </div>
-                        <button
-                            onClick={() => setMobileMenuOpen(false)}
-                            className="ml-auto rounded-lg p-2 text-white/50 md:hidden"
-                            aria-label="Close menu"
-                        >
-                            <X size={18} />
-                        </button>
-                    </div>
+          <h1 className="mt-5 text-2xl font-black tracking-tight text-slate-950">
+            Your studio is waiting
+          </h1>
 
-                    <button
-                        onClick={openRequest}
-                        className="pd-primary mt-9 w-full"
-                    >
-                        <Plus size={17} /> New delivery
-                    </button>
+          <p className="mt-2 text-sm leading-6 text-slate-500">
+            Sign in to manage your projects, client handovers and payment requests.
+          </p>
 
-                    <p className="mb-3 mt-9 px-3 text-[9px] font-bold tracking-[.2em] text-emerald-100/30">
-                        WORKSPACE
-                    </p>
-
-                    <nav className="space-y-1">
-                        {navItems.map(item => {
-                            const NavIcon = item.icon;
-                            return (
-                                <button
-                                    key={item.id}
-                                    onClick={() => {
-                                        setCurrentTab(item.id);
-                                        setMobileMenuOpen(false);
-                                    }}
-                                    className={`pd-nav ${currentTab === item.id ? 'pd-nav-active' : ''}`}
-                                >
-                                    <NavIcon size={17} />
-                                    <span className="flex-1">{item.label}</span>
-                                    {item.count > 0 && (
-                                        <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px]">
-                                            {item.count}
-                                        </span>
-                                    )}
-                                </button>
-                            );
-                        })}
-                    </nav>
-
-                    <div className="mt-auto">
-                        <div className="mb-4 rounded-2xl border border-lime-300/10 bg-lime-300/[0.04] p-4">
-                            <div className="flex items-center gap-2 text-lime-200">
-                                <ShieldCheck size={16} />
-                                <span className="text-xs font-bold">Protected delivery</span>
-                            </div>
-                            <p className="mt-2 text-[11px] leading-5 text-emerald-100/45">
-                                Keep your deliverables organized in a single client portal.
-                            </p>
-                        </div>
-
-                        <button
-                            onClick={() => setProfileDrawerOpen(true)}
-                            className="flex w-full items-center gap-3 rounded-2xl border border-white/[0.07] p-3 text-left hover:bg-white/[0.03]"
-                        >
-                            <div className="grid size-10 shrink-0 place-items-center rounded-full bg-lime-300/10 text-sm font-bold text-lime-200">
-                                {initials(user.displayName || user.email)}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                                <p className="truncate text-xs font-bold">
-                                    {user.displayName || 'Creator'}
-                                </p>
-                                <p className="mt-1 truncate text-[10px] text-white/40">
-                                    {user.email}
-                                </p>
-                            </div>
-                            <MoreHorizontal size={17} className="text-white/40" />
-                        </button>
-                    </div>
-                </aside>
-
-                <main className="min-w-0 flex-1">
-                    <header className="sticky top-0 z-30 flex min-h-[76px] items-center justify-between gap-3 border-b border-white/[0.06] bg-[#07130e]/90 px-4 backdrop-blur-xl sm:px-7 lg:px-10">
-                        <div className="flex min-w-0 items-center gap-3">
-                            <button
-                                onClick={() => setMobileMenuOpen(true)}
-                                className="rounded-xl border border-white/10 p-2.5 md:hidden"
-                                aria-label="Open menu"
-                            >
-                                <Menu size={18} />
-                            </button>
-                            <div className="min-w-0">
-                                <p className="truncate text-[10px] font-bold tracking-[.16em] text-lime-200/50">
-                                    CREATOR CONSOLE
-                                </p>
-                                <h1 className="mt-1 truncate text-lg font-bold tracking-tight sm:text-xl">
-                                    {currentTab === 'home' ? 'Overview'
-                                        : currentTab === 'projects' ? 'Your projects'
-                                            : currentTab === 'revisions' ? 'Client messages'
-                                                : currentTab === 'wallet' ? 'Wallet & earnings'
-                                                    : currentTab === 'chat-thread' ? 'Project conversation'
-                                                        : 'Your workspace'}
-                                </h1>
-                            </div>
-                        </div>
-
-                        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-                            <div className="hidden items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.025] px-3 py-2 sm:flex">
-                                <ShieldCheck size={14} className="text-lime-200" />
-                                <span className="text-[10px] font-semibold text-emerald-100/55">
-                                    Secure workspace
-                                </span>
-                            </div>
-                            <button
-                                onClick={() => setAiDrawerOpen(true)}
-                                className="flex items-center gap-2 rounded-xl border border-lime-200/15 bg-lime-200/[0.06] px-3 py-2.5 text-xs font-bold text-lime-100"
-                            >
-                                <Sparkles size={15} />
-                                <span className="hidden sm:inline">PayDrop AI</span>
-                            </button>
-                        </div>
-                    </header>
-
-                    <div className="mx-auto max-w-[1500px] space-y-7 px-4 py-6 sm:px-7 sm:py-8 lg:px-10">
-                        {currentTab === 'home' && (
-                            <>
-                                <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-                                    <div>
-                                        <p className="text-sm text-emerald-100/50">
-                                            Welcome back, {user.displayName?.split(' ')[0] || 'Creator'}.
-                                        </p>
-                                        <h2 className="mt-2 text-2xl font-black tracking-tight sm:text-3xl">
-                                            Your work, <span className="text-lime-200">protected.</span>
-                                        </h2>
-                                        <p className="mt-2 max-w-xl text-sm leading-6 text-emerald-100/45">
-                                            Manage deliveries, share client portals and keep every project in one place.
-                                        </p>
-                                    </div>
-                                    <button onClick={openRequest} className="pd-primary self-start sm:self-auto">
-                                        <Plus size={17} /> Create delivery
-                                    </button>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-                                    <div className="pd-stat">
-                                        <div className="flex items-center justify-between gap-2">
-                                            <p className="pd-stat-label">Total projects</p>
-                                            <Briefcase size={17} className="text-lime-200/70" />
-                                        </div>
-                                        <p className="pd-stat-value">{deliveries.length}</p>
-                                        <p className="mt-2 text-[10px] text-emerald-100/35">All deliveries</p>
-                                    </div>
-                                    <div className="pd-stat">
-                                        <div className="flex items-center justify-between gap-2">
-                                            <p className="pd-stat-label">Paid projects</p>
-                                            <Check size={17} className="text-lime-200/70" />
-                                        </div>
-                                        <p className="pd-stat-value">{paidDeliveries.length}</p>
-                                        <p className="mt-2 text-[10px] text-emerald-100/35">Marked as paid</p>
-                                    </div>
-                                    <div className="pd-stat">
-                                        <div className="flex items-center justify-between gap-2">
-                                            <p className="pd-stat-label">Pending payment</p>
-                                            <Clock3 size={17} className="text-amber-200/70" />
-                                        </div>
-                                        <p className="pd-stat-value">
-                                            {deliveries.filter(d => d.status !== 'Paid').length}
-                                        </p>
-                                        <p className="mt-2 text-[10px] text-emerald-100/35">Awaiting completion</p>
-                                    </div>
-                                    <div className="pd-stat">
-                                        <div className="flex items-center justify-between gap-2">
-                                            <p className="pd-stat-label">Client messages</p>
-                                            <MessageSquare size={17} className="text-lime-200/70" />
-                                        </div>
-                                        <p className="pd-stat-value">{unreadRevisions.length}</p>
-                                        <p className="mt-2 text-[10px] text-emerald-100/35">Projects with messages</p>
-                                    </div>
-                                </div>
-
-                                <div className="grid gap-6 xl:grid-cols-[1.55fr_1fr]">
-                                    <Panel className="p-5 sm:p-7">
-                                        <div className="flex flex-wrap items-start justify-between gap-4">
-                                            <div>
-                                                <p className="text-xs font-semibold text-emerald-100/45">
-                                                    Revenue overview
-                                                </p>
-                                                <p className="mt-2 text-3xl font-black tracking-tight">
-                                                    {balanceVisible
-                                                        ? formatCurrency(selectedRevenue, currency)
-                                                        : '••••••'}
-                                                </p>
-                                                <p className="mt-2 text-[11px] text-emerald-100/40">
-                                                    Earnings from projects marked paid
-                                                </p>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <button
-                                                    onClick={() => setBalanceVisible(v => !v)}
-                                                    className="rounded-xl border border-white/[0.08] p-2.5 text-white/55"
-                                                    aria-label="Toggle balance visibility"
-                                                >
-                                                    {balanceVisible ? <Eye size={16} /> : <EyeOff size={16} />}
-                                                </button>
-                                                <select
-                                                    value={currency}
-                                                    onChange={e => setCurrency(e.target.value)}
-                                                    className="rounded-xl border border-white/[0.08] bg-[#0c1c13] px-3 py-2.5 text-xs outline-none"
-                                                    aria-label="Select currency"
-                                                >
-                                                    <option value="INR">INR ₹</option>
-                                                    <option value="USD">USD $</option>
-                                                </select>
-                                            </div>
-                                        </div>
-
-                                        <div className="mt-7">
-                                            <svg viewBox="0 0 300 130" className="h-auto w-full overflow-visible" role="img" aria-label="Monthly revenue chart">
-                                                <defs>
-                                                    <linearGradient id="pdChartFill" x1="0" y1="0" x2="0" y2="1">
-                                                        <stop offset="0%" stopColor="#94ec36" stopOpacity=".23" />
-                                                        <stop offset="100%" stopColor="#94ec36" stopOpacity="0" />
-                                                    </linearGradient>
-                                                </defs>
-                                                {[20, 45, 70, 95].map(y => (
-                                                    <line key={y} x1="0" y1={y} x2="300" y2={y} stroke="rgba(255,255,255,.07)" strokeDasharray="3 5" />
-                                                ))}
-                                                <path d={areaPathD} fill="url(#pdChartFill)" />
-                                                <path d={svgPathD} fill="none" stroke="#94ec36" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                                                {chartPoints.map(p => (
-                                                    <circle
-                                                        key={p.month}
-                                                        cx={p.x}
-                                                        cy={p.y}
-                                                        r={activeChartPoint?.month === p.month ? 5 : 2.5}
-                                                        fill="#94ec36"
-                                                        stroke="#0d1e15"
-                                                        strokeWidth="1.5"
-                                                        className="cursor-pointer"
-                                                        onClick={() => setActiveChartPoint(p)}
-                                                    />
-                                                ))}
-                                            </svg>
-
-                                            <div className="mt-2 grid grid-cols-6 gap-1 sm:grid-cols-12">
-                                                {chartPoints.map(p => (
-                                                    <button
-                                                        key={p.month}
-                                                        onClick={() => setActiveChartPoint(p)}
-                                                        className={`rounded-md py-1.5 text-[9px] ${activeChartPoint?.month === p.month ? 'bg-lime-300/10 text-lime-200' : 'text-emerald-100/35 hover:text-white'}`}
-                                                    >
-                                                        {p.month}
-                                                    </button>
-                                                ))}
-                                            </div>
-
-                                            {activeChartPoint && (
-                                                <div className="mt-3 flex items-center justify-between rounded-xl border border-lime-200/10 bg-lime-200/[0.04] p-3">
-                                                    <span className="text-xs text-emerald-100/55">
-                                                        {activeChartPoint.month} {currentYear}
-                                                    </span>
-                                                    <span className="text-sm font-bold text-lime-200">
-                                                        {formatCurrency(activeChartPoint.amount, currency)}
-                                                    </span>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </Panel>
-
-                                    <Panel className="p-5 sm:p-7">
-                                        <div className="flex items-center justify-between gap-3">
-                                            <div>
-                                                <p className="text-xs font-semibold text-emerald-100/45">
-                                                    Workspace activity
-                                                </p>
-                                                <h3 className="mt-2 text-lg font-bold">Recent deliveries</h3>
-                                            </div>
-                                            <button
-                                                onClick={() => setCurrentTab('projects')}
-                                                className="flex items-center gap-1 text-xs font-bold text-lime-200"
-                                            >
-                                                View all <ArrowUpRight size={14} />
-                                            </button>
-                                        </div>
-
-                                        <div className="mt-5 space-y-1">
-                                            {deliveries.slice(0, 5).map((item, i) => (
-                                                <button
-                                                    key={item.id}
-                                                    onClick={() => {
-                                                        setActiveThreadDelivery(item);
-                                                        setCurrentTab('chat-thread');
-                                                    }}
-                                                    className="flex w-full items-center gap-3 rounded-xl p-3 text-left transition hover:bg-white/[0.035]"
-                                                >
-                                                    <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-lime-200/[0.07] text-lime-200">
-                                                        <Files size={17} />
-                                                    </div>
-                                                    <div className="min-w-0 flex-1">
-                                                        <p className="truncate text-xs font-semibold">
-                                                            {item.title || 'Untitled project'}
-                                                        </p>
-                                                        <p className="mt-1 truncate text-[10px] text-white/40">
-                                                            {item.clientName || 'Client'}
-                                                        </p>
-                                                    </div>
-                                                    <span className="shrink-0 text-[10px] font-semibold text-emerald-100/65">
-                                                        {formatCurrency(item.grossAmount, item.currency || 'INR')}
-                                                    </span>
-                                                </button>
-                                            ))}
-
-                                            {!deliveries.length && (
-                                                <div className="py-10 text-center">
-                                                    <div className="mx-auto grid size-12 place-items-center rounded-2xl bg-lime-200/[0.07] text-lime-200">
-                                                        <Files size={20} />
-                                                    </div>
-                                                    <p className="mt-4 text-sm font-semibold">No projects yet</p>
-                                                    <p className="mt-2 text-xs text-white/40">
-                                                        Create your first protected delivery.
-                                                    </p>
-                                                    <button onClick={openRequest} className="pd-primary mt-4">
-                                                        <Plus size={15} /> Create project
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </Panel>
-                                </div>
-
-                                <div>
-                                    <div className="mb-4 flex items-center justify-between gap-3">
-                                        <h3 className="text-lg font-bold">Latest projects</h3>
-                                        <button onClick={() => setCurrentTab('projects')} className="text-xs font-semibold text-lime-200">
-                                            See all <ArrowRight size={13} className="inline" />
-                                        </button>
-                                    </div>
-                                    {deliveries.length ? (
-                                        <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
-                                            {deliveries.slice(0, 3).map(renderDeliveryCard)}
-                                        </div>
-                                    ) : (
-                                        <div className="pd-panel p-8 text-center">
-                                            <p className="font-semibold">Your next project starts here.</p>
-                                            <p className="mt-2 text-sm text-white/45">
-                                                Create a delivery, add your files and share a portal with your client.
-                                            </p>
-                                            <button onClick={openRequest} className="pd-primary mt-5">
-                                                <Plus size={16} /> New delivery
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                            </>
-                        )}
-                        {currentTab === 'projects' && (
-                            <section>
-                                <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-                                    <div>
-                                        <h2 className="text-2xl font-black">Your projects</h2>
-                                        <p className="mt-2 text-sm text-white/45">
-                                            Manage and share all your client deliveries.
-                                        </p>
-                                    </div>
-                                    <button onClick={openRequest} className="pd-primary self-start">
-                                        <Plus size={16} /> New delivery
-                                    </button>
-                                </div>
-
-                                <div className="mb-5 flex items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.025] px-4">
-                                    <Search size={17} className="shrink-0 text-white/35" />
-                                    <input
-                                        value={searchQuery}
-                                        onChange={e => setSearchQuery(e.target.value)}
-                                        placeholder="Search projects or clients..."
-                                        className="min-w-0 flex-1 bg-transparent py-4 text-sm outline-none placeholder:text-white/30"
-                                    />
-                                    {searchQuery && (
-                                        <button onClick={() => setSearchQuery('')} aria-label="Clear search">
-                                            <X size={16} className="text-white/40" />
-                                        </button>
-                                    )}
-                                </div>
-
-                                {filteredDeliveries.length ? (
-                                    <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
-                                        {filteredDeliveries.map(renderDeliveryCard)}
-                                    </div>
-                                ) : (
-                                    <div className="pd-panel p-10 text-center">
-                                        <Files size={32} className="mx-auto text-lime-200/70" />
-                                        <h3 className="mt-4 font-bold">No matching projects</h3>
-                                        <p className="mt-2 text-sm text-white/40">
-                                            Try a different search or create a new delivery.
-                                        </p>
-                                    </div>
-                                )}
-                            </section>
-                        )}
-
-                        {currentTab === 'revisions' && (
-                            <section>
-                                <h2 className="text-2xl font-black">Client messages</h2>
-                                <p className="mt-2 text-sm text-white/45">
-                                    Continue conversations about your deliveries.
-                                </p>
-
-                                <div className="mt-6 grid gap-4 md:grid-cols-2">
-                                    {deliveries.filter(d => d.messages?.length).map(renderDeliveryCard)}
-                                </div>
-
-                                {!deliveries.some(d => d.messages?.length) && (
-                                    <div className="pd-panel mt-6 p-10 text-center">
-                                        <MessageSquare size={30} className="mx-auto text-lime-200/60" />
-                                        <p className="mt-4 font-semibold">No messages yet</p>
-                                        <p className="mt-2 text-sm text-white/40">
-                                            Client conversations will appear here when messages are available.
-                                        </p>
-                                    </div>
-                                )}
-                            </section>
-                        )}
-
-                        {currentTab === 'wallet' && (
-                            <section>
-                                <h2 className="text-2xl font-black">Wallet & earnings</h2>
-                                <p className="mt-2 text-sm text-white/45">
-                                    Review project amounts and earnings recorded in your workspace.
-                                </p>
-
-                                <Panel className="mt-6 p-6 sm:p-8">
-                                    <div className="flex flex-wrap items-center justify-between gap-4">
-                                        <div>
-                                            <p className="text-sm text-white/45">Recorded creator earnings</p>
-                                            <p className="mt-3 text-3xl font-black text-lime-200">
-                                                {balanceVisible
-                                                    ? formatCurrency(selectedRevenue, currency)
-                                                    : '••••••'}
-                                            </p>
-                                        </div>
-                                        <button
-                                            onClick={() => setBalanceVisible(v => !v)}
-                                            className="pd-secondary flex items-center gap-2"
-                                        >
-                                            {balanceVisible ? <EyeOff size={16} /> : <Eye size={16} />}
-                                            {balanceVisible ? 'Hide balance' : 'Show balance'}
-                                        </button>
-                                    </div>
-                                    <div className="mt-5 flex gap-2">
-                                        <button
-                                            onClick={() => setCurrency('INR')}
-                                            className={`pd-secondary ${currency === 'INR' ? 'border-lime-200/30 text-lime-200' : ''}`}
-                                        >
-                                            INR ₹
-                                        </button>
-                                        <button
-                                            onClick={() => setCurrency('USD')}
-                                            className={`pd-secondary ${currency === 'USD' ? 'border-lime-200/30 text-lime-200' : ''}`}
-                                        >
-                                            USD $
-                                        </button>
-                                    </div>
-                                </Panel>
-
-                                <div className="mt-6 space-y-3">
-                                    {paidDeliveries.map(item => (
-                                        <div key={item.id} className="pd-panel flex flex-wrap items-center justify-between gap-3 p-4">
-                                            <div className="min-w-0">
-                                                <p className="truncate text-sm font-bold">{item.title}</p>
-                                                <p className="mt-1 text-xs text-white/40">
-                                                    {item.clientName || 'Client'} · Paid project
-                                                </p>
-                                            </div>
-                                            <p className="font-bold text-lime-200">
-                                                {formatCurrency(
-                                                    item.creatorPayout ?? item.grossAmount,
-                                                    item.currency || 'INR'
-                                                )}
-                                            </p>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                <p className="mt-5 text-xs leading-5 text-amber-100/50">
-                                    Note: these totals reflect project records in Firestore. They do not confirm that funds have been received in a bank account or payment processor.
-                                </p>
-                            </section>
-                        )}
-
-                        {currentTab === 'chat-thread' && (
-                            <section className="mx-auto max-w-3xl">
-                                <button
-                                    onClick={() => setCurrentTab('revisions')}
-                                    className="mb-5 flex items-center gap-2 text-sm text-white/50 hover:text-white"
-                                >
-                                    <ArrowLeft size={16} /> Back to messages
-                                </button>
-
-                                <Panel className="flex min-h-[65vh] flex-col">
-                                    <div className="border-b border-white/[0.07] p-5">
-                                        <h2 className="font-bold">
-                                            {activeThreadDelivery?.title || 'Project conversation'}
-                                        </h2>
-                                        <p className="mt-1 text-xs text-white/40">
-                                            {activeThreadDelivery?.clientName || 'Client'}
-                                        </p>
-                                    </div>
-
-                                    <div className="pd-scrollbar flex-1 space-y-4 overflow-y-auto p-5">
-                                        {(activeThreadDelivery?.messages || []).map((message, i) => (
-                                            <div
-                                                key={`${message.time || i}-${i}`}
-                                                className={`flex ${message.sender === 'creator' ? 'justify-end' : 'justify-start'}`}
-                                            >
-                                                <div className={`max-w-[85%] rounded-2xl p-4 ${message.sender === 'creator' ? 'bg-lime-300 text-emerald-950' : 'border border-white/[0.08] bg-white/[0.04] text-white'}`}>
-                                                    <p className="whitespace-pre-wrap break-words text-sm">
-                                                        {message.text}
-                                                    </p>
-                                                    <p className={`mt-2 text-[9px] ${message.sender === 'creator' ? 'text-emerald-950/55' : 'text-white/35'}`}>
-                                                        {message.sender === 'creator' ? 'You' : 'Client'}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        ))}
-
-                                        {!activeThreadDelivery?.messages?.length && (
-                                            <p className="py-10 text-center text-sm text-white/35">
-                                                No messages in this conversation yet.
-                                            </p>
-                                        )}
-
-                                        <div ref={chatBottomRef} />
-                                    </div>
-
-                                    <form
-                                        className="flex gap-2 border-t border-white/[0.07] p-4"
-                                        onSubmit={e => {
-                                            e.preventDefault();
-                                            if (activeThreadDelivery) {
-                                                handleSendThreadReply(activeThreadDelivery.id);
-                                            }
-                                        }}
-                                    >
-                                        <input
-                                            value={threadReplyText}
-                                            onChange={e => setThreadReplyText(e.target.value)}
-                                            placeholder="Write a reply..."
-                                            className="pd-input flex-1"
-                                        />
-                                        <button
-                                            type="submit"
-                                            disabled={!threadReplyText.trim()}
-                                            className="pd-primary"
-                                            aria-label="Send reply"
-                                        >
-                                            <Send size={16} />
-                                        </button>
-                                    </form>
-                                </Panel>
-                            </section>
-                        )}
-                    </div>
-                </main>
-            </div>
-
-            <AnimatePresence>
-                {requestModalOpen && (
-                    <motion.div
-                        className="fixed inset-0 z-[70] flex items-end justify-center bg-black/75 p-0 backdrop-blur-sm sm:items-center sm:p-5"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        onMouseDown={e => {
-                            if (e.target === e.currentTarget && !uploading) {
-                                setRequestModalOpen(false);
-                            }
-                        }}
-                    >
-                        <motion.div
-                            initial={reduceMotion ? false : { opacity: 0, y: 25, scale: .98 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: 20 }}
-                            className="pd-panel pd-scrollbar max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-b-none p-5 sm:rounded-[24px] sm:p-7"
-                        >
-                            <div className="flex items-start justify-between gap-4">
-                                <div>
-                                    <p className="text-[10px] font-bold tracking-[.18em] text-lime-200/55">
-                                        NEW DELIVERY
-                                    </p>
-                                    <h2 className="mt-2 text-xl font-black">
-                                        Create a client vault
-                                    </h2>
-                                    <p className="mt-2 text-xs leading-5 text-white/40">
-                                        Add project details and upload your deliverables.
-                                    </p>
-                                </div>
-                                <button
-                                    disabled={uploading}
-                                    onClick={() => setRequestModalOpen(false)}
-                                    className="rounded-xl border border-white/10 p-2 text-white/55 disabled:opacity-40"
-                                    aria-label="Close modal"
-                                >
-                                    <X size={18} />
-                                </button>
-                            </div>
-
-                            <div className="mt-6 flex gap-2">
-                                {[1, 2, 3].map(step => (
-                                    <div
-                                        key={step}
-                                        className={`h-1.5 flex-1 rounded-full ${wizardStep >= step ? 'bg-lime-300' : 'bg-white/10'}`}
-                                    />
-                                ))}
-                            </div>
-
-                            {wizardStep === 1 && (
-                                <div className="mt-6 space-y-5">
-                                    <div>
-                                        <label className="pd-label">Project name *</label>
-                                        <input
-                                            value={title}
-                                            onChange={e => setTitle(e.target.value)}
-                                            className="pd-input"
-                                            placeholder="e.g. Brand identity package"
-                                            required
-                                        />
-                                    </div>
-
-                                    <div className="grid gap-4 sm:grid-cols-2">
-                                        <div>
-                                            <label className="pd-label">Client name</label>
-                                            <input
-                                                value={clientName}
-                                                onChange={e => setClientName(e.target.value)}
-                                                className="pd-input"
-                                                placeholder="Client's name"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="pd-label">Client email</label>
-                                            <input
-                                                type="email"
-                                                value={clientEmail}
-                                                onChange={e => setClientEmail(e.target.value)}
-                                                className="pd-input"
-                                                placeholder="client@example.com"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <label className="pd-label">Project notes</label>
-                                        <textarea
-                                            value={clientMessage}
-                                            onChange={e => setClientMessage(e.target.value)}
-                                            className="pd-input min-h-24 resize-y"
-                                            placeholder="Add instructions for your client..."
-                                        />
-                                    </div>
-
-                                    <div className="grid gap-4 sm:grid-cols-2">
-                                        <div>
-                                            <label className="pd-label">Amount *</label>
-                                            <input
-                                                type="number"
-                                                min="1"
-                                                step="0.01"
-                                                value={amount}
-                                                onChange={e => setAmount(e.target.value)}
-                                                className="pd-input"
-                                                placeholder="Enter amount"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="pd-label">Currency</label>
-                                            <select
-                                                value={currency}
-                                                onChange={e => setCurrency(e.target.value)}
-                                                className="pd-input"
-                                            >
-                                                <option value="INR">INR (₹)</option>
-                                                <option value="USD">USD ($)</option>
-                                            </select>
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <label className="pd-label">Portal expiry</label>
-                                        <select
-                                            value={expirySelection}
-                                            onChange={e => setExpirySelection(e.target.value)}
-                                            className="pd-input"
-                                        >
-                                            <option value="1">1 day</option>
-                                            <option value="7">7 days</option>
-                                            <option value="14">14 days</option>
-                                            <option value="30">30 days</option>
-                                            <option value="never">Never expires</option>
-                                        </select>
-                                    </div>
-
-                                    <button
-                                        onClick={() => {
-                                            if (!title.trim() || !amount || Number(amount) <= 0) {
-                                                showToast('Enter a project name and valid amount', 'error');
-                                                return;
-                                            }
-                                            setWizardStep(2);
-                                        }}
-                                        className="pd-primary w-full"
-                                    >
-                                        Continue <ArrowRight size={16} />
-                                    </button>
-                                </div>
-                            )}
-
-                            {wizardStep === 2 && (
-                                <div className="mt-6 space-y-5">
-                                    <div>
-                                        <label className="pd-label">Deliverable files *</label>
-                                        <label
-                                            onDragOver={e => {
-                                                e.preventDefault();
-                                                setIsDragging(true);
-                                            }}
-                                            onDragLeave={() => setIsDragging(false)}
-                                            onDrop={e => {
-                                                e.preventDefault();
-                                                setIsDragging(false);
-                                                handleFilesAdd(e.dataTransfer.files);
-                                            }}
-                                            className={`flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed p-8 text-center transition ${isDragging ? 'border-lime-200 bg-lime-200/10' : 'border-white/15 bg-white/[0.02] hover:border-lime-200/40'}`}
-                                        >
-                                            <UploadCloud size={28} className="text-lime-200" />
-                                            <p className="mt-3 text-sm font-semibold">
-                                                Drop files here or browse
-                                            </p>
-                                            <p className="mt-2 text-xs text-white/40">
-                                                Images, videos, PDFs and other deliverables
-                                            </p>
-                                            <input
-                                                type="file"
-                                                multiple
-                                                className="hidden"
-                                                onChange={e => {
-                                                    handleFilesAdd(e.target.files);
-                                                    e.target.value = '';
-                                                }}
-                                            />
-                                        </label>
-                                    </div>
-
-                                    {fileList.length > 0 && (
-                                        <div className="space-y-2">
-                                            {fileList.map((file, i) => (
-                                                <div key={`${file.name}-${i}`} className="flex items-center gap-3 rounded-xl border border-white/[0.07] p-3">
-                                                    <File size={17} className="shrink-0 text-lime-200" />
-                                                    <div className="min-w-0 flex-1">
-                                                        <p className="truncate text-xs font-semibold">{file.name}</p>
-                                                        <p className="mt-1 text-[10px] text-white/40">
-                                                            {(file.size / (1024 * 1024)).toFixed(2)} MB
-                                                        </p>
-                                                    </div>
-                                                    <button
-                                                        onClick={() => removeFile(i)}
-                                                        className="rounded-lg p-2 text-white/40 hover:text-red-300"
-                                                        aria-label={`Remove ${file.name}`}
-                                                    >
-                                                        <Trash2 size={15} />
-                                                    </button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-
-                                    <div className="flex gap-3">
-                                        <button onClick={() => setWizardStep(1)} className="pd-secondary flex-1">
-                                            <ArrowLeft size={15} className="mr-1 inline" /> Back
-                                        </button>
-                                        <button
-                                            onClick={() => {
-                                                if (!fileList.length) {
-                                                    showToast('Add at least one file', 'error');
-                                                    return;
-                                                }
-                                                setWizardStep(3);
-                                            }}
-                                            className="pd-primary flex-1"
-                                        >
-                                            Continue <ArrowRight size={16} />
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-
-                            {wizardStep === 3 && (
-                                <div className="mt-6 space-y-5">
-                                    <div className="rounded-2xl border border-white/[0.08] bg-white/[0.025] p-5">
-                                        <p className="text-xs text-white/45">Project summary</p>
-                                        <h3 className="mt-2 text-lg font-bold">{title}</h3>
-                                        <div className="mt-4 flex justify-between gap-3 text-sm">
-                                            <span className="text-white/45">Client</span>
-                                            <span className="text-right">{clientName || clientEmail || 'Not specified'}</span>
-                                        </div>
-                                        <div className="mt-3 flex justify-between gap-3 text-sm">
-                                            <span className="text-white/45">Files</span>
-                                            <span>{fileList.length}</span>
-                                        </div>
-                                        <div className="mt-3 flex justify-between gap-3 text-sm">
-                                            <span className="text-white/45">Amount</span>
-                                            <span className="font-bold text-lime-200">
-                                                {formatCurrency(amount, currency)}
-                                            </span>
-                                        </div>
-                                        <div className="mt-3 flex justify-between gap-3 text-sm">
-                                            <span className="text-white/45">Platform fee (estimated 5%)</span>
-                                            <span>{formatCurrency(Math.max(Number(amount) * .05, 1), currency)}</span>
-                                        </div>
-                                    </div>
-
-                                    {uploading && (
-                                        <div>
-                                            <div className="mb-2 flex justify-between text-xs">
-                                                <span className="text-white/50">Uploading files...</span>
-                                                <span>{uploadProgress}%</span>
-                                            </div>
-                                            <div className="h-2 overflow-hidden rounded-full bg-white/10">
-                                                <div
-                                                    className="h-full rounded-full bg-lime-300 transition-all"
-                                                    style={{ width: `${uploadProgress}%` }}
-                                                />
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    <div className="flex gap-3">
-                                        <button
-                                            disabled={uploading}
-                                            onClick={() => setWizardStep(2)}
-                                            className="pd-secondary flex-1"
-                                        >
-                                            <ArrowLeft size={15} className="mr-1 inline" /> Back
-                                        </button>
-                                        <button
-                                            disabled={uploading}
-                                            onClick={handleDeployVault}
-                                            className="pd-primary flex-1"
-                                        >
-                                            {uploading
-                                                ? <><LoaderCircle size={16} className="animate-spin" /> Uploading...</>
-                                                : <><Lock size={15} /> Create vault</>}
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            <AnimatePresence>
-                {profileDrawerOpen && (
-                    <motion.div
-                        className="fixed inset-0 z-[80] flex justify-end bg-black/65 backdrop-blur-sm"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        onMouseDown={e => {
-                            if (e.target === e.currentTarget) setProfileDrawerOpen(false);
-                        }}
-                    >
-                        <motion.aside
-                            initial={{ x: 350 }}
-                            animate={{ x: 0 }}
-                            exit={{ x: 350 }}
-                            className="pd-scrollbar h-full w-full max-w-sm overflow-y-auto border-l border-white/10 bg-[#09170f] p-6"
-                        >
-                            <div className="flex items-center justify-between">
-                                <h2 className="text-lg font-bold">Your profile</h2>
-                                <button onClick={() => setProfileDrawerOpen(false)} className="pd-secondary">
-                                    <X size={16} />
-                                </button>
-                            </div>
-
-                            <div className="mt-8 flex flex-col items-center text-center">
-                                <div className="grid size-20 place-items-center rounded-3xl bg-lime-300/10 text-2xl font-black text-lime-200">
-                                    {initials(user.displayName || user.email)}
-                                </div>
-                                <h3 className="mt-4 font-bold">{user.displayName || 'Creator'}</h3>
-                                <p className="mt-1 break-all text-xs text-white/40">{user.email}</p>
-                            </div>
-
-                            <div className="mt-8 space-y-3">
-                                <div className="rounded-xl border border-white/[0.08] p-4">
-                                    <p className="text-[10px] text-white/40">Authentication</p>
-                                    <p className="mt-2 flex items-center gap-2 text-sm font-semibold">
-                                        <ShieldCheck size={16} className="text-lime-200" />
-                                        Firebase authenticated
-                                    </p>
-                                </div>
-                                <div className="rounded-xl border border-white/[0.08] p-4">
-                                    <p className="text-[10px] text-white/40">Account ID</p>
-                                    <p className="mt-2 break-all text-xs">{user.uid}</p>
-                                </div>
-                            </div>
-
-                            <button onClick={handleLogout} className="mt-8 flex w-full items-center justify-center gap-2 rounded-xl border border-red-300/15 bg-red-300/[0.05] p-3 text-sm font-bold text-red-200">
-                                <LogOut size={16} /> Sign out
-                            </button>
-                        </motion.aside>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            <AnimatePresence>
-                {aiDrawerOpen && (
-                    <motion.div
-                        className="fixed inset-0 z-[80] flex justify-end bg-black/65 backdrop-blur-sm"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        onMouseDown={e => {
-                            if (e.target === e.currentTarget) setAiDrawerOpen(false);
-                        }}
-                    >
-                        <motion.aside
-                            initial={{ x: 350 }}
-                            animate={{ x: 0 }}
-                            exit={{ x: 350 }}
-                            className="h-full w-full max-w-sm overflow-y-auto border-l border-white/10 bg-[#09170f] p-6"
-                        >
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="grid size-11 place-items-center rounded-2xl bg-lime-300/10 text-lime-200">
-                                        <Sparkles size={20} />
-                                    </div>
-                                    <div>
-                                        <h2 className="font-bold">PayDrop AI</h2>
-                                        <p className="mt-1 text-[10px] text-white/40">Workspace assistant</p>
-                                    </div>
-                                </div>
-                                <button onClick={() => setAiDrawerOpen(false)} className="pd-secondary">
-                                    <X size={16} />
-                                </button>
-                            </div>
-
-                            <div className="mt-8 rounded-2xl border border-lime-200/10 bg-lime-200/[0.04] p-5">
-                                <Bot size={24} className="text-lime-200" />
-                                <h3 className="mt-4 font-bold">Your workspace at a glance</h3>
-                                <p className="mt-2 text-xs leading-6 text-white/50">
-                                    You have {deliveries.length} project{deliveries.length === 1 ? '' : 's'}, {paidDeliveries.length} marked paid, and {unreadRevisions.length} project{unreadRevisions.length === 1 ? '' : 's'} with client messages.
-                                </p>
-                            </div>
-
-                            <h3 className="mb-3 mt-7 text-xs font-bold text-white/50">
-                                QUICK ACTIONS
-                            </h3>
-                            <div className="space-y-2">
-                                <button
-                                    onClick={() => {
-                                        setAiDrawerOpen(false);
-                                        openRequest();
-                                    }}
-                                    className="pd-secondary flex w-full items-center justify-between text-left"
-                                >
-                                    Create a delivery <ArrowRight size={15} />
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        setAiDrawerOpen(false);
-                                        setCurrentTab('projects');
-                                    }}
-                                    className="pd-secondary flex w-full items-center justify-between text-left"
-                                >
-                                    Review projects <ArrowRight size={15} />
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        setAiDrawerOpen(false);
-                                        setCurrentTab('wallet');
-                                    }}
-                                    className="pd-secondary flex w-full items-center justify-between text-left"
-                                >
-                                    View earnings <ArrowRight size={15} />
-                                </button>
-                            </div>
-
-                            <p className="mt-8 text-[10px] leading-5 text-white/30">
-                                This panel summarizes workspace data. It does not contact an AI service or initiate payments.
-                            </p>
-                        </motion.aside>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            <AnimatePresence>
-                {toast && (
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 20 }}
-                        className={`fixed bottom-5 left-1/2 z-[100] flex max-w-[calc(100vw-24px)] -translate-x-1/2 items-center gap-3 rounded-2xl border px-5 py-3 shadow-2xl backdrop-blur-xl ${toast.type === 'error' ? 'border-red-300/20 bg-[#28100e] text-red-100' : 'border-lime-200/20 bg-[#102318] text-lime-100'}`}
-                        role="status"
-                        aria-live="polite"
-                    >
-                        {toast.type === 'error'
-                            ? <CircleHelp size={17} />
-                            : <CheckCircle2 size={17} />}
-                        <span className="text-xs font-semibold">{toast.message}</span>
-                        <button onClick={() => setToast(null)} className="ml-1 opacity-60 hover:opacity-100" aria-label="Dismiss notification">
-                            <X size={14} />
-                        </button>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+          <Link
+            href="/login"
+            className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#063D2A] px-5 py-3.5 text-sm font-bold text-white transition hover:bg-[#09523A]"
+          >
+            Continue to login <ArrowRight size={16} />
+          </Link>
         </div>
-    );
+      </div>
+    )
+  }
+
+  const firstName =
+    user.displayName?.split(' ')[0] ||
+    user.email?.split('@')[0] ||
+    'Creator'
+
+  const chartMax = Math.max(...monthly.map(item => item.value), 1)
+
+  const points = monthly.map((item, index) => ({
+    ...item,
+    x: 12 + index * 75,
+    y: 98 - (item.value / chartMax) * 70,
+  }))
+
+  const chartLine = points
+    .map(
+      (point, index) =>
+        `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`
+    )
+    .join(' ')
+
+  const chartArea = `${chartLine} L ${
+    points[points.length - 1]?.x || 387
+  } 112 L 12 112 Z`
+
+  return (
+    <div className="min-h-screen bg-[#F4F7F2] text-slate-900 antialiased selection:bg-[#94EC36] selection:text-[#063D2A]">    {toast && <div className="fixed left-1/2 top-4 z-[100] w-[calc(100%-2rem)] max-w-md -translate-x-1/2"><div className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-semibold shadow-xl ${toast.type === 'error' ? 'border-rose-200 bg-white text-rose-700' : 'border-emerald-100 bg-[#063D2A] text-white'}`}><span className={`flex h-7 w-7 items-center justify-center rounded-full ${toast.type === 'error' ? 'bg-rose-50' : 'bg-white/10'}`}>{toast.type === 'error' ? <CircleHelp size={15}/> : <Check size={15} className="text-[#94EC36]"/>}</span><span className="min-w-0 flex-1 break-words">{toast.message}</span><button onClick={() => setToast(null)} aria-label="Dismiss notification"><X size={16}/></button></div></div>}
+
+    {mobileMenuOpen && <button aria-label="Close navigation overlay" className="fixed inset-0 z-40 bg-slate-950/30 lg:hidden" onClick={() => setMobileMenuOpen(false)}/>}
+    <aside className={`fixed inset-y-0 left-0 z-50 flex w-[276px] flex-col border-r border-slate-200/80 bg-white px-5 py-6 transition-transform duration-200 lg:translate-x-0 ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <div className="flex items-center justify-between px-1"><button onClick={() => { setTab('overview'); setMobileMenuOpen(false) }} className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#94EC36] text-xl font-black text-[#063D2A] shadow-sm">P</span><span className="text-[25px] font-black tracking-[-1.3px] text-slate-950">paydrop<span className="text-[#80C92D]">.</span></span></button><button className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 lg:hidden" onClick={() => setMobileMenuOpen(false)} aria-label="Close menu"><X size={19}/></button></div>
+
+      <div className="mt-9 rounded-2xl border border-[#DDEBD7] bg-[#F4F8F1] p-3.5"><div className="flex items-center gap-2 text-xs font-bold text-[#063D2A]"><ShieldCheck size={16}/><span>Creator workspace</span><span className="ml-auto h-2 w-2 rounded-full bg-emerald-500"/></div><p className="mt-1.5 pl-6 text-[11px] text-slate-500">Your files. Your clients. One place.</p></div>
+
+      <p className="mb-3 mt-8 px-3 text-[10px] font-extrabold uppercase tracking-[.18em] text-slate-400">Workspace</p>
+      <nav className="space-y-1">{navItems.map(item => { const Icon = item.icon; const selected = tab === item.id || (tab === 'chat' && item.id === 'revisions'); return <button key={item.id} onClick={() => { setTab(item.id); setMobileMenuOpen(false); setActiveChat(null) }} className={`flex w-full items-center gap-3 rounded-2xl px-3.5 py-3 text-left text-[13px] font-semibold transition ${selected ? 'bg-[#063D2A] text-white shadow-lg shadow-[#063D2A]/10' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950'}`}><Icon size={18} className={selected ? 'text-[#94EC36]' : 'text-slate-400'}/><span className="flex-1">{item.label}</span>{item.count > 0 && <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${selected ? 'bg-white/15 text-white' : 'bg-slate-100 text-slate-600'}`}>{item.count}</span>}</button> })}</nav>
+
+      <div className="mt-8 border-t border-slate-100 pt-6"><p className="px-3 text-[10px] font-extrabold uppercase tracking-[.18em] text-slate-400">Quick actions</p><button onClick={() => { openWizard(); setMobileMenuOpen(false) }} className="mt-3 flex w-full items-center gap-3 rounded-2xl border border-dashed border-slate-300 px-3.5 py-3 text-left text-[13px] font-semibold text-slate-700 transition hover:border-[#94EC36] hover:bg-lime-50"><span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#94EC36] text-[#063D2A]"><Plus size={17}/></span><span>New payment request</span></button><button onClick={() => { setAssistantOpen(true); setMobileMenuOpen(false) }} className="mt-2 flex w-full items-center gap-3 rounded-2xl px-3.5 py-3 text-left text-[13px] font-semibold text-slate-600 transition hover:bg-slate-100"><span className="flex h-8 w-8 items-center justify-center rounded-xl bg-violet-50 text-violet-700"><Sparkles size={16}/></span><span>Studio insights</span><ChevronRight size={15} className="ml-auto text-slate-400"/></button></div>
+
+      <div className="mt-auto border-t border-slate-100 pt-4"><button onClick={() => setProfileOpen(true)} className="flex w-full items-center gap-3 rounded-2xl p-2 text-left transition hover:bg-slate-50"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#FFE0B9] text-xs font-black text-[#063D2A]">{initials(user.displayName || user.email)}</span><span className="min-w-0 flex-1"><span className="block truncate text-xs font-bold text-slate-900">{user.displayName || firstName}</span><span className="mt-0.5 block truncate text-[10px] text-slate-400">{user.email}</span></span><MoreHorizontal size={18} className="text-slate-400"/></button></div>
+    </aside>
+
+    <div className="min-h-screen lg:pl-[276px]">
+      <header className="sticky top-0 z-30 border-b border-slate-200/70 bg-[#F4F7F2]/90 backdrop-blur-xl"><div className="mx-auto flex max-w-[1500px] items-center justify-between gap-3 px-4 py-4 sm:px-7 lg:px-9"><div className="flex min-w-0 items-center gap-3"><button onClick={() => setMobileMenuOpen(true)} className="rounded-xl border border-slate-200 bg-white p-2.5 text-slate-700 lg:hidden" aria-label="Open navigation"><Menu size={19}/></button><div className="min-w-0"><div className="hidden items-center gap-2 text-[10px] font-bold uppercase tracking-[.16em] text-slate-400 sm:flex"><span>PayDrop Studio</span><ChevronRight size={12}/><span className="text-slate-500">{navItems.find(item => item.id === tab)?.label || (tab === 'chat' ? 'Client messages' : 'Overview')}</span></div><h1 className="mt-0.5 truncate text-lg font-black tracking-tight text-slate-950 sm:text-xl">{tab === 'overview' ? `Welcome back, ${firstName}` : tab === 'projects' ? 'Your projects' : tab === 'revisions' || tab === 'chat' ? 'Client messages' : 'Wallet & payouts'}</h1></div></div><div className="flex shrink-0 items-center gap-2 sm:gap-3"><span className="hidden items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-2 text-[11px] font-semibold text-slate-600 sm:flex"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500"/> Workspace active</span><button onClick={() => setAssistantOpen(true)} aria-label="Open studio insights" className="flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 transition hover:border-lime-300 hover:text-[#063D2A]"><Sparkles size={17}/></button><button onClick={() => setProfileOpen(true)} aria-label="Open profile" className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#FFE0B9] text-xs font-black text-[#063D2A] ring-2 ring-white">{initials(user.displayName || user.email)}</button></div></div></header>
+
+      <main className="mx-auto max-w-[1500px] space-y-6 px-4 pb-28 pt-6 sm:px-7 sm:pt-8 lg:px-9 lg:pb-10">        {tab === 'overview' && <>
+          <section className="relative overflow-hidden rounded-[30px] bg-[#063D2A] p-6 text-white shadow-xl shadow-[#063D2A]/10 sm:rounded-[34px] sm:p-8 lg:p-9">
+            <div className="pointer-events-none absolute -right-12 -top-24 h-72 w-72 rounded-full bg-[#1D6748]/60 blur-3xl"/>
+            <div className="pointer-events-none absolute bottom-[-120px] right-[22%] h-64 w-64 rounded-full bg-[#94EC36]/10 blur-3xl"/>
+            <div className="relative grid gap-8 lg:grid-cols-[1.25fr_.75fr] lg:items-end">
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-emerald-100">
+                  <Activity size={13} className="text-[#94EC36]"/> Your creator business, at a glance
+                </div>
+                <div className="mt-7 flex flex-wrap items-center gap-3">
+                  <p className="text-sm font-medium text-emerald-100/80">Settled earnings</p>
+                  <button onClick={() => setBalanceVisible(!balanceVisible)} className="rounded-lg p-1.5 text-emerald-100 transition hover:bg-white/10" aria-label={balanceVisible ? 'Hide balance' : 'Show balance'}>
+                    {balanceVisible ? <Eye size={16}/> : <EyeOff size={16}/>}
+                  </button>
+                  <select value={currency} onChange={event => setCurrency(event.target.value)} className="rounded-xl border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-bold text-white outline-none [&>option]:text-slate-900">
+                    <option value="INR">INR ₹</option>
+                    <option value="USD">USD $</option>
+                  </select>
+                </div>
+                <p className="mt-1 text-4xl font-black tracking-[-1.8px] sm:text-5xl lg:text-6xl">
+                  {balanceVisible ? formatCurrency(totalRevenue, currency) : '••••••••'}
+                </p>
+                <p className="mt-3 max-w-md text-xs leading-5 text-emerald-100/65">
+                  Creator payouts from projects currently marked as paid in your workspace.
+                </p>
+                <div className="mt-7 flex flex-wrap gap-3">
+                  <button onClick={openWizard} className="inline-flex items-center gap-2 rounded-2xl bg-[#94EC36] px-5 py-3 text-xs font-extrabold text-[#063D2A] shadow-lg shadow-black/10 transition hover:bg-[#A8F35C]">
+                    <Plus size={16}/> Request payment
+                  </button>
+                  <button onClick={() => setTab('projects')} className="inline-flex items-center gap-2 rounded-2xl border border-white/20 bg-white/10 px-5 py-3 text-xs font-bold text-white transition hover:bg-white/15">
+                    View projects <ArrowUpRight size={15}/>
+                  </button>
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-white/10 bg-white/[.07] p-5 backdrop-blur-sm sm:p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold text-emerald-100/75">Revenue activity</p>
+                    <p className="mt-1 text-sm font-bold">Last 6 months</p>
+                  </div>
+                  <span className="rounded-xl bg-[#94EC36]/15 p-2 text-[#94EC36]"><Activity size={18}/></span>
+                </div>
+                <div className="mt-5 h-32 w-full">
+                  <svg viewBox="0 0 400 120" preserveAspectRatio="none" className="h-full w-full overflow-visible">
+                    <defs>
+                      <linearGradient id="paydropRevenueFill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#94EC36" stopOpacity=".32"/>
+                        <stop offset="100%" stopColor="#94EC36" stopOpacity="0"/>
+                      </linearGradient>
+                    </defs>
+                    {[25,55,85].map(y => <line key={y} x1="0" x2="400" y1={y} y2={y} stroke="white" strokeOpacity=".12" strokeDasharray="4 6"/>)}
+                    <path d={chartArea} fill="url(#paydropRevenueFill)"/>
+                    <path d={chartLine} fill="none" stroke="#94EC36" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+                    {points.map((point, index) => <circle key={point.label + index} cx={point.x} cy={point.y} r="3.5" fill="#063D2A" stroke="#94EC36" strokeWidth="2"/>)}
+                  </svg>
+                </div>
+                <div className="mt-3 flex justify-between text-[10px] font-semibold text-emerald-100/55">
+                  {monthly.map(item => <span key={item.label}>{item.label}</span>)}
+                </div>
+                <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-4">
+                  <span className="text-[11px] text-emerald-100/70">Total project value</span>
+                  <span className="text-sm font-extrabold">{balanceVisible ? formatCurrency(totalGross, currency) : '••••••'}</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <MiniStat icon={Wallet} label="Settled earnings" value={formatCurrency(totalRevenue, currency)} note={`${paid.length} project${paid.length === 1 ? '' : 's'} marked paid`} tone="green"/>
+            <MiniStat icon={Clock3} label="Awaiting payment" value={formatCurrency(pendingValue, currency)} note={`${pending.length} request${pending.length === 1 ? '' : 's'} not marked paid`} tone="amber"/>
+            <MiniStat icon={BriefcaseBusiness} label="Total projects" value={deliveries.length.toLocaleString()} note="Across your workspace" tone="blue"/>
+            <MiniStat icon={MessageCircle} label="Client replies" value={unread.length.toLocaleString()} note={unread.length ? 'Needs your attention' : 'You are all caught up'} tone="lime"/>
+          </section>
+              {/* Mobile quick navigation */}
+    <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-slate-200/80 bg-white/95 px-2 pb-[max(.6rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-xl lg:hidden">
+      {navItems.map(item => {
+        const Icon = item.icon
+        const selected = tab === item.id || (tab === 'chat' && item.id === 'revisions')
+
+        return (
+          <button
+            key={item.id}
+            onClick={() => { setTab(item.id); setActiveChat(null) }}
+            className={`relative flex flex-col items-center gap-1 rounded-xl py-1.5 ${selected ? 'text-[#063D2A]' : 'text-slate-400'}`}
+          >
+            <span className="relative">
+              <Icon size={19}/>
+              {item.id === 'revisions' && unread.length > 0 && (
+                <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white"/>
+              )}
+            </span>
+            <span className={`text-[9px] ${selected ? 'font-extrabold' : 'font-semibold'}`}>
+              {item.id === 'overview' ? 'Home' : item.id === 'projects' ? 'Projects' : item.id === 'revisions' ? 'Messages' : 'Wallet'}
+            </span>
+          </button>
+        )
+      })}
+    </nav>
+
+    {/* Payment request wizard */}
+    {wizardOpen && (
+      <div className="fixed inset-0 z-[60] flex items-end justify-center bg-slate-950/45 p-0 backdrop-blur-sm sm:items-center sm:p-5">
+        <div className="flex max-h-[94dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-[30px] border border-white/70 bg-white shadow-2xl sm:max-h-[90vh] sm:rounded-[32px]">
+          <div className="flex items-start justify-between border-b border-slate-100 p-5 sm:p-7">
+            <div>
+              <p className="text-[10px] font-extrabold uppercase tracking-[.18em] text-slate-400">
+                Payment request · Step {step} of 4
+              </p>
+              <h2 className="mt-1 text-xl font-black tracking-tight sm:text-2xl">
+                Create a client handover
+              </h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Add deliverables, client details and pricing.
+              </p>
+            </div>
+            <button
+              onClick={() => !uploading && setWizardOpen(false)}
+              disabled={uploading}
+              className="rounded-xl bg-[#F4F7F2] p-2.5 text-slate-600 disabled:opacity-40"
+              aria-label="Close wizard"
+            >
+              <X size={18}/>
+            </button>
+          </div>
+
+          <div className="h-1.5 bg-slate-100">
+            <div
+              className="h-full bg-[#94EC36] transition-all duration-300"
+              style={{ width: `${step * 25}%` }}
+            />
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-5 sm:p-7">
+            {step === 1 && (
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-sm font-extrabold">Upload your deliverables</h3>
+                  <p className="mt-1 text-xs leading-5 text-slate-500">
+                    Add the files you intend to share with your client. Only upload files you have permission to share.
+                  </p>
+                </div>
+
+                <div
+                  onDragOver={event => { event.preventDefault(); setDragging(true) }}
+                  onDragLeave={() => setDragging(false)}
+                  onDrop={event => {
+                    event.preventDefault()
+                    setDragging(false)
+                    setFiles(previous => [...previous, ...Array.from(event.dataTransfer.files)])
+                  }}
+                  className={`rounded-3xl border-2 border-dashed p-7 text-center transition sm:p-10 ${dragging ? 'border-[#063D2A] bg-lime-50' : 'border-slate-200 bg-[#F8FAF6]'}`}
+                >
+                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#E8F3E1] text-[#063D2A]">
+                    <UploadCloud size={23}/>
+                  </div>
+                  <p className="mt-4 text-sm font-extrabold">Drop your files here</p>
+                  <p className="mt-1 text-xs text-slate-500">ZIP, images, video, PDFs and project files</p>
+                  <label className="mt-4 inline-flex cursor-pointer items-center gap-2 rounded-xl bg-[#063D2A] px-4 py-2.5 text-xs font-bold text-white">
+                    Browse files
+                    <input
+                      type="file"
+                      multiple
+                      className="hidden"
+                      onChange={event => {
+                        setFiles(previous => [...previous, ...Array.from(event.target.files || [])])
+                        event.target.value = ''
+                      }}
+                    />
+                  </label>
+                </div>
+
+                {files.length > 0 && (
+                  <div className="space-y-2">
+                    {files.map((file, index) => (
+                      <div key={`${file.name}-${index}`} className="flex items-center gap-3 rounded-2xl border border-slate-100 p-3">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-50 text-slate-600">
+                          {file.type.startsWith('image/') ? <ImageIcon size={17}/> : file.type.startsWith('video/') ? <Film size={17}/> : file.name.toLowerCase().endsWith('.zip') ? <FileArchive size={17}/> : <File size={17}/>}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-xs font-bold">{file.name}</span>
+                          <span className="text-[10px] text-slate-400">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
+                        </span>
+                        <button
+                          onClick={() => setFiles(previous => previous.filter((_, i) => i !== index))}
+                          className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+                          aria-label={`Remove ${file.name}`}
+                        >
+                          <X size={15}/>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <p className="text-[11px] leading-5 text-slate-400">
+                  This implementation uploads files from the browser to Cloudinary. Configure upload limits and access policies in your Cloudinary account.
+                </p>
+              </div>
+            )}
+
+            {step === 2 && (
+              <div className="space-y-5">
+                <div>
+                  <label className="mb-2 block text-xs font-bold text-slate-700">Client email *</label>
+                  <input
+                    type="email"
+                    required
+                    value={clientEmail}
+                    onChange={event => setClientEmail(event.target.value)}
+                    placeholder="client@company.com"
+                    className="w-full rounded-2xl border border-slate-200 bg-[#F8FAF6] px-4 py-3.5 text-sm outline-none focus:border-[#94EC36] focus:ring-2 focus:ring-lime-100"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-xs font-bold text-slate-700">Client name</label>
+                  <input
+                    value={clientName}
+                    onChange={event => setClientName(event.target.value)}
+                    placeholder="Their name (optional)"
+                    className="w-full rounded-2xl border border-slate-200 bg-[#F8FAF6] px-4 py-3.5 text-sm outline-none focus:border-[#94EC36] focus:ring-2 focus:ring-lime-100"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-xs font-bold text-slate-700">Project name *</label>
+                  <input
+                    value={title}
+                    onChange={event => setTitle(event.target.value)}
+                    placeholder="Website redesign & source code"
+                    className="w-full rounded-2xl border border-slate-200 bg-[#F8FAF6] px-4 py-3.5 text-sm outline-none focus:border-[#94EC36] focus:ring-2 focus:ring-lime-100"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-xs font-bold text-slate-700">Handover message</label>
+                  <textarea
+                    rows={3}
+                    value={clientMessage}
+                    onChange={event => setClientMessage(event.target.value)}
+                    placeholder="Add a note for your client…"
+                    className="w-full resize-y rounded-2xl border border-slate-200 bg-[#F8FAF6] px-4 py-3.5 text-sm outline-none focus:border-[#94EC36] focus:ring-2 focus:ring-lime-100"
+                  />
+                </div>
+              </div>
+            )}
+
+            {step === 3 && (
+              <div className="space-y-5">
+                <div>
+                  <label className="mb-2 block text-xs font-bold text-slate-700">Payment request amount *</label>
+                  <div className="flex overflow-hidden rounded-2xl border border-slate-200 bg-[#F8FAF6] focus-within:border-[#94EC36]">
+                    <select
+                      value={currency}
+                      onChange={event => setCurrency(event.target.value)}
+                      className="border-r border-slate-200 bg-transparent px-4 text-sm font-bold outline-none"
+                    >
+                      <option value="INR">INR ₹</option>
+                      <option value="USD">USD $</option>
+                    </select>
+                    <input
+                      type="number"
+                      min="1"
+                      step="0.01"
+                      value={amount}
+                      onChange={event => setAmount(event.target.value)}
+                      placeholder="0.00"
+                      className="min-w-0 flex-1 bg-transparent px-4 py-4 text-lg font-bold outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-xs font-bold text-slate-700">Client portal expiry</label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {['7', '14', '30', 'never'].map(option => (
+                      <button
+                        key={option}
+                        onClick={() => setExpiry(option)}
+                        className={`rounded-2xl border px-2 py-3 text-xs font-bold transition ${expiry === option ? 'border-[#063D2A] bg-[#EAF3E5] text-[#063D2A]' : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'}`}
+                      >
+                        {option === 'never' ? '10 years' : `${option} days`}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-2 text-[10px] leading-5 text-slate-400">
+                    The long expiry date does not automatically disable access unless your client portal checks expiry.
+                  </p>
+                </div>
+
+                <div className="rounded-2xl bg-[#F4F7F2] p-4">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-500">Platform fee estimate (5%)</span>
+                    <span className="font-bold">{formatCurrency(Math.max(Math.round((Number(amount) || 0) * .05), 1), currency)}</span>
+                  </div>
+                  <p className="mt-2 text-[10px] leading-4 text-slate-400">
+                    Illustrative estimate based on the dashboard logic, not a payment processor quote.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {step === 4 && (
+              <div className="space-y-4">
+                <div className="rounded-3xl border border-slate-200 bg-[#F8FAF6] p-5">
+                  <div className="flex items-start justify-between gap-3 border-b border-slate-200 pb-4">
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Project</p>
+                      <h3 className="mt-1 break-words text-base font-black">{title}</h3>
+                      <p className="mt-1 break-all text-xs text-slate-500">{clientEmail}</p>
+                    </div>
+                    <div className="shrink-0 text-right text-lg font-black">{formatCurrency(amount, currency)}</div>
+                  </div>
+                  <div className="mt-4 flex items-center justify-between text-xs">
+                    <span className="text-slate-500">Files attached</span>
+                    <span className="font-bold">{files.length}</span>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between text-xs">
+                    <span className="text-slate-500">Link expiry</span>
+                    <span className="font-bold">{expiry === 'never' ? '10 years' : `${expiry} days`}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 rounded-2xl border border-lime-200 bg-lime-50 p-4">
+                  <ShieldCheck size={19} className="mt-0.5 shrink-0 text-[#063D2A]"/>
+                  <p className="text-xs leading-5 text-[#315A43]">
+                    Review the details before creating the request. This creates a project record and portal link; it does not itself collect or escrow money.
+                  </p>
+                </div>
+
+                {uploading && (
+                  <div className="rounded-2xl bg-[#063D2A] p-4 text-white">
+                    <div className="flex justify-between text-xs font-bold">
+                      <span>Uploading files…</span>
+                      <span>{progress}%</span>
+                    </div>
+                    <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/15">
+                      <div className="h-full rounded-full bg-[#94EC36] transition-all" style={{ width: `${progress}%` }}/>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="flex gap-3 border-t border-slate-100 bg-white p-5 sm:p-7">
+            {step > 1 && (
+              <button
+                disabled={uploading}
+                onClick={() => setStep(previous => previous - 1)}
+                className="rounded-2xl border border-slate-200 px-5 py-3.5 text-xs font-bold text-slate-600 disabled:opacity-40"
+              >
+                Back
+              </button>
+            )}
+
+            {step < 4 ? (
+              <button
+                onClick={() => {
+                  if (step === 1 && !files.length) {
+                    return notify('Attach at least one file to continue.', 'error')
+                  }
+                  if (step === 2 && (!title.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientEmail.trim()))) {
+                    return notify('Enter a project name and valid client email.', 'error')
+                  }
+                  if (step === 3 && (!amount || Number(amount) <= 0)) {
+                    return notify('Enter an amount greater than zero.', 'error')
+                  }
+                  setStep(previous => previous + 1)
+                }}
+                className="ml-auto inline-flex flex-1 items-center justify-center gap-2 rounded-2xl bg-[#063D2A] px-5 py-3.5 text-xs font-extrabold text-white transition hover:bg-[#09523A] sm:flex-none"
+              >
+                Continue <ArrowRight size={15} className="text-[#94EC36]"/>
+              </button>
+            ) : (
+              <button
+                disabled={uploading}
+                onClick={deploy}
+                className="ml-auto inline-flex flex-1 items-center justify-center gap-2 rounded-2xl bg-[#063D2A] px-5 py-3.5 text-xs font-extrabold text-white transition hover:bg-[#09523A] disabled:opacity-50 sm:flex-none"
+              >
+                {uploading ? (
+                  <>
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"/>
+                    Uploading…
+                  </>
+                ) : (
+                  <>
+                    <LockKeyhole size={15} className="text-[#94EC36}"/>
+                    Create request
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Studio insights drawer */}
+    {assistantOpen && (
+      <Drawer onClose={() => setAssistantOpen(false)} title="Studio insights" icon={Sparkles}>
+        <div className="rounded-2xl bg-[#F4F7F2] p-4">
+          <p className="text-xs font-extrabold text-[#063D2A]">Workspace summary</p>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            You have <strong>{deliveries.length}</strong> projects, <strong>{paid.length}</strong> marked paid and <strong>{unread.length}</strong> client message{unread.length === 1 ? '' : 's'} awaiting a response.
+          </p>
+        </div>
+        <div className="mt-4 space-y-3">
+          {[
+            { label: 'Settled earnings', value: formatCurrency(totalRevenue, currency), icon: Wallet },
+            { label: 'Awaiting payment', value: formatCurrency(pendingValue, currency), icon: Clock3 },
+            { label: 'Client messages', value: String(unread.length), icon: MessageSquare },
+          ].map(row => {
+            const Icon = row.icon
+            return (
+              <div key={row.label} className="flex items-center gap-3 rounded-2xl border border-slate-100 p-3">
+                <span className="rounded-xl bg-slate-50 p-2 text-slate-600"><Icon size={16}/></span>
+                <span className="flex-1 text-xs font-semibold text-slate-600">{row.label}</span>
+                <span className="text-sm font-black">{row.value}</span>
+              </div>
+            )
+          })}
+        </div>
+        <p className="mt-5 text-[11px] leading-5 text-slate-400">
+          Insights are calculated from project records in your workspace. They are not bank balances or verified payment-provider data.
+        </p>
+      </Drawer>
+    )}
+
+    {/* Profile drawer */}
+    {profileOpen && (
+      <Drawer onClose={() => setProfileOpen(false)} title="Account settings" icon={Settings2}>
+        <div className="flex items-center gap-3 rounded-2xl bg-[#F4F7F2] p-4">
+          <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FFE0B9] text-sm font-black text-[#063D2A]">
+            {initials(user.displayName || user.email)}
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-extrabold">{user.displayName || firstName}</p>
+            <p className="mt-1 truncate text-xs text-slate-500">{user.email}</p>
+            <p className="mt-1 text-[10px] text-slate-400">Firebase account</p>
+          </div>
+        </div>
+
+        <div className="mt-5 rounded-2xl border border-slate-200 p-4">
+          <p className="text-xs font-extrabold">Workspace preferences</p>
+          <label className="mt-4 flex items-center justify-between gap-3 text-xs font-semibold text-slate-600">
+            <span>Default reporting currency</span>
+            <select
+              value={currency}
+              onChange={event => setCurrency(event.target.value)}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 outline-none"
+            >
+              <option value="INR">INR ₹</option>
+              <option value="USD">USD $</option>
+            </select>
+          </label>
+        </div>
+
+        <button
+          onClick={async () => { setProfileOpen(false); await logout() }}
+          className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-rose-50 px-4 py-3.5 text-xs font-extrabold text-rose-700 transition hover:bg-rose-100"
+        >
+          <LogOut size={16}/> Sign out
+        </button>
+
+        <p className="mt-4 text-[10px] leading-5 text-slate-400">
+          Bank and payout setup is not connected in this dashboard yet. Add a secure provider-backed flow before collecting financial details.
+        </p>
+      </Drawer>
+    )}
+  </div>
+}
+
+function ProjectRow({ item, currency, onCopy, onShare, onDelete, compact = false }) {
+  return (
+    <div className={`rounded-2xl border border-slate-100 transition hover:border-slate-200 hover:bg-slate-50/60 ${compact ? 'p-3' : 'p-4 sm:p-5'}`}>
+      <div className="flex items-start gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#EAF3E5] text-xs font-black text-[#063D2A]">
+          {initials(item.clientName || item.title)}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="max-w-full truncate text-sm font-extrabold text-slate-900">
+              {item.title || 'Untitled project'}
+            </h3>
+            <StatusBadge status={item.status}/>
+          </div>
+          <p className="mt-1 truncate text-xs text-slate-500">
+            {item.clientName || 'Client'}{item.clientEmail ? ` · ${item.clientEmail}` : ''}
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-medium text-slate-400">
+            <span className="inline-flex items-center gap-1">
+              <File size={12}/>{item.files?.length || 0} file{item.files?.length === 1 ? '' : 's'}
+            </span>
+            <span>·</span>
+            <span>{item.createdAt?.seconds ? new Date(item.createdAt.seconds * 1000).toLocaleDateString() : 'Recently created'}</span>
+          </div>
+        </div>
+
+        <div className="shrink-0 text-right">
+          <p className="text-sm font-black tracking-tight text-slate-950">
+            {formatCurrency(item.grossAmount, item.currency || currency)}
+          </p>
+          <p className="mt-1 text-[10px] text-slate-400">
+            {item.status === 'Paid' ? 'Marked paid' : 'Request amount'}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
+        <div className="flex flex-wrap gap-2">
+          <button onClick={() => onCopy(item.id)} className="inline-flex items-center gap-1.5 rounded-xl bg-[#F0F6EC] px-3 py-2 text-[10px] font-bold text-[#063D2A] transition hover:bg-lime-100">
+            <Copy size={12}/> Copy portal link
+          </button>
+          <button onClick={() => onShare(item)} className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-[10px] font-bold text-slate-600 transition hover:bg-white">
+            <Share2 size={12}/> Share
+          </button>
+          <Link href={`/d/${item.id}`} target="_blank" className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-[10px] font-bold text-slate-600 transition hover:bg-white">
+            Open portal <ExternalLink size={12}/>
+          </Link>
+        </div>
+        <button onClick={() => onDelete(item.id)} className="rounded-xl p-2 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600" aria-label={`Delete ${item.title || 'project'}`} title="Delete project">
+          <Trash2 size={15}/>
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function ProgressRow({ label, value, total, color }) {
+  const percentage = total ? Math.round((value / total) * 100) : 0
+
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between gap-3 text-xs">
+        <span className="font-semibold text-slate-600">{label}</span>
+        <span className="font-extrabold text-slate-900">
+          {value} <span className="font-medium text-slate-400">/ {total}</span>
+        </span>
+      </div>
+      <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+        <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${percentage}%` }}/>
+      </div>
+    </div>
+  )
+}
+
+function EmptyState({ title, body, action, onAction }) {
+  return (
+    <div className="rounded-3xl border border-dashed border-slate-200 bg-white px-6 py-12 text-center">
+      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#EAF3E5] text-[#063D2A]">
+        <BriefcaseBusiness size={21}/>
+      </div>
+      <h3 className="mt-4 text-sm font-black text-slate-900">{title}</h3>
+      <p className="mx-auto mt-2 max-w-sm text-xs leading-5 text-slate-500">{body}</p>
+      {action && onAction && (
+        <button onClick={onAction} className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#063D2A] px-4 py-2.5 text-xs font-bold text-white">
+          {action}<ArrowRight size={14}/>
+        </button>
+      )}
+    </div>
+  )
+}
+
+function Drawer({ onClose, title, icon: Icon, children }) {
+  return (
+    <div
+      className="fixed inset-0 z-[70] flex justify-end bg-slate-950/35 backdrop-blur-sm"
+      onMouseDown={event => { if (event.target === event.currentTarget) onClose() }}
+    >
+      <aside className="flex h-full w-full max-w-sm flex-col overflow-y-auto bg-white p-5 shadow-2xl sm:p-6">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#EAF3E5] text-[#063D2A]">
+              <Icon size={18}/>
+            </span>
+            <h2 className="text-sm font-black">{title}</h2>
+          </div>
+          <button onClick={onClose} className="rounded-xl p-2 text-slate-400 hover:bg-slate-100" aria-label="Close drawer">
+            <X size={18}/>
+          </button>
+        </div>
+        <div className="flex-1 py-5">{children}</div>
+        <div className="border-t border-slate-100 pt-4">
+          <p className="text-center text-[10px] font-semibold text-slate-400">PayDrop · Creator workspace</p>
+        </div>
+      </aside>
+    </div>
+  )
 }
