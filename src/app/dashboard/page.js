@@ -200,29 +200,25 @@ export default function Dashboard() {
         createdAt: serverTimestamp()
       })
 
-      // BACKGROUND EMAIL DISPATCH VIA UNIFIED API
+      // NON-BLOCKING BACKGROUND EMAIL DISPATCH
       const clientPortalUrl = `${window.location.origin}/d/${newDocRef.id}`
       if (clientEmail) {
-        try {
-          await fetch('/api/paydrop-engine', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              action: 'send-email',
-              clientEmail: clientEmail.trim(),
-              clientName: clientName.trim() || 'Client',
-              creatorName: user.displayName || user.email?.split('@')[0] || 'Creator',
-              projectTitle: title.trim(),
-              amount: numAmount,
-              deliveryUrl: clientPortalUrl
-            })
+        fetch('/api/paydrop-engine', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'send-email',
+            clientEmail: clientEmail.trim(),
+            clientName: clientName.trim() || 'Client',
+            creatorName: user.displayName || user.email?.split('@')[0] || 'Creator',
+            projectTitle: title.trim(),
+            amount: numAmount,
+            deliveryUrl: clientPortalUrl
           })
-        } catch (emailErr) {
-          console.error("Email dispatch failed:", emailErr)
-        }
+        }).catch(err => console.error("Email dispatch failed:", err))
       }
 
-      showToast("Vault deployed & background email sent!", "success")
+      showToast("Vault deployed & created successfully!", "success")
       setTitle('')
       setClientName('')
       setClientEmail('')
@@ -302,7 +298,6 @@ export default function Dashboard() {
     d.clientName?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  // SMOOTH DYNAMIC AREA CHART DATA CALCULATOR
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
   const currentYear = new Date().getFullYear()
   
@@ -340,7 +335,7 @@ export default function Dashboard() {
     return (
       <div className="min-h-screen bg-[#F0F5EE] flex flex-col items-center justify-center p-6 text-center">
         <p className="text-xs text-slate-500 mb-4">You are signed out.</p>
-        <Link href="/" className="px-6 py-3 bg-[#063D2A] text-white text-xs font-bold rounded-2xl">
+        <Link href="/login" className="px-6 py-3 bg-[#063D2A] text-white text-xs font-bold rounded-2xl">
           Return to Login
         </Link>
       </div>
@@ -537,7 +532,6 @@ export default function Dashboard() {
                 </div>
 
                 <div className="relative h-40 pt-4">
-                  {/* SVG Area Line Chart */}
                   <svg className="w-full h-full overflow-visible" viewBox="0 0 300 120" preserveAspectRatio="none">
                     <defs>
                       <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
@@ -556,7 +550,6 @@ export default function Dashboard() {
                     ))}
                   </svg>
 
-                  {/* Hover Tooltip Overlay */}
                   {activeChartPoint && (
                     <div className="absolute top-2 left-1/2 -translate-x-1/2 px-3 py-1 bg-slate-900 text-white text-[10px] font-mono rounded-xl shadow-xl animate-in fade-in duration-150">
                       {activeChartPoint.month}: {formatCurrency(activeChartPoint.amount, currency)}
