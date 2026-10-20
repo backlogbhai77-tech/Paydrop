@@ -12,7 +12,7 @@ export async function POST(req) {
       )
     }
 
-    // Nodemailer Transporter
+    // Nodemailer Gmail Transporter using your App Password
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
