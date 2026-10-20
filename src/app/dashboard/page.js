@@ -200,20 +200,19 @@ export default function Dashboard() {
         createdAt: serverTimestamp()
       })
 
-      // NON-BLOCKING BACKGROUND EMAIL DISPATCH
+      // CORRECTED BACKEND EMAIL DISPATCH ROUTE
       const clientPortalUrl = `${window.location.origin}/d/${newDocRef.id}`
       if (clientEmail) {
-        fetch('/api/paydrop-engine', {
+        fetch('/api/send-email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            action: 'send-email',
             clientEmail: clientEmail.trim(),
             clientName: clientName.trim() || 'Client',
             creatorName: user.displayName || user.email?.split('@')[0] || 'Creator',
             projectTitle: title.trim(),
             amount: numAmount,
-            deliveryUrl: clientPortalUrl
+            portalUrl: clientPortalUrl
           })
         }).catch(err => console.error("Email dispatch failed:", err))
       }
