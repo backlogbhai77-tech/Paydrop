@@ -12,7 +12,6 @@ export async function POST(req) {
       )
     }
 
-    // Gmail Transporter
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
@@ -21,7 +20,6 @@ export async function POST(req) {
       },
     })
 
-    // Ensuring portal URL always points to main live public site (No Vercel preview login wall)
     let finalLink = portalUrl
     if (portalUrl && portalUrl.includes('/d/')) {
       const vaultId = portalUrl.split('/d/')[1]
@@ -31,9 +29,10 @@ export async function POST(req) {
     }
 
     const mailOptions = {
-      from: process.env.GMAIL_USER, // Strict Gmail user match for smooth delivery to ANY recipient
-      to: clientEmail.trim(),       // Client's exact email address
+      from: `"PayDrop Escrow" <${process.env.GMAIL_USER}>`,
+      to: clientEmail.trim(),
       subject: `Deliverable Preview Ready: ${projectTitle || 'Your Project'}`,
+      text: `Hello ${clientName || 'Client'},\n\nYour deliverables for ${projectTitle || 'your project'} are ready on PayDrop.\n\nView Preview & Release Payment: ${finalLink}\n\nWatermarked previews are available immediately. Master files unlock once payment is settled.`,
       html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
           <h2 style="color: #0f172a; margin-bottom: 12px;">Hello ${clientName || 'Client'},</h2>
