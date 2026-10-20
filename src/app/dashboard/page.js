@@ -1,1174 +1,295 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
-import { auth, db } from '../../lib/firebase'
-import { signOut, onAuthStateChanged } from 'firebase/auth'
-import { 
-  collection, addDoc, query, where, deleteDoc, doc, updateDoc, 
-  onSnapshot, serverTimestamp 
-} from 'firebase/firestore'
-import { 
-  Plus, MessageSquare, UploadCloud, Lock, ExternalLink, 
-  Trash2, RefreshCw, X, Search, Wallet, ShieldCheck, Eye, EyeOff,
-  Home, Briefcase, ChevronRight, Sparkles, File, Film, Image as ImageIcon,
-  Send, Bot, ArrowRight, ArrowLeft, Share2
-} from 'lucide-react'
+import React, { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { auth, db } from '../../lib/firebase'
+import { onAuthStateChanged, signOut } from 'firebase/auth'
+import { addDoc, collection, deleteDoc, doc, onSnapshot, query, serverTimestamp, updateDoc, where } from 'firebase/firestore'
+import {
+  Activity, ArrowDownRight, ArrowLeft, ArrowRight, ArrowUpRight, Bell, BriefcaseBusiness,
+  Check, CheckCircle2, ChevronDown, ChevronRight, CircleHelp, Clock3, Copy, CreditCard,
+  ExternalLink, Eye, EyeOff, File, FileArchive, Film, Home, Image as ImageIcon, LayoutDashboard,
+  LockKeyhole, LogOut, Menu, MessageCircle, MessageSquare, MoreHorizontal, Plus, Search,
+  Send, Settings2, Share2, ShieldCheck, Sparkles, Trash2, UploadCloud, Wallet, X
+} from 'lucide-react'
 
-const CLOUDINARY_CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || "mrfujhf8"
-const CLOUDINARY_UPLOAD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_PRESET || "releasedrop_vault"
+const CLOUDINARY_CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'mrfujhf8'
+const CLOUDINARY_UPLOAD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_PRESET || 'releasedrop_vault'
+const BRAND = { forest: '#063D2A', lime: '#94EC36', canvas: '#F4F7F2' }
 
-function formatCurrency(amount, currency = 'INR') {
-  const num = Number(amount)
-  if (isNaN(num)) return currency === 'USD' ? '$0' : '₹0'
-  if (currency === 'USD') {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(num)
+function formatCurrency(value, currency = 'INR') {
+  const amount = Number(value) || 0
+  try {
+    return new Intl.NumberFormat(currency === 'USD' ? 'en-US' : 'en-IN', {
+      style: 'currency', currency, maximumFractionDigits: currency === 'INR' ? 0 : 2,
+    }).format(amount)
+  } catch { return `${currency} ${amount.toFixed(2)}` }
+}
+
+function initials(name = 'Creator') {
+  return name.trim().split(/\s+/).slice(0, 2).map(part => part[0]).join('').toUpperCase() || 'CR'
+}
+
+function StatusBadge({ status }) {
+  const paid = status === 'Paid'
+  const expired = status === 'Expired' || status === 'Cancelled'
+  return <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold ${paid ? 'bg-emerald-50 text-emerald-700' : expired ? 'bg-slate-100 text-slate-500' : 'bg-amber-50 text-amber-700'}`}><span className={`h-1.5 w-1.5 rounded-full ${paid ? 'bg-emerald-500' : expired ? 'bg-slate-400' : 'bg-amber-500'}`} />{status || 'Pending'}</span>
+}
+
+function MiniStat({ icon: Icon, label, value, note, tone = 'green' }) {
+  const tones = {
+    green: 'bg-emerald-50 text-emerald-800', lime: 'bg-lime-50 text-lime-800', blue: 'bg-blue-50 text-blue-700', amber: 'bg-amber-50 text-amber-700',
   }
-  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(num)
+  return <div className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-sm sm:p-6">
+    <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-xs font-semibold text-slate-500">{label}</p><p className="mt-3 truncate text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">{value}</p></div><div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${tones[tone]}`}><Icon size={18}/></div></div>
+    {note && <p className="mt-3 text-xs text-slate-500">{note}</p>}
+  </div>
 }
 
 export default function Dashboard() {
   const [user, setUser] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [authLoading, setAuthLoading] = useState(true)
   const [deliveries, setDeliveries] = useState([])
-  const [searchQuery, setSearchQuery] = useState('')
-  
-  const [currentTab, setCurrentTab] = useState('home')
-  const [copiedId, setCopiedId] = useState(null)
-  const [toast, setToast] = useState(null)
+  const [dataLoading, setDataLoading] = useState(true)
+  const [tab, setTab] = useState('overview')
+  const [currency, setCurrency] = useState('INR')
   const [balanceVisible, setBalanceVisible] = useState(true)
-  const [activeChartPoint, setActiveChartPoint] = useState(null)
-
-  // Drawer Modals
-  const [aiDrawerOpen, setAiDrawerOpen] = useState(false)
-  const [profileDrawerOpen, setProfileDrawerOpen] = useState(false)
-
-  // Fullscreen Wizard
-  const [requestModalOpen, setRequestModalOpen] = useState(false)
-  const [wizardStep, setWizardStep] = useState(1)
+  const [search, setSearch] = useState('')
+  const [toast, setToast] = useState(null)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
+  const [assistantOpen, setAssistantOpen] = useState(false)
+  const [wizardOpen, setWizardOpen] = useState(false)
+  const [step, setStep] = useState(1)
   const [title, setTitle] = useState('')
   const [clientName, setClientName] = useState('')
   const [clientEmail, setClientEmail] = useState('')
   const [clientMessage, setClientMessage] = useState('')
   const [amount, setAmount] = useState('')
-  const [currency, setCurrency] = useState('INR')
-  const [expirySelection, setExpirySelection] = useState('7')
-  const [watermarkText] = useState('PAYDROP • PREVIEW COPY')
-  
-  const [fileList, setFileList] = useState([])
-  const [uploadProgress, setUploadProgress] = useState(0)
+  const [expiry, setExpiry] = useState('7')
+  const [files, setFiles] = useState([])
+  const [dragging, setDragging] = useState(false)
   const [uploading, setUploading] = useState(false)
-  const [isDragging, setIsDragging] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const [activeChat, setActiveChat] = useState(null)
+  const [reply, setReply] = useState('')
+  const [busyId, setBusyId] = useState(null)
 
-  // Revision Chat
-  const [activeThreadDelivery, setActiveThreadDelivery] = useState(null)
-  const [threadReplyText, setThreadReplyText] = useState('')
-  const chatBottomRef = useRef(null)
-
-  const showToast = (message, type = 'success') => {
+  const notify = (message, type = 'success') => {
     setToast({ message, type })
-    setTimeout(() => setToast(null), 3000)
+    if (typeof window !== 'undefined') window.setTimeout(() => setToast(null), 3200)
   }
 
   useEffect(() => {
-    let unsubFirestore = null
-    const unsubAuth = onAuthStateChanged(auth, (currentUser) => {
+    let stopSnapshot = null
+    const stopAuth = onAuthStateChanged(auth, currentUser => {
       setUser(currentUser)
-      setLoading(false)
+      setAuthLoading(false)
+      if (stopSnapshot) { stopSnapshot(); stopSnapshot = null }
       if (currentUser) {
+        setDataLoading(true)
         const q = query(collection(db, 'deliveries'), where('userId', '==', currentUser.uid))
-        unsubFirestore = onSnapshot(q, (snap) => {
-          const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-          docs.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
-          setDeliveries(docs)
-          
-          if (activeThreadDelivery) {
-            const updated = docs.find(d => d.id === activeThreadDelivery.id)
-            if (updated) setActiveThreadDelivery(updated)
-          }
-        })
-      } else {
-        setDeliveries([])
-      }
+        stopSnapshot = onSnapshot(q, snap => {
+          const items = snap.docs.map(item => ({ id: item.id, ...item.data() }))
+          items.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
+          setDeliveries(items)
+          setDataLoading(false)
+          setActiveChat(previous => previous ? (items.find(item => item.id === previous.id) || previous) : null)
+        }, error => { console.error('Firestore subscription failed:', error); setDataLoading(false); notify('Could not load projects. Check your connection.', 'error') })
+      } else { setDeliveries([]); setDataLoading(false) }
     })
-    return () => {
-      unsubAuth()
-      if (unsubFirestore) unsubFirestore()
-    }
-  }, [activeThreadDelivery?.id])
+    return () => { stopAuth(); if (stopSnapshot) stopSnapshot() }
+  }, [])
 
-  useEffect(() => {
-    if (currentTab === 'chat-thread' || activeThreadDelivery) {
-      chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-    }
-  }, [currentTab, activeThreadDelivery?.messages])
+  const paid = useMemo(() => deliveries.filter(item => item.status === 'Paid'), [deliveries])
+  const pending = useMemo(() => deliveries.filter(item => item.status !== 'Paid'), [deliveries])
+  const unread = useMemo(() => deliveries.filter(item => item.messages?.length && item.messages[item.messages.length - 1]?.sender === 'client'), [deliveries])
+  const totalRevenue = useMemo(() => paid.filter(item => (item.currency || 'INR') === currency).reduce((sum, item) => sum + (Number(item.creatorPayout) || Number(item.grossAmount) || 0), 0), [paid, currency])
+  const pendingValue = useMemo(() => pending.filter(item => (item.currency || 'INR') === currency).reduce((sum, item) => sum + (Number(item.grossAmount) || 0), 0), [pending, currency])
+  const totalGross = useMemo(() => deliveries.filter(item => (item.currency || 'INR') === currency).reduce((sum, item) => sum + (Number(item.grossAmount) || 0), 0), [deliveries, currency])
+  const filtered = useMemo(() => deliveries.filter(item => `${item.title || ''} ${item.clientName || ''} ${item.clientEmail || ''}`.toLowerCase().includes(search.toLowerCase())), [deliveries, search])
 
-  const handleFilesAdd = (files) => {
-    const selected = Array.from(files)
-    if (!selected.length) return
-    setFileList(prev => [...prev, ...selected])
-  }
-
-  const removeFile = (idx) => {
-    setFileList(prev => prev.filter((_, i) => i !== idx))
-  }
-
-  const uploadFileToCloudinary = (file) => {
-    return new Promise((resolve, reject) => {
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET)
-
-      const xhr = new XMLHttpRequest()
-      xhr.open('POST', `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`)
-
-      xhr.upload.onprogress = (event) => {
-        if (event.lengthComputable) {
-          setUploadProgress(Math.round((event.loaded / event.total) * 98))
-        }
-      }
-
-      xhr.onload = () => {
-        try {
-          const res = JSON.parse(xhr.responseText)
-          if (xhr.status === 200 && (res.secure_url || res.url)) {
-            const rawUrl = res.secure_url || res.url
-            const previewUrl = file.type.startsWith('image/')
-              ? rawUrl.replace('/upload/', `/upload/l_text:Arial_24_bold:${encodeURIComponent(watermarkText)},o_35,a_-30/`)
-              : rawUrl
-
-            resolve({
-              name: file.name,
-              size: (file.size / (1024 * 1024)).toFixed(2) + " MB",
-              type: file.type || 'application/octet-stream',
-              rawUrl: rawUrl,
-              previewUrl: previewUrl
-            })
-          } else {
-            reject(new Error(res?.error?.message || "Storage error"))
-          }
-        } catch {
-          reject(new Error("Upload parsing error"))
-        }
-      }
-      xhr.onerror = () => reject(new Error("Network connection interrupted"))
-      xhr.send(formData)
+  const monthly = useMemo(() => {
+    const now = new Date()
+    const year = now.getFullYear()
+    return Array.from({ length: 6 }, (_, index) => {
+      const monthDate = new Date(year, now.getMonth() - 5 + index, 1)
+      const sum = paid.filter(item => {
+        if ((item.currency || 'INR') !== currency || !item.createdAt?.seconds) return false
+        const date = new Date(item.createdAt.seconds * 1000)
+        return date.getMonth() === monthDate.getMonth() && date.getFullYear() === monthDate.getFullYear()
+      }).reduce((total, item) => total + (Number(item.creatorPayout) || Number(item.grossAmount) || 0), 0)
+      return { label: monthDate.toLocaleDateString('en-US', { month: 'short' }), value: sum }
     })
-  }
+  }, [paid, currency])
 
-  const handleDeployVault = async () => {
-    if (!title || !amount || !fileList.length || !user) {
-      showToast("Complete all steps and attach at least one file", "error")
-      return
+  const uploadFile = file => new Promise((resolve, reject) => {
+    const form = new FormData()
+    form.append('file', file)
+    form.append('upload_preset', CLOUDINARY_UPLOAD_PRESET)
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`)
+    xhr.upload.onprogress = event => { if (event.lengthComputable) setProgress(Math.round((event.loaded / event.total) * 95)) }
+    xhr.onload = () => {
+      try {
+        const result = JSON.parse(xhr.responseText)
+        if (xhr.status >= 200 && xhr.status < 300 && result.secure_url) {
+          const previewUrl = file.type.startsWith('image/') ? result.secure_url.replace('/upload/', '/upload/l_text:Arial_24_bold:PAYDROP%20%E2%80%A2%20PREVIEW%20COPY,o_35,a_-30/') : result.secure_url
+          resolve({ name: file.name, size: `${(file.size / (1024 * 1024)).toFixed(2)} MB`, type: file.type || 'application/octet-stream', rawUrl: result.secure_url, previewUrl })
+        } else reject(new Error(result?.error?.message || 'Upload failed'))
+      } catch (error) { reject(error instanceof Error ? error : new Error('Could not process upload response')) }
     }
+    xhr.onerror = () => reject(new Error('Network connection interrupted during upload'))
+    xhr.send(form)
+  })
 
-    setUploading(true)
-
+  const deploy = async () => {
+    if (!user || !title.trim() || !clientEmail.trim() || !amount || Number(amount) <= 0 || !files.length) {
+      notify('Add a project name, valid client email, amount and at least one file.', 'error'); return
+    }
+    setUploading(true); setProgress(0)
     try {
       const manifest = []
-      for (let i = 0; i < fileList.length; i++) {
-        setUploadProgress(Math.round(((i) / fileList.length) * 100))
-        const res = await uploadFileToCloudinary(fileList[i])
-        manifest.push(res)
+      for (let index = 0; index < files.length; index++) {
+        setProgress(Math.round((index / files.length) * 100))
+        manifest.push(await uploadFile(files[index]))
       }
-
-      setUploadProgress(100)
-
-      const numAmount = Number(amount) || 0
-      const platformFee = Math.max(Math.round(numAmount * 0.05), 1)
-      const creatorPayout = Math.max(numAmount - platformFee, 0)
+      setProgress(98)
+      const gross = Number(amount)
+      const fee = Math.max(Math.round(gross * 0.05), 1)
       const expiresAt = new Date()
-      expiresAt.setDate(expiresAt.getDate() + (expirySelection === 'never' ? 3650 : parseInt(expirySelection)))
-
-      const newDocRef = await addDoc(collection(db, 'deliveries'), {
-        userId: user.uid,
-        userEmail: user.email,
-        title: title.trim(),
-        clientName: clientName.trim() || clientEmail.split('@')[0] || 'Client',
-        clientEmail: clientEmail.trim(),
-        clientMessage: clientMessage.trim(),
-        grossAmount: numAmount,
-        currency,
-        platformFee,
-        creatorPayout,
-        watermarkText: watermarkText || 'PAYDROP • PREVIEW COPY',
-        status: 'Awaiting Payment',
-        files: manifest,
-        expiresAt: expiresAt.toISOString(),
-        viewCount: 0,
-        messages: [],
-        createdAt: serverTimestamp()
+      expiresAt.setDate(expiresAt.getDate() + (expiry === 'never' ? 3650 : Number(expiry)))
+      const ref = await addDoc(collection(db, 'deliveries'), {
+        userId: user.uid, userEmail: user.email || '', title: title.trim(),
+        clientName: clientName.trim() || clientEmail.split('@')[0] || 'Client', clientEmail: clientEmail.trim(),
+        clientMessage: clientMessage.trim(), grossAmount: gross, currency, platformFee: fee,
+        creatorPayout: Math.max(gross - fee, 0), watermarkText: 'PAYDROP • PREVIEW COPY',
+        status: 'Awaiting Payment', files: manifest, expiresAt: expiresAt.toISOString(), viewCount: 0,
+        messages: [], createdAt: serverTimestamp(),
       })
-
-      // CORRECTED BACKEND EMAIL DISPATCH ROUTE
-      const clientPortalUrl = `${window.location.origin}/d/${newDocRef.id}`
-      if (clientEmail) {
-        fetch('/api/send-email', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            clientEmail: clientEmail.trim(),
-            clientName: clientName.trim() || 'Client',
-            creatorName: user.displayName || user.email?.split('@')[0] || 'Creator',
-            projectTitle: title.trim(),
-            amount: numAmount,
-            portalUrl: clientPortalUrl
-          })
-        }).catch(err => console.error("Email dispatch failed:", err))
+      const portalUrl = `${window.location.origin}/d/${ref.id}`
+      if (clientEmail.trim()) {
+        fetch('/api/send-email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clientEmail: clientEmail.trim(), clientName: clientName.trim() || 'Client', creatorName: user.displayName || user.email?.split('@')[0] || 'Creator', projectTitle: title.trim(), amount: gross, currency, portalUrl }) }).catch(error => console.error('Email dispatch failed:', error))
       }
-
-      showToast("Vault deployed & created successfully!", "success")
-      setTitle('')
-      setClientName('')
-      setClientEmail('')
-      setClientMessage('')
-      setAmount('')
-      setFileList([])
-      setWizardStep(1)
-      setRequestModalOpen(false)
-    } catch (err) {
-      showToast(err.message || "Failed to create vault", "error")
-    } finally {
-      setUploading(false)
-      setUploadProgress(0)
-    }
+      setProgress(100); notify('Payment request created successfully.')
+      setTitle(''); setClientName(''); setClientEmail(''); setClientMessage(''); setAmount(''); setFiles([]); setExpiry('7'); setStep(1); setWizardOpen(false); setTab('projects')
+    } catch (error) { console.error(error); notify(error.message || 'Could not create payment request.', 'error') }
+    finally { setUploading(false); setProgress(0) }
   }
 
-  const handleDelete = async (id) => {
-    if (!confirm("Permanently delete this project?")) return
-    try {
-      await deleteDoc(doc(db, 'deliveries', id))
-      showToast("Project deleted", "success")
-    } catch {
-      showToast("Failed to delete", "error")
-    }
+  const copyPortal = async id => {
+    const url = `${window.location.origin}/d/${id}`
+    try { await navigator.clipboard.writeText(url); notify('Client portal link copied.') }
+    catch { notify(url, 'error') }
   }
-
-  const copyLink = (id) => {
-    navigator.clipboard.writeText(`${window.location.origin}/d/${id}`)
-    setCopiedId(id)
-    showToast("Escrow link copied!", "success")
-    setTimeout(() => setCopiedId(null), 2500)
-  }
-
-  const shareProject = (item) => {
+  const shareProject = async item => {
     const url = `${window.location.origin}/d/${item.id}`
-    if (navigator.share) {
-      navigator.share({
-        title: `PayDrop Escrow: ${item.title}`,
-        text: `Review protected deliverables for ${item.title}`,
-        url: url,
-      }).catch(() => copyLink(item.id))
-    } else {
-      copyLink(item.id)
-    }
-  }
-
-  const handleSendThreadReply = async (deliveryId) => {
-    if (!threadReplyText.trim()) return
     try {
-      const target = deliveries.find(d => d.id === deliveryId)
-      const existing = target?.messages || []
-      const updated = [...existing, { sender: 'creator', text: threadReplyText.trim(), time: new Date().toISOString() }]
-      await updateDoc(doc(db, 'deliveries', deliveryId), { messages: updated })
-      setThreadReplyText('')
-      showToast("Reply sent to client", "success")
-    } catch {
-      showToast("Failed to send reply", "error")
-    }
+      if (navigator.share) await navigator.share({ title: `PayDrop: ${item.title}`, text: `Review deliverables for ${item.title}`, url })
+      else await navigator.clipboard.writeText(url)
+      notify(navigator.share ? 'Share sheet opened.' : 'Portal link copied.')
+    } catch (error) { if (error?.name !== 'AbortError') copyPortal(item.id) }
   }
-
-  const handleLogout = async () => {
+  const removeProject = async id => {
+    if (!window.confirm('Permanently delete this project? This cannot be undone.')) return
+    try { await deleteDoc(doc(db, 'deliveries', id)); notify('Project deleted.') }
+    catch (error) { console.error(error); notify('Could not delete this project.', 'error') }
+  }
+  const sendReply = async () => {
+    if (!activeChat || !reply.trim()) return
     try {
-      await signOut(auth)
-      showToast("Logged out successfully", "success")
-    } catch {
-      showToast("Logout failed", "error")
-    }
+      const existing = activeChat.messages || []
+      await updateDoc(doc(db, 'deliveries', activeChat.id), { messages: [...existing, { sender: 'creator', text: reply.trim(), time: new Date().toISOString() }] })
+      setReply(''); notify('Reply sent.')
+    } catch (error) { console.error(error); notify('Could not send reply.', 'error') }
   }
-
-  const paidDeliveries = deliveries.filter(d => d.status === 'Paid')
-  const totalRevenueINR = paidDeliveries.filter(d => (d.currency || 'INR') === 'INR').reduce((acc, c) => acc + (Number(c.creatorPayout) || Number(c.grossAmount) || 0), 0)
-  const totalRevenueUSD = paidDeliveries.filter(d => d.currency === 'USD').reduce((acc, c) => acc + (Number(c.creatorPayout) || Number(c.grossAmount) || 0), 0)
-  const unreadRevisions = deliveries.filter(d => d.messages && d.messages.length > 0 && d.messages[d.messages.length - 1].sender === 'client')
-
-  const filteredDeliveries = deliveries.filter(d => 
-    d.title?.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    d.clientName?.toLowerCase().includes(searchQuery.toLowerCase())
-  )
-
-  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-  const currentYear = new Date().getFullYear()
-  
-  const monthlyDataPoints = monthNames.map((m, i) => {
-    const monthItems = paidDeliveries.filter(d => {
-      const dDate = d.createdAt?.seconds ? new Date(d.createdAt.seconds * 1000) : new Date()
-      return dDate.getMonth() === i && dDate.getFullYear() === currentYear
-    })
-    const sum = monthItems.reduce((acc, c) => acc + (Number(c.grossAmount) || 0), 0)
-    return { month: m, amount: sum }
-  })
-
-  const maxVal = Math.max(...monthlyDataPoints.map(p => p.amount), 5000)
-  const chartPoints = monthlyDataPoints.map((p, idx) => {
-    const x = (idx / 11) * 300
-    const y = 100 - (p.amount / maxVal) * 80
-    return { x, y, month: p.month, amount: p.amount }
-  })
-
-  const svgPathD = chartPoints.reduce((acc, p, i) => {
-    return i === 0 ? `M ${p.x} ${p.y}` : `${acc} L ${p.x} ${p.y}`
-  }, '')
-  const areaPathD = `${svgPathD} L 300 120 L 0 120 Z`
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#F0F5EE] flex flex-col items-center justify-center text-xs text-slate-500 gap-3 font-mono">
-        <div className="w-6 h-6 border-2 border-[#063D2A] border-t-transparent rounded-full animate-spin" />
-        <span>INITIALIZING DASHBOARD...</span>
-      </div>
-    )
-  }
-
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-[#F0F5EE] flex flex-col items-center justify-center p-6 text-center">
-        <p className="text-xs text-slate-500 mb-4">You are signed out.</p>
-        <Link href="/login" className="px-6 py-3 bg-[#063D2A] text-white text-xs font-bold rounded-2xl">
-          Return to Login
-        </Link>
-      </div>
-    )
-  }
-
-  return (
-    <div className="min-h-screen bg-[#F0F5EE] text-slate-900 font-sans flex antialiased pb-28 lg:pb-8 relative selection:bg-[#94EC36] selection:text-[#063D2A]">
-      {toast && (
-        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top duration-200">
-          <div className="flex items-center gap-2 px-4 py-2.5 rounded-full shadow-2xl bg-[#063D2A] text-white text-xs font-semibold border border-[#083B29]">
-            <span className="w-2 h-2 rounded-full bg-[#94EC36] animate-pulse" />
-            <span>{toast.message}</span>
-          </div>
-        </div>
-      )}
-
-      {/* SIDEBAR */}
-      <aside className="hidden lg:flex w-64 bg-white/80 backdrop-blur-xl border-r border-slate-200/80 flex-col justify-between p-6 sticky top-0 h-screen z-30 select-none shrink-0">
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <button onClick={() => setCurrentTab('home')} className="flex items-center gap-2.5 text-left group">
-              <div className="w-10 h-10 rounded-2xl bg-[#94EC36] text-[#063D2A] font-black text-xl flex items-center justify-center shadow-md shadow-[#94EC36]/20 transition-transform group-hover:scale-105">
-                P
-              </div>
-              <span className="font-black text-2xl tracking-tight text-slate-900">paydrop</span>
-            </button>
-
-            <button onClick={() => setAiDrawerOpen(true)} className="w-8 h-8 rounded-full bg-[#F0F5EE] hover:bg-slate-200/60 flex items-center justify-center text-slate-600 transition" title="AI Assistant">
-              <Sparkles className="w-4 h-4 text-[#063D2A]" />
-            </button>
-          </div>
-
-          <button
-            onClick={() => { setWizardStep(1); setRequestModalOpen(true); }}
-            className="w-full py-3.5 bg-[#063D2A] hover:bg-[#094E36] text-white text-xs font-bold rounded-2xl shadow-lg transition active:scale-95 flex items-center justify-center gap-2 group"
-          >
-            <Plus className="w-4 h-4 text-[#94EC36] transition-transform group-hover:rotate-90 duration-200" />
-            <span>Request payment</span>
-          </button>
-
-          <nav className="space-y-1 pt-2">
-            <button
-              onClick={() => setCurrentTab('home')}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-bold transition-all ${
-                currentTab === 'home' ? 'bg-[#F0F5EE] text-[#063D2A]' : 'text-slate-500 hover:text-slate-900'
-              }`}
-            >
-              <Home className="w-4 h-4" />
-              <span>Home</span>
-            </button>
-
-            <button
-              onClick={() => setCurrentTab('projects')}
-              className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl text-xs font-bold transition-all ${
-                currentTab === 'projects' ? 'bg-[#F0F5EE] text-[#063D2A]' : 'text-slate-500 hover:text-slate-900'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <Briefcase className="w-4 h-4" />
-                <span>Projects</span>
-              </div>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 font-mono">
-                {deliveries.length}
-              </span>
-            </button>
-
-            <button
-              onClick={() => setCurrentTab('revisions')}
-              className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl text-xs font-bold transition-all ${
-                currentTab === 'revisions' || currentTab === 'chat-thread' ? 'bg-[#F0F5EE] text-[#063D2A]' : 'text-slate-500 hover:text-slate-900'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <MessageSquare className="w-4 h-4" />
-                <span>Revisions</span>
-              </div>
-              {unreadRevisions.length > 0 && (
-                <span className="px-2 py-0.5 bg-rose-500 text-white font-mono text-[9px] rounded-full font-black animate-pulse">
-                  {unreadRevisions.length}
-                </span>
-              )}
-            </button>
-
-            <button
-              onClick={() => setCurrentTab('wallet')}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-bold transition-all ${
-                currentTab === 'wallet' ? 'bg-[#F0F5EE] text-[#063D2A]' : 'text-slate-500 hover:text-slate-900'
-              }`}
-            >
-              <Wallet className="w-4 h-4" />
-              <span>Wallet</span>
-            </button>
-          </nav>
-        </div>
-
-        <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
-          <button onClick={() => setProfileDrawerOpen(true)} className="flex items-center gap-3 min-w-0 text-left hover:opacity-80 transition">
-            <div className="w-9 h-9 rounded-full bg-[#FFD6A5] text-[#063D2A] text-xs font-bold flex items-center justify-center shrink-0 border border-white shadow-xs">
-              {user.displayName ? user.displayName.slice(0, 2).toUpperCase() : 'AN'}
-            </div>
-            <div className="truncate">
-              <div className="text-xs font-bold text-slate-900 truncate">{user.displayName || user.email?.split('@')[0]}</div>
-              <div className="text-[10px] text-slate-400 truncate">{user.email}</div>
-            </div>
-          </button>
-          <button onClick={handleLogout} className="text-slate-400 hover:text-rose-600 text-xs p-1" title="Sign Out">✕</button>
-        </div>
-      </aside>
-
-      {/* MAIN VIEW */}
-      <div className="flex-1 flex flex-col min-w-0">
-        
-        <header className="px-6 sm:px-10 pt-6 pb-2 flex items-center justify-between">
-          <div className="flex items-center gap-3 lg:hidden">
-            <div className="w-9 h-9 rounded-2xl bg-[#94EC36] text-[#063D2A] font-black text-xl flex items-center justify-center">
-              P
-            </div>
-            <span className="font-black text-2xl tracking-tight text-slate-900">paydrop</span>
-          </div>
-
-          <div className="hidden lg:block">
-            <span className="text-xs font-medium text-slate-400">Studio Dashboard</span>
-            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Welcome back, {user.displayName?.split(' ')[0] || user.email?.split('@')[0] || 'Ankit'}</h1>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={() => setAiDrawerOpen(true)} 
-              className="w-10 h-10 rounded-full bg-white border border-slate-200/80 flex items-center justify-center text-slate-700 shadow-xs hover:bg-slate-50 transition active:scale-95"
-              title="AI Assistant"
-            >
-              <Sparkles className="w-4 h-4 text-[#063D2A]" />
-            </button>
-
-            <button 
-              onClick={() => setProfileDrawerOpen(true)}
-              className="w-10 h-10 rounded-full bg-[#FFD6A5] text-[#063D2A] font-bold text-xs flex items-center justify-center border border-white shadow-xs hover:opacity-90 transition"
-            >
-              {user.displayName ? user.displayName.slice(0, 2).toUpperCase() : 'AN'}
-            </button>
-          </div>
-        </header>
-
-        <main className="flex-1 max-w-2xl lg:max-w-4xl w-full mx-auto p-4 sm:p-8 space-y-6 animate-in fade-in duration-300">
-
-          {/* HOME TAB */}
-          {currentTab === 'home' && (
-            <div className="space-y-6">
-              
-              {/* HERO BALANCE CARD */}
-              <div className="bg-[#063D2A] rounded-[36px] p-7 sm:p-8 text-white relative overflow-hidden shadow-2xl shadow-[#063D2A]/15 backdrop-blur-xl">
-                <div className="absolute -right-12 -top-12 w-64 h-64 bg-[#0B4C35] rounded-full blur-2xl pointer-events-none opacity-50" />
-
-                <div className="relative z-10 space-y-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-xs font-medium text-emerald-200/80">
-                      <span>Available balance</span>
-                      <button onClick={() => setBalanceVisible(!balanceVisible)} className="p-1 text-emerald-300 hover:text-white transition">
-                        {balanceVisible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                      </button>
-                    </div>
-
-                    <div className="w-10 h-10 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center">
-                      <Wallet className="w-5 h-5 text-[#94EC36]" />
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="text-4xl sm:text-5xl font-black font-sans tracking-tight text-white">
-                      {balanceVisible ? formatCurrency(currency === 'INR' ? totalRevenueINR : totalRevenueUSD, currency) : '••••••'}
-                    </div>
-                    <p className="text-xs text-emerald-200/70 mt-1">Total settled earnings protected in escrow</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* MODERN AREA CHART GRAPH */}
-              <div className="bg-white/90 backdrop-blur-xl border border-slate-200/80 rounded-[36px] p-7 shadow-xs space-y-5">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="text-lg font-bold text-slate-900 tracking-tight">Revenue Trend ({currentYear})</h3>
-                    <span className="text-xs text-slate-400 font-medium">Real-time escrow settlement velocity</span>
-                  </div>
-
-                  <select
-                    value={currency}
-                    onChange={e => setCurrency(e.target.value)}
-                    className="px-3 py-1.5 bg-[#F0F5EE] border border-slate-200 rounded-xl text-xs font-bold text-[#063D2A] focus:outline-none cursor-pointer"
-                  >
-                    <option value="INR">INR (₹)</option>
-                    <option value="USD">USD ($)</option>
-                  </select>
-                </div>
-
-                <div className="relative h-40 pt-4">
-                  <svg className="w-full h-full overflow-visible" viewBox="0 0 300 120" preserveAspectRatio="none">
-                    <defs>
-                      <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#94EC36" stopOpacity="0.4" />
-                        <stop offset="100%" stopColor="#94EC36" stopOpacity="0.0" />
-                      </linearGradient>
-                    </defs>
-
-                    <path d={areaPathD} fill="url(#chartGradient)" />
-                    <path d={svgPathD} fill="none" stroke="#063D2A" strokeWidth="3" strokeLinecap="round" />
-
-                    {chartPoints.map((pt, idx) => (
-                      <g key={idx} className="group cursor-pointer" onMouseEnter={() => setActiveChartPoint(pt)}>
-                        <circle cx={pt.x} cy={pt.y} r="4" className="fill-[#063D2A] group-hover:fill-[#94EC36] transition-all" />
-                      </g>
-                    ))}
-                  </svg>
-
-                  {activeChartPoint && (
-                    <div className="absolute top-2 left-1/2 -translate-x-1/2 px-3 py-1 bg-slate-900 text-white text-[10px] font-mono rounded-xl shadow-xl animate-in fade-in duration-150">
-                      {activeChartPoint.month}: {formatCurrency(activeChartPoint.amount, currency)}
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex justify-between text-[10px] text-slate-400 font-mono pt-2 border-t border-slate-100">
-                  {monthNames.map((m, i) => <span key={i}>{m}</span>)}
-                </div>
-              </div>
-
-              {/* ACTIVE PROJECTS LIST */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-xl font-bold text-slate-900 tracking-tight">Active projects</h3>
-                    <p className="text-xs text-slate-400">Payments protected in escrow</p>
-                  </div>
-                  <button onClick={() => setCurrentTab('projects')} className="text-xs font-bold text-[#063D2A] hover:underline">
-                    View all
-                  </button>
-                </div>
-
-                {deliveries.length === 0 ? (
-                  <div className="p-12 text-center text-xs text-slate-400 bg-white/90 rounded-[32px] border border-slate-200/80 shadow-xs">
-                    No active escrow projects yet. Tap '+' to request your first payment.
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {deliveries.map(item => (
-                      <div key={item.id} className="p-6 bg-white/90 backdrop-blur-xl border border-slate-200/80 rounded-[32px] shadow-xs space-y-4 hover:-translate-y-1 hover:border-slate-300 transition-all duration-200">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex items-center gap-3.5 min-w-0">
-                            <div className="w-12 h-12 rounded-2xl bg-[#94EC36]/30 text-[#063D2A] font-bold text-sm flex items-center justify-center shrink-0">
-                              {item.clientName ? item.clientName.slice(0, 2).toUpperCase() : 'CL'}
-                            </div>
-                            <div className="min-w-0 pr-2">
-                              <h4 className="text-base font-bold text-slate-900 tracking-tight truncate">{item.title}</h4>
-                              <p className="text-xs text-slate-400 mt-0.5 truncate">with {item.clientName} ({item.clientEmail})</p>
-                            </div>
-                          </div>
-
-                          <div className="text-right shrink-0">
-                            <div className="font-black text-base text-slate-900 font-mono">{formatCurrency(item.grossAmount, item.currency || 'INR')}</div>
-                            <div className="text-xs text-slate-400 font-medium mt-0.5">{item.status === 'Paid' ? 'Released' : 'In escrow'}</div>
-                          </div>
-                        </div>
-
-                        <div className="space-y-2">
-                          <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                            <div className={`h-full rounded-full transition-all duration-500 ${item.status === 'Paid' ? 'w-full bg-[#94EC36]' : 'w-2/3 bg-[#94EC36]'}`} />
-                          </div>
-
-                          <div className="flex items-center justify-between text-xs pt-0.5">
-                            <span className="flex items-center gap-1.5 font-bold text-slate-800">
-                              <span className={`w-2 h-2 rounded-full ${item.status === 'Paid' ? 'bg-emerald-500' : 'bg-[#94EC36] animate-ping'}`} />
-                              {item.status === 'Paid' ? 'Funds Released' : 'Funded • In Progress'}
-                            </span>
-
-                            <div className="flex items-center gap-3">
-                              <button onClick={() => shareProject(item)} className="p-1.5 bg-[#F0F5EE] hover:bg-slate-200 rounded-xl text-slate-700 transition" title="Share Escrow Link">
-                                <Share2 className="w-3.5 h-3.5" />
-                              </button>
-                              <button onClick={() => copyLink(item.id)} className="text-slate-500 font-bold hover:text-slate-900 transition">
-                                {copiedId === item.id ? 'Copied!' : 'Copy link'}
-                              </button>
-                              <span className="text-slate-300">•</span>
-                              <Link href={`/d/${item.id}`} target="_blank" className="text-[#063D2A] font-bold flex items-center gap-0.5 hover:underline">
-                                <span>Portal</span> <ChevronRight className="w-4 h-4" />
-                              </Link>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-            </div>
-          )}
-
-          {/* PROJECTS TAB */}
-          {currentTab === 'projects' && (
-            <div className="space-y-6">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <h1 className="text-2xl font-black text-slate-900 tracking-tight">All Projects</h1>
-                <div className="relative w-full sm:w-64">
-                  <Search className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder="Search projects..."
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200/80 rounded-2xl text-xs focus:outline-none focus:border-[#94EC36] transition"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                {filteredDeliveries.length === 0 ? (
-                  <div className="p-12 text-center text-xs text-slate-400 bg-white rounded-[32px]">No projects found.</div>
-                ) : (
-                  filteredDeliveries.map(item => (
-                    <div key={item.id} className="p-6 bg-white border border-slate-200/80 rounded-[32px] flex items-center justify-between gap-4 shadow-xs hover:border-slate-300 transition">
-                      <div className="min-w-0 pr-2">
-                        <h4 className="font-bold text-sm text-slate-900 truncate">{item.title}</h4>
-                        <p className="text-xs text-slate-400 truncate">Client: {item.clientName} ({item.clientEmail}) • {item.files?.length || 0} file(s)</p>
-                      </div>
-                      <div className="flex items-center gap-3 shrink-0">
-                        <span className="font-bold text-xs font-mono">{formatCurrency(item.grossAmount, item.currency || 'INR')}</span>
-                        
-                        <button onClick={() => shareProject(item)} className="p-2 bg-[#F0F5EE] hover:bg-slate-200 rounded-xl text-slate-700 transition" title="Share Escrow Link">
-                          <Share2 className="w-4 h-4" />
-                        </button>
-
-                        <button onClick={() => handleDelete(item.id)} className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition" title="Delete project">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* REVISIONS TAB */}
-          {currentTab === 'revisions' && (
-            <div className="space-y-6">
-              <h1 className="text-2xl font-black text-slate-900 tracking-tight">Client Revisions</h1>
-              <div className="space-y-3">
-                {deliveries.length === 0 ? (
-                  <div className="p-12 text-center text-xs text-slate-400 bg-white rounded-[32px]">No revision threads found.</div>
-                ) : (
-                  deliveries.map(d => {
-                    const hasMessages = d.messages && d.messages.length > 0
-                    const lastMsg = hasMessages ? d.messages[d.messages.length - 1] : null
-                    const isUnreadClientMsg = lastMsg && lastMsg.sender === 'client'
-
-                    return (
-                      <div key={d.id} className={`p-6 bg-white border rounded-[32px] flex justify-between items-center gap-4 shadow-xs hover:border-slate-300 transition relative ${
-                        isUnreadClientMsg ? 'border-rose-300 bg-rose-50/20' : 'border-slate-200/80'
-                      }`}>
-                        {isUnreadClientMsg && (
-                          <div className="absolute -top-2 left-6 px-3 py-0.5 bg-rose-500 text-white font-mono text-[9px] font-black rounded-full shadow-md animate-bounce">
-                            NEW REVISION REQUEST
-                          </div>
-                        )}
-
-                        <div className="space-y-1 min-w-0 pr-2">
-                          <div className="flex items-center gap-2">
-                            <h4 className="font-bold text-xs text-slate-900 truncate">{d.clientName}</h4>
-                            <span className="text-slate-300">•</span>
-                            <span className="text-xs text-slate-500 truncate">{d.title}</span>
-                          </div>
-                          <p className="text-xs text-slate-600 truncate">
-                            {lastMsg ? lastMsg.text : 'No revision notes yet.'}
-                          </p>
-                        </div>
-                        <button 
-                          onClick={() => { setActiveThreadDelivery(d); setCurrentTab('chat-thread'); }} 
-                          className="px-4 py-2.5 bg-[#063D2A] hover:bg-[#094E36] text-white font-bold text-xs rounded-2xl transition shrink-0 flex items-center gap-1.5"
-                        >
-                          <span>Open Chat</span>
-                          {isUnreadClientMsg && <span className="w-2 h-2 rounded-full bg-rose-400 animate-ping" />}
-                        </button>
-                      </div>
-                    )
-                  })
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* FULLSCREEN CHAT THREAD */}
-          {currentTab === 'chat-thread' && activeThreadDelivery && (
-            <div className="fixed inset-0 z-50 bg-[#F0F5EE] flex flex-col p-4 sm:p-8 animate-in fade-in duration-200">
-              <div className="max-w-4xl w-full mx-auto bg-white border border-slate-200/80 rounded-[36px] flex-1 flex flex-col overflow-hidden shadow-2xl">
-                
-                <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-white gap-4">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <button onClick={() => setCurrentTab('revisions')} className="p-2 bg-[#F0F5EE] hover:bg-slate-200 rounded-xl text-xs font-bold text-slate-600 transition shrink-0">
-                      <ArrowLeft className="w-4 h-4" />
-                    </button>
-                    <div className="min-w-0">
-                      <h3 className="font-extrabold text-sm text-slate-900 truncate">{activeThreadDelivery.clientName}</h3>
-                      <p className="text-xs text-slate-400 truncate">{activeThreadDelivery.title} • {formatCurrency(activeThreadDelivery.grossAmount, activeThreadDelivery.currency)}</p>
-                    </div>
-                  </div>
-
-                  <Link href={`/d/${activeThreadDelivery.id}`} target="_blank" className="px-4 py-2 bg-[#063D2A] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 hover:bg-[#094E36] transition shrink-0">
-                    <span>Portal</span> <ExternalLink className="w-3.5 h-3.5" />
-                  </Link>
-                </div>
-
-                <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-[#F0F5EE]">
-                  {(activeThreadDelivery.messages || []).length === 0 ? (
-                    <div className="h-full flex items-center justify-center text-xs text-slate-400">No revision notes yet. Start conversation.</div>
-                  ) : (
-                    activeThreadDelivery.messages.map((m, idx) => {
-                      const isCreator = m.sender === 'creator'
-                      return (
-                        <div key={idx} className={`flex flex-col ${isCreator ? 'items-end' : 'items-start'}`}>
-                          <div className={`p-4 text-xs rounded-2xl max-w-md ${
-                            isCreator ? 'bg-[#063D2A] text-white rounded-br-xs shadow-md' : 'bg-white text-slate-800 shadow-xs rounded-bl-xs'
-                          }`}>
-                            <p className="leading-relaxed">{m.text}</p>
-                          </div>
-                          <span className="text-[9px] text-slate-400 mt-1">{new Date(m.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                        </div>
-                      )
-                    })
-                  )}
-                  <div ref={chatBottomRef} />
-                </div>
-
-                <div className="p-4 bg-white border-t border-slate-100 space-y-3">
-                  <div className="flex items-center gap-2 overflow-x-auto pb-1 text-[10px]">
-                    {["Working on this draft ✍️", "Uploaded revised files 📁", "Revision completed ✅"].map((pill, i) => (
-                      <button
-                        key={i}
-                        onClick={() => setThreadReplyText(pill)}
-                        className="px-3 py-1 bg-[#F0F5EE] hover:bg-slate-200 text-slate-700 font-semibold rounded-full shrink-0 transition"
-                      >
-                        {pill}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="Type revision reply..."
-                      value={threadReplyText}
-                      onChange={e => setThreadReplyText(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && handleSendThreadReply(activeThreadDelivery.id)}
-                      className="flex-1 bg-[#F0F5EE] px-4 py-3 rounded-2xl text-xs focus:outline-none focus:border-[#94EC36] transition"
-                    />
-                    <button 
-                      onClick={() => handleSendThreadReply(activeThreadDelivery.id)} 
-                      className="px-6 py-3 bg-[#063D2A] hover:bg-[#094E36] text-white text-xs font-bold rounded-2xl transition active:scale-95 flex items-center gap-1.5 shrink-0"
-                    >
-                      <Send className="w-3.5 h-3.5 text-[#94EC36]" />
-                      <span>Send</span>
-                    </button>
-                  </div>
-                </div>
-
-              </div>
-            </div>
-          )}
-
-          {/* WALLET TAB */}
-          {currentTab === 'wallet' && (
-            <div className="space-y-6">
-              <h1 className="text-2xl font-black text-slate-900 tracking-tight">Wallet & Payouts</h1>
-              <div className="p-8 bg-white/90 backdrop-blur-xl border border-slate-200/80 rounded-[36px] space-y-4 shadow-xs">
-                <div className="text-xs text-slate-400 font-medium">Available Balance for Bank Payout</div>
-                <div className="text-4xl font-black text-[#063D2A] font-mono">{formatCurrency(currency === 'INR' ? totalRevenueINR : totalRevenueUSD, currency)}</div>
-                <p className="text-xs text-slate-500 leading-relaxed">Funds are locked in escrow and released to bank upon approval.</p>
-              </div>
-            </div>
-          )}
-
-        </main>
-      </div>
-
-      {/* FLOATING ACTION BUTTON */}
-      <button
-        onClick={() => { setWizardStep(1); setRequestModalOpen(true); }}
-        className="fixed bottom-24 right-6 sm:bottom-10 sm:right-10 z-40 w-14 h-14 rounded-full bg-[#063D2A] text-white flex items-center justify-center shadow-2xl shadow-[#063D2A]/40 transition hover:scale-105 active:scale-95"
-      >
-        <Plus className="w-7 h-7 text-[#94EC36]" />
-      </button>
-
-      {/* FULLSCREEN WIZARD MODAL */}
-      {requestModalOpen && (
-        <div className="fixed inset-0 z-50 bg-[#F0F5EE] flex flex-col p-4 sm:p-8 animate-in fade-in duration-200">
-          <div className="max-w-2xl w-full mx-auto bg-white border border-slate-200/80 rounded-[40px] flex-1 p-8 shadow-2xl flex flex-col justify-between overflow-y-auto">
-            
-            <div className="space-y-6">
-              <div className="flex items-start justify-between border-b border-slate-100 pb-4">
-                <div>
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest font-mono">STEP {wizardStep} OF 4</span>
-                  <h3 className="text-2xl font-black text-slate-900 tracking-tight mt-0.5">Request a payment</h3>
-                </div>
-                <button 
-                  onClick={() => setRequestModalOpen(false)} 
-                  className="w-10 h-10 rounded-full bg-[#F0F5EE] hover:bg-slate-200 flex items-center justify-center text-slate-600 transition"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                <div 
-                  className="bg-[#063D2A] h-full transition-all duration-300"
-                  style={{ width: `${(wizardStep / 4) * 100}%` }}
-                />
-              </div>
-
-              {wizardStep === 1 && (
-                <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-200">
-                  <label className="text-xs font-bold text-slate-700 block">Attach Deliverables (ZIP, Videos, Code, PDFs) *</label>
-                  <div
-                    onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-                    onDragLeave={() => setIsDragging(false)}
-                    onDrop={(e) => { e.preventDefault(); setIsDragging(false); handleFilesAdd(e.dataTransfer.files); }}
-                    className={`border-2 border-dashed rounded-3xl p-10 text-center transition-all ${
-                      isDragging ? 'border-[#063D2A] bg-emerald-50/50' : 'border-slate-200 bg-[#F0F5EE] hover:border-[#94EC36]'
-                    }`}
-                  >
-                    <UploadCloud className="w-10 h-10 text-[#063D2A] mx-auto mb-3 animate-bounce" />
-                    <span className="text-sm font-bold text-slate-800 block">Drop ZIP / Videos / Code files here</span>
-                    <label className="mt-4 inline-block px-5 py-2.5 bg-[#063D2A] text-white text-xs font-bold rounded-2xl cursor-pointer shadow-md transition hover:scale-105">
-                      Browse Files
-                      <input type="file" multiple onChange={e => handleFilesAdd(e.target.files)} className="hidden" />
-                    </label>
-                  </div>
-
-                  {fileList.length > 0 && (
-                    <div className="space-y-2 bg-[#F0F5EE] p-4 rounded-2xl border border-slate-200 max-h-40 overflow-y-auto">
-                      {fileList.map((f, i) => (
-                        <div key={i} className="flex justify-between text-xs items-center px-1">
-                          <span className="truncate max-w-[280px] font-medium text-slate-800 flex items-center gap-2">
-                            {f.type.startsWith('video/') ? <Film className="w-4 h-4 text-blue-600" /> : 
-                             f.type.startsWith('image/') ? <ImageIcon className="w-4 h-4 text-emerald-600" /> : 
-                             <File className="w-4 h-4 text-slate-600" />}
-                            {f.name}
-                          </span>
-                          <button onClick={() => removeFile(i)} className="text-slate-400 hover:text-rose-600 font-bold">✕</button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {wizardStep === 2 && (
-                <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-200">
-                  <div>
-                    <label className="text-xs font-bold text-slate-700 block mb-1.5">Client Email *</label>
-                    <input
-                      type="email"
-                      placeholder="client@company.com"
-                      value={clientEmail}
-                      onChange={e => setClientEmail(e.target.value)}
-                      className="w-full px-4 py-3.5 bg-[#F0F5EE] border border-slate-200 rounded-2xl text-xs font-medium text-slate-900 focus:outline-none focus:border-[#94EC36] transition"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-bold text-slate-700 block mb-1.5">Project Name *</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Website Redesign & Source Code"
-                      value={title}
-                      onChange={e => setTitle(e.target.value)}
-                      className="w-full px-4 py-3.5 bg-[#F0F5EE] border border-slate-200 rounded-2xl text-xs font-medium text-slate-900 focus:outline-none focus:border-[#94EC36] transition"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-bold text-slate-700 block mb-1.5">Handover Message</label>
-                    <textarea
-                      rows={3}
-                      placeholder="Final master draft attached. Unlocks upon escrow release."
-                      value={clientMessage}
-                      onChange={e => setClientMessage(e.target.value)}
-                      className="w-full px-4 py-3.5 bg-[#F0F5EE] border border-slate-200 rounded-2xl text-xs font-medium text-slate-900 focus:outline-none focus:border-[#94EC36] transition"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {wizardStep === 3 && (
-                <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-200">
-                  <div>
-                    <label className="text-xs font-bold text-slate-700 block mb-1.5">Escrow Amount *</label>
-                    <div className="flex bg-[#F0F5EE] border border-slate-200 rounded-2xl overflow-hidden focus-within:border-[#94EC36] transition">
-                      <select
-                        value={currency}
-                        onChange={e => setCurrency(e.target.value)}
-                        className="px-4 py-3.5 bg-transparent text-xs font-bold text-slate-700 focus:outline-none border-r border-slate-200 cursor-pointer"
-                      >
-                        <option value="INR">INR (₹)</option>
-                        <option value="USD">USD ($)</option>
-                      </select>
-                      <input
-                        type="number"
-                        placeholder="0.00"
-                        value={amount}
-                        onChange={e => setAmount(e.target.value)}
-                        className="w-full px-4 py-3.5 bg-transparent text-xs font-bold text-slate-900 focus:outline-none font-mono"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-bold text-slate-700 block mb-1.5">Link Expiry</label>
-                    <div className="grid grid-cols-4 gap-2 text-xs font-semibold">
-                      {['7', '14', '30', 'never'].map(opt => (
-                        <button
-                          key={opt}
-                          type="button"
-                          onClick={() => setExpirySelection(opt)}
-                          className={`py-3 rounded-2xl border transition ${
-                            expirySelection === opt ? 'bg-[#94EC36]/20 border-[#063D2A] text-[#063D2A] font-bold' : 'border-slate-200 text-slate-600'
-                          }`}
-                        >
-                          {opt === 'never' ? 'Never' : `${opt} Days`}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {wizardStep === 4 && (
-                <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-200">
-                  <div className="p-6 bg-[#F0F5EE] rounded-3xl space-y-3 text-xs font-medium border border-slate-200">
-                    <div className="flex justify-between font-extrabold text-sm text-slate-900 border-b border-slate-200 pb-3">
-                      <span>{title}</span>
-                      <span>{formatCurrency(amount, currency)}</span>
-                    </div>
-                    <div className="flex justify-between text-slate-600 pt-1">
-                      <span>Client: {clientEmail}</span>
-                      <span>{fileList.length} files attached</span>
-                    </div>
-                  </div>
-
-                  <div className="p-4 bg-[#94EC36]/15 border border-[#94EC36]/30 rounded-2xl flex items-start gap-3">
-                    <ShieldCheck className="w-5 h-5 text-[#063D2A] shrink-0 mt-0.5" />
-                    <p className="text-xs text-[#063D2A] leading-relaxed font-semibold">
-                      Client deposits funds in escrow to unlock master deliverables.
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="pt-6 border-t border-slate-100">
-              {wizardStep === 1 && (
-                <button
-                  disabled={fileList.length === 0}
-                  onClick={() => setWizardStep(2)}
-                  className="w-full py-4 bg-[#063D2A] hover:bg-[#094E36] disabled:opacity-40 text-white font-bold text-xs rounded-2xl shadow-lg transition active:scale-95 flex items-center justify-center gap-2"
-                >
-                  <span>Next: Project Details</span>
-                  <ArrowRight className="w-4 h-4 text-[#94EC36]" />
-                </button>
-              )}
-
-              {wizardStep === 2 && (
-                <div className="flex gap-3">
-                  <button onClick={() => setWizardStep(1)} className="w-1/3 py-4 border border-slate-200 text-slate-600 font-bold text-xs rounded-2xl">Back</button>
-                  <button
-                    disabled={!clientEmail || !title}
-                    onClick={() => setWizardStep(3)}
-                    className="w-2/3 py-4 bg-[#063D2A] hover:bg-[#094E36] disabled:opacity-40 text-white font-bold text-xs rounded-2xl shadow-lg transition flex items-center justify-center gap-2"
-                  >
-                    <span>Next: Pricing</span>
-                    <ArrowRight className="w-4 h-4 text-[#94EC36]" />
-                  </button>
-                </div>
-              )}
-
-              {wizardStep === 3 && (
-                <div className="flex gap-3">
-                  <button onClick={() => setWizardStep(2)} className="w-1/3 py-4 border border-slate-200 text-slate-600 font-bold text-xs rounded-2xl">Back</button>
-                  <button
-                    disabled={!amount}
-                    onClick={() => setWizardStep(4)}
-                    className="w-2/3 py-4 bg-[#063D2A] hover:bg-[#094E36] disabled:opacity-40 text-white font-bold text-xs rounded-2xl shadow-lg transition flex items-center justify-center gap-2"
-                  >
-                    <span>Review & Deploy</span>
-                    <ArrowRight className="w-4 h-4 text-[#94EC36]" />
-                  </button>
-                </div>
-              )}
-
-              {wizardStep === 4 && (
-                uploading ? (
-                  <div className="p-4 bg-[#063D2A] text-white rounded-2xl space-y-2">
-                    <div className="flex items-center justify-between text-xs font-semibold">
-                      <span>Uploading & Deploying Vault...</span>
-                      <span>{uploadProgress}%</span>
-                    </div>
-                    <div className="w-full h-1.5 bg-[#08422E] rounded-full overflow-hidden">
-                      <div className="h-full bg-[#94EC36] transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex gap-3">
-                    <button onClick={() => setWizardStep(3)} className="w-1/3 py-4 border border-slate-200 text-slate-600 font-bold text-xs rounded-2xl">Back</button>
-                    <button
-                      onClick={handleDeployVault}
-                      className="w-2/3 py-4 bg-[#063D2A] hover:bg-[#094E36] text-white font-bold text-xs rounded-2xl shadow-lg transition active:scale-95 flex items-center justify-center gap-2"
-                    >
-                      <Lock className="w-4 h-4 text-[#94EC36]" />
-                      <span>Create secure payment</span>
-                    </button>
-                  </div>
-                )
-              )}
-            </div>
-
-          </div>
-        </div>
-      )}
-
-      {/* AI DRAWER */}
-      {aiDrawerOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex justify-end animate-in fade-in duration-200">
-          <div className="w-80 bg-white h-full p-6 shadow-2xl flex flex-col justify-between animate-in slide-in-from-right duration-200">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <div className="flex items-center gap-2">
-                  <Bot className="w-5 h-5 text-[#063D2A]" />
-                  <span className="font-bold text-sm text-slate-900">AI Escrow Assistant</span>
-                </div>
-                <button onClick={() => setAiDrawerOpen(false)} className="text-slate-400 hover:text-slate-700">✕</button>
-              </div>
-
-              <div className="p-4 bg-[#F0F5EE] rounded-2xl text-xs space-y-2">
-                <div className="font-bold text-[#063D2A]">💡 Quick Insights</div>
-                <p className="text-slate-600 leading-relaxed">
-                  You have {paidDeliveries.length} cleared payouts totaling {formatCurrency(currency === 'INR' ? totalRevenueINR : totalRevenueUSD, currency)}.
-                </p>
-              </div>
-            </div>
-
-            <button onClick={() => setAiDrawerOpen(false)} className="w-full py-3 bg-[#063D2A] text-white font-bold text-xs rounded-2xl">
-              Close Assistant
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* PROFILE DRAWER */}
-      {profileDrawerOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex justify-end animate-in fade-in duration-200">
-          <div className="w-80 bg-white h-full p-6 shadow-2xl flex flex-col justify-between animate-in slide-in-from-right duration-200">
-            <div className="space-y-6">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <span className="font-bold text-sm text-slate-900">Account Settings</span>
-                <button onClick={() => setProfileDrawerOpen(false)} className="text-slate-400 hover:text-slate-700">✕</button>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-[#FFD6A5] text-[#063D2A] font-bold flex items-center justify-center text-sm border border-white shadow-xs">
-                  {user.displayName ? user.displayName.slice(0, 2).toUpperCase() : 'AN'}
-                </div>
-                <div>
-                  <div className="font-bold text-xs text-slate-900">{user.displayName || 'Ankit'}</div>
-                  <div className="text-[10px] text-slate-400">{user.email}</div>
-                </div>
-              </div>
-
-              <div className="space-y-2 text-xs font-semibold text-slate-700">
-                <button onClick={() => showToast("Payout settings updated", "success")} className="w-full text-left p-3 bg-[#F0F5EE] rounded-xl flex items-center gap-2">
-                  <Wallet className="w-4 h-4 text-[#063D2A]" /> Bank & UPI Details
-                </button>
-                <button onClick={handleLogout} className="w-full text-left p-3 bg-rose-50 text-rose-600 rounded-xl flex items-center gap-2 font-bold">
-                  Sign Out
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MOBILE BOTTOM NAV */}
-      <div className="fixed bottom-0 left-0 right-0 z-30 lg:hidden bg-white/95 backdrop-blur-md border-t border-slate-200 px-6 py-3 flex items-center justify-between">
-        <button
-          onClick={() => setCurrentTab('home')}
-          className={`flex flex-col items-center gap-1 transition ${
-            currentTab === 'home' ? 'text-[#063D2A] font-extrabold' : 'text-slate-400'
-          }`}
-        >
-          <Home className="w-5 h-5" />
-          <span className="text-[10px]">Home</span>
-        </button>
-
-        <button
-          onClick={() => setCurrentTab('projects')}
-          className={`flex flex-col items-center gap-1 transition ${
-            currentTab === 'projects' ? 'text-[#063D2A] font-extrabold' : 'text-slate-400'
-          }`}
-        >
-          <Briefcase className="w-5 h-5" />
-          <span className="text-[10px]">Projects</span>
-        </button>
-
-        <button
-          onClick={() => setCurrentTab('revisions')}
-          className={`flex flex-col items-center gap-1 transition relative ${
-            currentTab === 'revisions' || currentTab === 'chat-thread' ? 'text-[#063D2A] font-extrabold' : 'text-slate-400'
-          }`}
-        >
-          <MessageSquare className="w-5 h-5" />
-          <span className="text-[10px]">Revisions</span>
-          {unreadRevisions.length > 0 && (
-            <span className="absolute top-0 right-3 w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-          )}
-        </button>
-
-        <button
-          onClick={() => setCurrentTab('wallet')}
-          className={`flex flex-col items-center gap-1 transition ${
-            currentTab === 'wallet' ? 'text-[#063D2A] font-extrabold' : 'text-slate-400'
-          }`}
-        >
-          <Wallet className="w-5 h-5" />
-          <span className="text-[10px]">Wallet</span>
-        </button>
-      </div>
-
+  const logout = async () => { try { await signOut(auth) } catch (error) { console.error(error); notify('Sign out failed.', 'error') } }
+  const openWizard = () => { setStep(1); setWizardOpen(true) }
+
+  const navItems = [
+    { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+    { id: 'projects', label: 'Projects', icon: BriefcaseBusiness, count: deliveries.length },
+    { id: 'revisions', label: 'Client messages', icon: MessageSquare, count: unread.length },
+    { id: 'wallet', label: 'Wallet & payouts', icon: Wallet },
+  ]
+
+  if (authLoading) return <div className="flex min-h-screen items-center justify-center bg-[#F4F7F2] text-sm font-semibold text-slate-500"><div className="mr-3 h-5 w-5 animate-spin rounded-full border-2 border-[#063D2A] border-t-transparent"/>Securing your workspace…</div>
+  if (!user) return <div className="flex min-h-screen items-center justify-center bg-[#F4F7F2] p-6"><div className="w-full max-w-md rounded-[32px] border border-slate-200 bg-white p-8 text-center shadow-xl"><div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#94EC36] text-2xl font-black text-[#063D2A]">P</div><h1 className="mt-5 text-2xl font-black tracking-tight text-slate-950">Your studio is waiting</h1><p className="mt-2 text-sm leading-6 text-slate-500">Sign in to manage your projects, client handovers and payment requests.</p><Link href="/login" className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#063D2A] px-5 py-3.5 text-sm font-bold text-white transition hover:bg-[#09523A]">Continue to login <ArrowRight size={16}/></Link></div></div>
+
+  const firstName = user.displayName?.split(' ')[0] || user.email?.split('@')[0] || 'Creator'
+  const chartMax = Math.max(...monthly.map(item => item.value), 1)
+  const points = monthly.map((item, index) => ({ ...item, x: 12 + index * 75, y: 98 - (item.value / chartMax) * 70 }))
+  const chartLine = points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ')
+  const chartArea = `${chartLine} L ${points[points.length - 1]?.x || 387} 112 L 12 112 Z`
+
+  return <div className="min-h-screen bg-[#F4F7F2] text-slate-900 antialiased selection:bg-[#94EC36] selection:text-[#063D2A]">
+    {toast && <div className="fixed left-1/2 top-4 z-[100] w-[calc(100%-2rem)] max-w-md -translate-x-1/2"><div className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-semibold shadow-xl ${toast.type === 'error' ? 'border-rose-200 bg-white text-rose-700' : 'border-emerald-100 bg-[#063D2A] text-white'}`}><span className={`flex h-7 w-7 items-center justify-center rounded-full ${toast.type === 'error' ? 'bg-rose-50' : 'bg-white/10'}`}>{toast.type === 'error' ? <CircleHelp size={15}/> : <Check size={15} className="text-[#94EC36]"/>}</span><span className="min-w-0 flex-1 break-words">{toast.message}</span><button onClick={() => setToast(null)} aria-label="Dismiss notification"><X size={16}/></button></div></div>}
+
+    {mobileMenuOpen && <button aria-label="Close navigation overlay" className="fixed inset-0 z-40 bg-slate-950/30 lg:hidden" onClick={() => setMobileMenuOpen(false)}/>}
+    <aside className={`fixed inset-y-0 left-0 z-50 flex w-[276px] flex-col border-r border-slate-200/80 bg-white px-5 py-6 transition-transform duration-200 lg:translate-x-0 ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <div className="flex items-center justify-between px-1"><button onClick={() => { setTab('overview'); setMobileMenuOpen(false) }} className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#94EC36] text-xl font-black text-[#063D2A] shadow-sm">P</span><span className="text-[25px] font-black tracking-[-1.3px] text-slate-950">paydrop<span className="text-[#80C92D]">.</span></span></button><button className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 lg:hidden" onClick={() => setMobileMenuOpen(false)} aria-label="Close menu"><X size={19}/></button></div>
+      <div className="mt-9 rounded-2xl border border-[#DDEBD7] bg-[#F4F8F1] p-3.5"><div className="flex items-center gap-2 text-xs font-bold text-[#063D2A]"><ShieldCheck size={16}/><span>Creator workspace</span><span className="ml-auto h-2 w-2 rounded-full bg-emerald-500"/></div><p className="mt-1.5 pl-6 text-[11px] text-slate-500">Your files. Your clients. One place.</p></div>
+      <p className="mb-3 mt-8 px-3 text-[10px] font-extrabold uppercase tracking-[.18em] text-slate-400">Workspace</p>
+      <nav className="space-y-1">{navItems.map(item => { const Icon = item.icon; const selected = tab === item.id || (tab === 'chat' && item.id === 'revisions'); return <button key={item.id} onClick={() => { setTab(item.id); setMobileMenuOpen(false); setActiveChat(null) }} className={`flex w-full items-center gap-3 rounded-2xl px-3.5 py-3 text-left text-[13px] font-semibold transition ${selected ? 'bg-[#063D2A] text-white shadow-lg shadow-[#063D2A]/10' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950'}`}><Icon size={18} className={selected ? 'text-[#94EC36]' : 'text-slate-400'}/><span className="flex-1">{item.label}</span>{item.count > 0 && <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${selected ? 'bg-white/15 text-white' : 'bg-slate-100 text-slate-600'}`}>{item.count}</span>}</button> })}</nav>
+      <div className="mt-8 border-t border-slate-100 pt-6"><p className="px-3 text-[10px] font-extrabold uppercase tracking-[.18em] text-slate-400">Quick actions</p><button onClick={() => { openWizard(); setMobileMenuOpen(false) }} className="mt-3 flex w-full items-center gap-3 rounded-2xl border border-dashed border-slate-300 px-3.5 py-3 text-left text-[13px] font-semibold text-slate-700 transition hover:border-[#94EC36] hover:bg-lime-50"><span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#94EC36] text-[#063D2A]"><Plus size={17}/></span><span>New payment request</span></button><button onClick={() => { setAssistantOpen(true); setMobileMenuOpen(false) }} className="mt-2 flex w-full items-center gap-3 rounded-2xl px-3.5 py-3 text-left text-[13px] font-semibold text-slate-600 transition hover:bg-slate-100"><span className="flex h-8 w-8 items-center justify-center rounded-xl bg-violet-50 text-violet-700"><Sparkles size={16}/></span><span>Studio insights</span><ChevronRight size={15} className="ml-auto text-slate-400"/></button></div>
+      <div className="mt-auto border-t border-slate-100 pt-4"><button onClick={() => setProfileOpen(true)} className="flex w-full items-center gap-3 rounded-2xl p-2 text-left transition hover:bg-slate-50"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#FFE0B9] text-xs font-black text-[#063D2A]">{initials(user.displayName || user.email)}</span><span className="min-w-0 flex-1"><span className="block truncate text-xs font-bold text-slate-900">{user.displayName || firstName}</span><span className="mt-0.5 block truncate text-[10px] text-slate-400">{user.email}</span></span><MoreHorizontal size={18} className="text-slate-400"/></button></div>
+    </aside>
+
+    <div className="min-h-screen lg:pl-[276px]">
+      <header className="sticky top-0 z-30 border-b border-slate-200/70 bg-[#F4F7F2]/90 backdrop-blur-xl"><div className="mx-auto flex max-w-[1500px] items-center justify-between gap-3 px-4 py-4 sm:px-7 lg:px-9"><div className="flex min-w-0 items-center gap-3"><button onClick={() => setMobileMenuOpen(true)} className="rounded-xl border border-slate-200 bg-white p-2.5 text-slate-700 lg:hidden" aria-label="Open navigation"><Menu size={19}/></button><div className="min-w-0"><div className="hidden items-center gap-2 text-[10px] font-bold uppercase tracking-[.16em] text-slate-400 sm:flex"><span>PayDrop Studio</span><ChevronRight size={12}/><span className="text-slate-500">{navItems.find(item => item.id === tab)?.label || (tab === 'chat' ? 'Client messages' : 'Overview')}</span></div><h1 className="mt-0.5 truncate text-lg font-black tracking-tight text-slate-950 sm:text-xl">{tab === 'overview' ? `Welcome back, ${firstName}` : tab === 'projects' ? 'Your projects' : tab === 'revisions' || tab === 'chat' ? 'Client messages' : 'Wallet & payouts'}</h1></div></div><div className="flex shrink-0 items-center gap-2 sm:gap-3"><span className="hidden items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-2 text-[11px] font-semibold text-slate-600 sm:flex"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500"/> Workspace active</span><button onClick={() => setAssistantOpen(true)} aria-label="Open studio insights" className="flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 transition hover:border-lime-300 hover:text-[#063D2A]"><Sparkles size={17}/></button><button onClick={() => setProfileOpen(true)} aria-label="Open profile" className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#FFE0B9] text-xs font-black text-[#063D2A] ring-2 ring-white">{initials(user.displayName || user.email)}</button></div></div></header>
+
+      <main className="mx-auto max-w-[1500px] space-y-6 px-4 pb-28 pt-6 sm:px-7 sm:pt-8 lg:px-9 lg:pb-10">
+        {tab === 'overview' && <>
+          <section className="relative overflow-hidden rounded-[30px] bg-[#063D2A] p-6 text-white shadow-xl shadow-[#063D2A]/10 sm:rounded-[34px] sm:p-8 lg:p-9"><div className="pointer-events-none absolute -right-12 -top-24 h-72 w-72 rounded-full bg-[#1D6748]/60 blur-3xl"/><div className="pointer-events-none absolute bottom-[-120px] right-[22%] h-64 w-64 rounded-full bg-[#94EC36]/10 blur-3xl"/><div className="relative grid gap-8 lg:grid-cols-[1.25fr_.75fr] lg:items-end"><div><div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-emerald-100"><Activity size={13} className="text-[#94EC36]"/> Your creator business, at a glance</div><div className="mt-7 flex flex-wrap items-center gap-3"><p className="text-sm font-medium text-emerald-100/80">Settled earnings</p><button onClick={() => setBalanceVisible(!balanceVisible)} className="rounded-lg p-1.5 text-emerald-100 transition hover:bg-white/10" aria-label={balanceVisible ? 'Hide balance' : 'Show balance'}>{balanceVisible ? <Eye size={16}/> : <EyeOff size={16}/>}</button><select value={currency} onChange={event => setCurrency(event.target.value)} className="rounded-xl border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-bold text-white outline-none [&>option]:text-slate-900"><option value="INR">INR ₹</option><option value="USD">USD $</option></select></div><p className="mt-1 text-4xl font-black tracking-[-1.8px] sm:text-5xl lg:text-6xl">{balanceVisible ? formatCurrency(totalRevenue, currency) : '••••••••'}</p><p className="mt-3 max-w-md text-xs leading-5 text-emerald-100/65">Creator payouts from projects currently marked as paid in your workspace.</p><div className="mt-7 flex flex-wrap gap-3"><button onClick={openWizard} className="inline-flex items-center gap-2 rounded-2xl bg-[#94EC36] px-5 py-3 text-xs font-extrabold text-[#063D2A] shadow-lg shadow-black/10 transition hover:bg-[#A8F35C]"><Plus size={16}/> Request payment</button><button onClick={() => setTab('projects')} className="inline-flex items-center gap-2 rounded-2xl border border-white/20 bg-white/10 px-5 py-3 text-xs font-bold text-white transition hover:bg-white/15">View projects <ArrowUpRight size={15}/></button></div></div><div className="rounded-3xl border border-white/10 bg-white/[.07] p-5 backdrop-blur-sm sm:p-6"><div className="flex items-center justify-between"><div><p className="text-xs font-semibold text-emerald-100/75">Revenue activity</p><p className="mt-1 text-sm font-bold">Last 6 months</p></div><span className="rounded-xl bg-[#94EC36]/15 p-2 text-[#94EC36]"><Activity size={18}/></span></div><div className="mt-5 h-32 w-full"><svg viewBox="0 0 400 120" preserveAspectRatio="none" className="h-full w-full overflow-visible"><defs><linearGradient id="paydropRevenueFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#94EC36" stopOpacity=".32"/><stop offset="100%" stopColor="#94EC36" stopOpacity="0"/></linearGradient></defs>{[25,55,85].map(y => <line key={y} x1="0" x2="400" y1={y} y2={y} stroke="white" strokeOpacity=".12" strokeDasharray="4 6"/>)}<path d={chartArea} fill="url(#paydropRevenueFill)"/><path d={chartLine} fill="none" stroke="#94EC36" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>{points.map((point, index) => <circle key={point.label + index} cx={point.x} cy={point.y} r="3.5" fill="#063D2A" stroke="#94EC36" strokeWidth="2"/> )}</svg></div><div className="mt-3 flex justify-between text-[10px] font-semibold text-emerald-100/55">{monthly.map(item => <span key={item.label}>{item.label}</span>)}</div><div className="mt-4 flex items-center justify-between border-t border-white/10 pt-4"><span className="text-[11px] text-emerald-100/70">Total project value</span><span className="text-sm font-extrabold">{balanceVisible ? formatCurrency(totalGross, currency) : '••••••'}</span></div></div></div></section>
+
+          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><MiniStat icon={Wallet} label="Settled earnings" value={formatCurrency(totalRevenue, currency)} note={`${paid.length} project${paid.length === 1 ? '' : 's'} marked paid`} tone="green"/><MiniStat icon={Clock3} label="Awaiting payment" value={formatCurrency(pendingValue, currency)} note={`${pending.length} open project${pending.length === 1 ? '' : 's'}`} tone="amber"/><MiniStat icon={BriefcaseBusiness} label="Total projects" value={deliveries.length.toLocaleString()} note="Across your workspace" tone="blue"/><MiniStat icon={MessageCircle} label="Client replies" value={unread.length.toLocaleString()} note={unread.length ? 'Needs your attention' : 'You are all caught up'} tone="lime"/></section>
+
+          <section className="grid gap-6 xl:grid-cols-[1.45fr_.75fr]"><div className="rounded-[30px] border border-slate-200/80 bg-white p-5 shadow-sm sm:p-7"><div className="flex items-start justify-between gap-3"><div><h2 className="text-base font-black tracking-tight">Recent projects</h2><p className="mt-1 text-xs text-slate-500">Keep an eye on your latest client handovers.</p></div><button onClick={() => setTab('projects')} className="inline-flex shrink-0 items-center gap-1 text-xs font-bold text-[#063D2A] hover:underline">All projects <ArrowRight size={14}/></button></div><div className="mt-5 space-y-2">{dataLoading ? <div className="py-12 text-center text-sm text-slate-400">Loading your projects…</div> : deliveries.length === 0 ? <EmptyState title="Your first project starts here" body="Create a payment request, attach your deliverables and send your client a secure portal link." action="Create payment request" onAction={openWizard}/> : deliveries.slice(0, 5).map(item => <ProjectRow key={item.id} item={item} currency={currency} onCopy={copyPortal} onShare={shareProject} onDelete={removeProject} compact/>)}</div></div>
+          <div className="space-y-6"><div className="rounded-[30px] border border-slate-200/80 bg-white p-5 shadow-sm sm:p-6"><div className="flex items-center justify-between"><div><h2 className="text-base font-black tracking-tight">Workspace pulse</h2><p className="mt-1 text-xs text-slate-500">Your current project mix.</p></div><span className="rounded-xl bg-[#F0F6EC] p-2 text-[#063D2A]"><Activity size={17}/></span></div><div className="mt-6 space-y-5"><ProgressRow label="Paid projects" value={paid.length} total={deliveries.length} color="bg-[#063D2A]"/><ProgressRow label="Awaiting payment" value={pending.length} total={deliveries.length} color="bg-[#94EC36]"/></div><div className="mt-6 rounded-2xl bg-[#F4F7F2] p-4"><p className="text-xs font-bold text-slate-800">A helpful reminder</p><p className="mt-1.5 text-xs leading-5 text-slate-500">Share each client portal after creating a request, and keep project status up to date as payments are verified.</p></div></div><div className="rounded-[30px] bg-[#E8F3E1] p-5 sm:p-6"><div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-[#063D2A]"><ShieldCheck size={20}/></div><h2 className="mt-4 text-base font-black tracking-tight text-[#063D2A]">A smoother handover</h2><p className="mt-2 text-xs leading-5 text-[#315A43]">Keep files, client feedback and payment requests connected to the same project record.</p><button onClick={() => setTab('revisions')} className="mt-4 inline-flex items-center gap-2 text-xs font-extrabold text-[#063D2A]">Check client messages <ArrowRight size={14}/></button></div></div></section>
+        </>}
+
+        {tab === 'projects' && <section className="space-y-5"><div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><p className="text-xs font-semibold text-slate-500">Your work, organized</p><h2 className="mt-1 text-2xl font-black tracking-tight">All projects <span className="ml-1 text-base font-bold text-slate-400">{deliveries.length}</span></h2><p className="mt-2 text-sm text-slate-500">Manage requests, share client portals and follow each status.</p></div><button onClick={openWizard} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#063D2A] px-5 py-3 text-xs font-extrabold text-white transition hover:bg-[#09523A]"><Plus size={16} className="text-[#94EC36]"/> New project</button></div><div className="flex flex-col gap-3 rounded-3xl border border-slate-200/80 bg-white p-3 sm:flex-row sm:items-center sm:p-4"><div className="relative flex-1"><Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"/><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search project, client or email…" className="w-full rounded-2xl bg-[#F4F7F2] py-3 pl-10 pr-4 text-sm outline-none ring-[#94EC36] placeholder:text-slate-400 focus:ring-2"/></div><div className="px-2 text-xs font-semibold text-slate-500">{filtered.length} result{filtered.length === 1 ? '' : 's'}</div></div><div className="space-y-3">{dataLoading ? <div className="rounded-3xl bg-white p-12 text-center text-sm text-slate-400">Loading projects…</div> : filtered.length === 0 ? <EmptyState title={search ? 'No matching projects' : 'No projects yet'} body={search ? 'Try a different name or email address.' : 'Create your first payment request to get started.'} action={search ? 'Clear search' : 'Create a project'} onAction={() => search ? setSearch('') : openWizard}/> : filtered.map(item => <ProjectRow key={item.id} item={item} currency={currency} onCopy={copyPortal} onShare={shareProject} onDelete={removeProject}/>)}</div></section>}
+
+        {tab === 'revisions' && <section className="space-y-5"><div><p className="text-xs font-semibold text-slate-500">Stay in sync with your clients</p><h2 className="mt-1 text-2xl font-black tracking-tight">Client messages</h2><p className="mt-2 text-sm text-slate-500">Revision requests and conversations attached to each project.</p></div>{deliveries.length === 0 ? <EmptyState title="No conversations yet" body="When clients leave revision notes, they will show up here."/> : <div className="space-y-3">{deliveries.map(item => { const messages = item.messages || []; const last = messages[messages.length - 1]; const isUnread = last?.sender === 'client'; return <div key={item.id} className={`rounded-3xl border bg-white p-5 shadow-sm sm:p-6 ${isUnread ? 'border-rose-200' : 'border-slate-200/80'}`}><div className="flex items-start gap-3"><div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#EAF3E5] text-xs font-black text-[#063D2A]">{initials(item.clientName)}</div><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h3 className="text-sm font-extrabold text-slate-900">{item.clientName || 'Client'}</h3>{isUnread && <span className="rounded-full bg-rose-50 px-2 py-1 text-[9px] font-extrabold uppercase tracking-wide text-rose-600">New reply</span>}</div><p className="mt-1 truncate text-xs font-semibold text-slate-500">{item.title}</p><p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-600">{last?.text || 'No messages yet. Open the conversation to start a discussion.'}</p><div className="mt-4 flex flex-wrap items-center gap-3"><button onClick={() => { setActiveChat(item); setTab('chat') }} className="inline-flex items-center gap-2 rounded-xl bg-[#063D2A] px-4 py-2.5 text-xs font-bold text-white"><MessageCircle size={14}/> Open conversation</button><span className="text-[11px] text-slate-400">{messages.length} message{messages.length === 1 ? '' : 's'}</span></div></div></div></div> })}</div>}</section>}
+
+        {tab === 'chat' && activeChat && <section className="mx-auto flex min-h-[65vh] max-w-4xl flex-col overflow-hidden rounded-[30px] border border-slate-200/80 bg-white shadow-sm"><div className="flex items-center gap-3 border-b border-slate-100 p-4 sm:p-6"><button onClick={() => setTab('revisions')} className="rounded-xl bg-[#F4F7F2] p-2.5 text-slate-600 hover:bg-slate-100" aria-label="Back to messages"><ArrowLeft size={17}/></button><div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#EAF3E5] text-xs font-black text-[#063D2A]">{initials(activeChat.clientName)}</div><div className="min-w-0 flex-1"><h2 className="truncate text-sm font-black">{activeChat.clientName || 'Client'}</h2><p className="truncate text-xs text-slate-500">{activeChat.title}</p></div><Link href={`/d/${activeChat.id}`} target="_blank" className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700">Portal <ExternalLink size={13}/></Link></div><div className="flex-1 space-y-4 bg-[#F7F9F5] p-4 sm:p-6">{(activeChat.messages || []).length === 0 ? <div className="flex min-h-48 items-center justify-center text-sm text-slate-400">Start the conversation with your client.</div> : (activeChat.messages || []).map((message, index) => <div key={`${message.time || index}-${index}`} className={`flex flex-col ${message.sender === 'creator' ? 'items-end' : 'items-start'}`}><div className={`max-w-[85%] whitespace-pre-wrap break-words rounded-2xl px-4 py-3 text-sm leading-6 sm:max-w-[70%] ${message.sender === 'creator' ? 'rounded-br-md bg-[#063D2A] text-white' : 'rounded-bl-md border border-slate-100 bg-white text-slate-700'}`}>{message.text}</div><span className="mt-1 px-1 text-[10px] text-slate-400">{message.time ? new Date(message.time).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}</span></div>)}</div><div className="border-t border-slate-100 p-4 sm:p-5"><div className="mb-3 flex gap-2 overflow-x-auto">{['I’m working on this revision.', 'I’ve uploaded the updated files.', 'Thanks for the feedback!'].map(text => <button key={text} onClick={() => setReply(text)} className="shrink-0 rounded-full bg-[#F4F7F2] px-3 py-2 text-[10px] font-semibold text-slate-600 hover:bg-lime-50">{text}</button>)}</div><form onSubmit={event => { event.preventDefault(); sendReply() }} className="flex gap-2"><input value={reply} onChange={event => setReply(event.target.value)} placeholder="Write a message…" className="min-w-0 flex-1 rounded-2xl bg-[#F4F7F2] px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-lime-300"/><button type="submit" disabled={!reply.trim()} className="flex items-center gap-2 rounded-2xl bg-[#063D2A] px-4 py-3 text-xs font-bold text-white disabled:opacity-40"><Send size={15}/><span className="hidden sm:inline">Send</span></button></form></div></section>}
+
+        {tab === 'wallet' && <section className="space-y-6"><div><p className="text-xs font-semibold text-slate-500">Earnings and payment status</p><h2 className="mt-1 text-2xl font-black tracking-tight">Wallet & payouts</h2><p className="mt-2 text-sm text-slate-500">A view of project amounts recorded in your PayDrop workspace.</p></div><div className="flex items-center justify-between gap-3 rounded-3xl border border-slate-200 bg-white p-4"><div><p className="text-xs font-semibold text-slate-500">Display currency</p><p className="mt-1 text-sm font-bold">Choose your reporting currency</p></div><select value={currency} onChange={event => setCurrency(event.target.value)} className="rounded-xl border border-slate-200 bg-[#F4F7F2] px-3 py-2.5 text-xs font-bold outline-none"><option value="INR">INR ₹</option><option value="USD">USD $</option></select></div><div className="grid gap-4 md:grid-cols-2"><div className="rounded-[30px] bg-[#063D2A] p-6 text-white sm:p-8"><div className="flex items-center justify-between"><p className="text-sm font-semibold text-emerald-100/80">Projects marked paid</p><Wallet className="text-[#94EC36]" size={20}/></div><p className="mt-5 text-3xl font-black tracking-tight">{formatCurrency(totalRevenue, currency)}</p><p className="mt-2 text-xs text-emerald-100/65">Based on recorded creator payouts (or gross amount if payout is absent).</p></div><div className="rounded-[30px] border border-slate-200 bg-white p-6 sm:p-8"><div className="flex items-center justify-between"><p className="text-sm font-semibold text-slate-500">Awaiting payment</p><Clock3 className="text-amber-600" size={20}/></div><p className="mt-5 text-3xl font-black tracking-tight text-slate-950">{formatCurrency(pendingValue, currency)}</p><p className="mt-2 text-xs leading-5 text-slate-500">Total gross value of projects not marked Paid in this currency.</p></div></div><div className="rounded-3xl border border-amber-200 bg-amber-50 p-5"><div className="flex items-start gap-3"><LockKeyhole size={19} className="mt-0.5 shrink-0 text-amber-700"/><div><h3 className="text-sm font-extrabold text-amber-900">Payout status is not bank verification</h3><p className="mt-1 text-xs leading-5 text-amber-800">This page summarizes Firestore project records. It does not hold funds, connect a bank account or trigger a payout. Connect a verified payment provider and trusted server-side webhook before representing any transfer as completed.</p></div></div></div><div className="rounded-3xl border border-slate-200 bg-white p-5 sm:p-6"><h3 className="text-sm font-black">Recent paid projects</h3><div className="mt-4 space-y-2">{paid.length ? paid.slice(0, 8).map(item => <ProjectRow key={item.id} item={item} currency={currency} onCopy={copyPortal} onShare={shareProject} onDelete={removeProject} compact/>) : <p className="py-8 text-center text-sm text-slate-400">No projects marked as paid yet.</p>}</div></div></section>}
+      </main>
     </div>
-  )
+
+    {/* Mobile quick navigation */}
+    <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-slate-200/80 bg-white/95 px-2 pb-[max(.6rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-xl lg:hidden">{navItems.map(item => { const Icon = item.icon; const selected = tab === item.id || (tab === 'chat' && item.id === 'revisions'); return <button key={item.id} onClick={() => { setTab(item.id); setActiveChat(null) }} className={`relative flex flex-col items-center gap-1 rounded-xl py-1.5 ${selected ? 'text-[#063D2A]' : 'text-slate-400'}`}><span className="relative"><Icon size={19}/>{item.id === 'revisions' && unread.length > 0 && <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white"/>}</span><span className={`text-[9px] ${selected ? 'font-extrabold' : 'font-semibold'}`}>{item.id === 'overview' ? 'Home' : item.id === 'projects' ? 'Projects' : item.id === 'revisions' ? 'Messages' : 'Wallet'}</span></button> })}</nav>
+
+    {/* Payment request wizard */}
+    {wizardOpen && <div className="fixed inset-0 z-[60] flex items-end justify-center bg-slate-950/45 p-0 backdrop-blur-sm sm:items-center sm:p-5"><div className="flex max-h-[94dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-[30px] border border-white/70 bg-white shadow-2xl sm:max-h-[90vh] sm:rounded-[32px]"><div className="flex items-start justify-between border-b border-slate-100 p-5 sm:p-7"><div><p className="text-[10px] font-extrabold uppercase tracking-[.18em] text-slate-400">Payment request · Step {step} of 4</p><h2 className="mt-1 text-xl font-black tracking-tight sm:text-2xl">Create a client handover</h2><p className="mt-1 text-xs text-slate-500">Add deliverables, client details and pricing.</p></div><button onClick={() => !uploading && setWizardOpen(false)} disabled={uploading} className="rounded-xl bg-[#F4F7F2] p-2.5 text-slate-600 disabled:opacity-40" aria-label="Close wizard"><X size={18}/></button></div><div className="h-1.5 bg-slate-100"><div className="h-full bg-[#94EC36] transition-all duration-300" style={{ width: `${step * 25}%` }}/></div><div className="flex-1 overflow-y-auto p-5 sm:p-7">
+      {step === 1 && <div className="space-y-4"><div><h3 className="text-sm font-extrabold">Upload your deliverables</h3><p className="mt-1 text-xs leading-5 text-slate-500">Add the files you intend to share with your client. Only upload files you have permission to share.</p></div><div onDragOver={event => { event.preventDefault(); setDragging(true) }} onDragLeave={() => setDragging(false)} onDrop={event => { event.preventDefault(); setDragging(false); setFiles(previous => [...previous, ...Array.from(event.dataTransfer.files)]) }} className={`rounded-3xl border-2 border-dashed p-7 text-center transition sm:p-10 ${dragging ? 'border-[#063D2A] bg-lime-50' : 'border-slate-200 bg-[#F8FAF6]'}`}><div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#E8F3E1] text-[#063D2A]"><UploadCloud size={23}/></div><p className="mt-4 text-sm font-extrabold">Drop your files here</p><p className="mt-1 text-xs text-slate-500">ZIP, images, video, PDFs and project files</p><label className="mt-4 inline-flex cursor-pointer items-center gap-2 rounded-xl bg-[#063D2A] px-4 py-2.5 text-xs font-bold text-white">Browse files<input type="file" multiple className="hidden" onChange={event => { setFiles(previous => [...previous, ...Array.from(event.target.files || [])]); event.target.value = '' }}/></label></div>{files.length > 0 && <div className="space-y-2">{files.map((file, index) => <div key={`${file.name}-${index}`} className="flex items-center gap-3 rounded-2xl border border-slate-100 p-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-50 text-slate-600">{file.type.startsWith('image/') ? <ImageIcon size={17}/> : file.type.startsWith('video/') ? <Film size={17}/> : file.name.toLowerCase().endsWith('.zip') ? <FileArchive size={17}/> : <File size={17}/>}</span><span className="min-w-0 flex-1"><span className="block truncate text-xs font-bold">{file.name}</span><span className="text-[10px] text-slate-400">{(file.size / 1024 / 1024).toFixed(2)} MB</span></span><button onClick={() => setFiles(previous => previous.filter((_, i) => i !== index))} className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600" aria-label={`Remove ${file.name}`}><X size={15}/></button></div>)}</div>}<p className="text-[11px] leading-5 text-slate-400">Note: this implementation uploads files from the browser to Cloudinary. Configure upload limits and access policies in your Cloudinary account.</p></div>}
+      {step === 2 && <div className="space-y-5"><div><label className="mb-2 block text-xs font-bold text-slate-700">Client email *</label><input type="email" required value={clientEmail} onChange={event => setClientEmail(event.target.value)} placeholder="client@company.com" className="w-full rounded-2xl border border-slate-200 bg-[#F8FAF6] px-4 py-3.5 text-sm outline-none focus:border-[#94EC36] focus:ring-2 focus:ring-lime-100"/></div><div><label className="mb-2 block text-xs font-bold text-slate-700">Client name</label><input value={clientName} onChange={event => setClientName(event.target.value)} placeholder="Their name (optional)" className="w-full rounded-2xl border border-slate-200 bg-[#F8FAF6] px-4 py-3.5 text-sm outline-none focus:border-[#94EC36] focus:ring-2 focus:ring-lime-100"/></div><div><label className="mb-2 block text-xs font-bold text-slate-700">Project name *</label><input value={title} onChange={event => setTitle(event.target.value)} placeholder="Website redesign & source code" className="w-full rounded-2xl border border-slate-200 bg-[#F8FAF6] px-4 py-3.5 text-sm outline-none focus:border-[#94EC36] focus:ring-2 focus:ring-lime-100"/></div><div><label className="mb-2 block text-xs font-bold text-slate-700">Handover message</label><textarea rows={3} value={clientMessage} onChange={event => setClientMessage(event.target.value)} placeholder="Add a note for your client…" className="w-full resize-y rounded-2xl border border-slate-200 bg-[#F8FAF6] px-4 py-3.5 text-sm outline-none focus:border-[#94EC36] focus:ring-2 focus:ring-lime-100"/></div></div>}
+      {step === 3 && <div className="space-y-5"><div><label className="mb-2 block text-xs font-bold text-slate-700">Payment request amount *</label><div className="flex overflow-hidden rounded-2xl border border-slate-200 bg-[#F8FAF6] focus-within:border-[#94EC36]"><select value={currency} onChange={event => setCurrency(event.target.value)} className="border-r border-slate-200 bg-transparent px-4 text-sm font-bold outline-none"><option value="INR">INR ₹</option><option value="USD">USD $</option></select><input type="number" min="1" step="0.01" value={amount} onChange={event => setAmount(event.target.value)} placeholder="0.00" className="min-w-0 flex-1 bg-transparent px-4 py-4 text-lg font-bold outline-none"/></div></div><div><label className="mb-2 block text-xs font-bold text-slate-700">Client portal expiry</label><div className="grid grid-cols-4 gap-2">{['7', '14', '30', 'never'].map(option => <button key={option} onClick={() => setExpiry(option)} className={`rounded-2xl border px-2 py-3 text-xs font-bold transition ${expiry === option ? 'border-[#063D2A] bg-[#EAF3E5] text-[#063D2A]' : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'}`}>{option === 'never' ? '10 years' : `${option} days`}</button>)}</div><p className="mt-2 text-[10px] leading-5 text-slate-400">“10 years” is stored as a long expiry date; this does not automatically disable access unless your client portal checks expiry.</p></div><div className="rounded-2xl bg-[#F4F7F2] p-4"><div className="flex items-center justify-between text-xs"><span className="text-slate-500">Platform fee estimate (5%)</span><span className="font-bold">{formatCurrency(Math.max(Math.round((Number(amount) || 0) * .05), 1), currency)}</span></div><p className="mt-2 text-[10px] leading-4 text-slate-400">Illustrative estimate based on the current dashboard logic, not a payment processor quote.</p></div></div>}
+      {step === 4 && <div className="space-y-4"><div className="rounded-3xl border border-slate-200 bg-[#F8FAF6] p-5"><div className="flex items-start justify-between gap-3 border-b border-slate-200 pb-4"><div className="min-w-0"><p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Project</p><h3 className="mt-1 break-words text-base font-black">{title}</h3><p className="mt-1 break-all text-xs text-slate-500">{clientEmail}</p></div><div className="shrink-0 text-right text-lg font-black">{formatCurrency(amount, currency)}</div></div><div className="mt-4 flex items-center justify-between text-xs"><span className="text-slate-500">Files attached</span><span className="font-bold">{files.length}</span></div><div className="mt-2 flex items-center justify-between text-xs"><span className="text-slate-500">Link expiry</span><span className="font-bold">{expiry === 'never' ? '10 years' : `${expiry} days`}</span></div></div><div className="flex items-start gap-3 rounded-2xl border border-lime-200 bg-lime-50 p-4"><ShieldCheck size={19} className="mt-0.5 shrink-0 text-[#063D2A]"/><p className="text-xs leading-5 text-[#315A43]">Review the details before creating the request. This creates a project record and portal link; it does not itself collect or escrow money.</p></div>{uploading && <div className="rounded-2xl bg-[#063D2A] p-4 text-white"><div className="flex justify-between text-xs font-bold"><span>Uploading files…</span><span>{progress}%</span></div><div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/15"><div className="h-full rounded-full bg-[#94EC36] transition-all" style={{ width: `${progress}%` }}/></div></div>}</div>}
+      </div><div className="flex gap-3 border-t border-slate-100 bg-white p-5 sm:p-7">{step > 1 && <button disabled={uploading} onClick={() => setStep(previous => previous - 1)} className="rounded-2xl border border-slate-200 px-5 py-3.5 text-xs font-bold text-slate-600 disabled:opacity-40">Back</button>}{step < 4 ? <button onClick={() => { if (step === 1 && !files.length) return notify('Attach at least one file to continue.', 'error'); if (step === 2 && (!title.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientEmail.trim()))) return notify('Enter a project name and valid client email.', 'error'); if (step === 3 && (!amount || Number(amount) <= 0)) return notify('Enter an amount greater than zero.', 'error'); setStep(previous => previous + 1) }} className="ml-auto inline-flex flex-1 items-center justify-center gap-2 rounded-2xl bg-[#063D2A] px-5 py-3.5 text-xs font-extrabold text-white transition hover:bg-[#09523A] sm:flex-none">Continue <ArrowRight size={15} className="text-[#94EC36]"/></button> : <button disabled={uploading} onClick={deploy} className="ml-auto inline-flex flex-1 items-center justify-center gap-2 rounded-2xl bg-[#063D2A] px-5 py-3.5 text-xs font-extrabold text-white transition hover:bg-[#09523A] disabled:opacity-50 sm:flex-none">{uploading ? <><span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"/> Uploading…</> : <><LockKeyhole size={15} className="text-[#94EC36]"/> Create request</>}</button>}</div></div></div>}
+
+    {/* Studio insights drawer */}
+    {assistantOpen && <Drawer onClose={() => setAssistantOpen(false)} title="Studio insights" icon={Sparkles}><div className="rounded-2xl bg-[#F4F7F2] p-4"><p className="text-xs font-extrabold text-[#063D2A]">Workspace summary</p><p className="mt-2 text-sm leading-6 text-slate-600">You have <strong>{deliveries.length}</strong> projects, <strong>{paid.length}</strong> marked paid and <strong>{unread.length}</strong> client message{unread.length === 1 ? '' : 's'} awaiting a response.</p></div><div className="mt-4 space-y-3">{[{ label: 'Settled earnings', value: formatCurrency(totalRevenue, currency), icon: Wallet }, { label: 'Awaiting payment', value: formatCurrency(pendingValue, currency), icon: Clock3 }, { label: 'Client messages', value: String(unread.length), icon: MessageSquare }].map(row => { const Icon = row.icon; return <div key={row.label} className="flex items-center gap-3 rounded-2xl border border-slate-100 p-3"><span className="rounded-xl bg-slate-50 p-2 text-slate-600"><Icon size={16}/></span><span className="flex-1 text-xs font-semibold text-slate-600">{row.label}</span><span className="text-sm font-black">{row.value}</span></div> })}</div><p className="mt-5 text-[11px] leading-5 text-slate-400">Insights are calculated from project records in your workspace. They are not bank balances or verified payment-provider data.</p></Drawer>}
+
+    {/* Profile drawer */}
+    {profileOpen && <Drawer onClose={() => setProfileOpen(false)} title="Account settings" icon={Settings2}><div className="flex items-center gap-3 rounded-2xl bg-[#F4F7F2] p-4"><span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FFE0B9] text-sm font-black text-[#063D2A]">{initials(user.displayName || user.email)}</span><div className="min-w-0"><p className="truncate text-sm font-extrabold">{user.displayName || firstName}</p><p className="mt-1 truncate text-xs text-slate-500">{user.email}</p><p className="mt-1 text-[10px] text-slate-400">Firebase account</p></div></div><div className="mt-5 rounded-2xl border border-slate-200 p-4"><p className="text-xs font-extrabold">Workspace preferences</p><label className="mt-4 flex items-center justify-between gap-3 text-xs font-semibold text-slate-600"><span>Default reporting currency</span><select value={currency} onChange={event => setCurrency(event.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 outline-none"><option value="INR">INR ₹</option><option value="USD">USD $</option></select></label></div><button onClick={async () => { setProfileOpen(false); await logout() }} className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-rose-50 px-4 py-3.5 text-xs font-extrabold text-rose-700 transition hover:bg-rose-100"><LogOut size={16}/> Sign out</button><p className="mt-4 text-[10px] leading-5 text-slate-400">Bank and payout setup is not connected in this dashboard yet. Add a secure provider-backed flow before collecting financial details.</p></Drawer>}
+  </div>
+}
+
+function ProjectRow({ item, currency, onCopy, onShare, onDelete, compact = false }) {
+  return <div className={`rounded-2xl border border-slate-100 transition hover:border-slate-200 hover:bg-slate-50/60 ${compact ? 'p-3' : 'p-4 sm:p-5'}`}><div className="flex items-start gap-3"><div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#EAF3E5] text-xs font-black text-[#063D2A]">{initials(item.clientName || item.title)}</div><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h3 className="max-w-full truncate text-sm font-extrabold text-slate-900">{item.title || 'Untitled project'}</h3><StatusBadge status={item.status}/></div><p className="mt-1 truncate text-xs text-slate-500">{item.clientName || 'Client'}{item.clientEmail ? ` · ${item.clientEmail}` : ''}</p><div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-medium text-slate-400"><span className="inline-flex items-center gap-1"><File size={12}/>{item.files?.length || 0} file{item.files?.length === 1 ? '' : 's'}</span><span>·</span><span>{item.createdAt?.seconds ? new Date(item.createdAt.seconds * 1000).toLocaleDateString() : 'Recently created'}</span></div></div><div className="shrink-0 text-right"><p className="text-sm font-black tracking-tight text-slate-950">{formatCurrency(item.grossAmount, item.currency || currency)}</p><p className="mt-1 text-[10px] text-slate-400">{item.status === 'Paid' ? 'Marked paid' : 'Request amount'}</p></div></div><div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3"><div className="flex flex-wrap gap-2"><button onClick={() => onCopy(item.id)} className="inline-flex items-center gap-1.5 rounded-xl bg-[#F0F6EC] px-3 py-2 text-[10px] font-bold text-[#063D2A] transition hover:bg-lime-100"><Copy size={12}/> Copy portal link</button><button onClick={() => onShare(item)} className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-[10px] font-bold text-slate-600 transition hover:bg-white"><Share2 size={12}/> Share</button><Link href={`/d/${item.id}`} target="_blank" className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-[10px] font-bold text-slate-600 transition hover:bg-white">Open portal <ExternalLink size={12}/></Link></div><button onClick={() => onDelete(item.id)} className="rounded-xl p-2 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600" aria-label={`Delete ${item.title || 'project'}`} title="Delete project"><Trash2 size={15}/></button></div></div>
+}
+
+function ProgressRow({ label, value, total, color }) {
+  const percentage = total ? Math.round((value / total) * 100) : 0
+  return <div><div className="mb-2 flex items-center justify-between gap-3 text-xs"><span className="font-semibold text-slate-600">{label}</span><span className="font-extrabold text-slate-900">{value} <span className="font-medium text-slate-400">/ {total}</span></span></div><div className="h-2 overflow-hidden rounded-full bg-slate-100"><div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${percentage}%` }}/></div></div>
+}
+
+function EmptyState({ title, body, action, onAction }) {
+  return <div className="rounded-3xl border border-dashed border-slate-200 bg-white px-6 py-12 text-center"><div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#EAF3E5] text-[#063D2A]"><BriefcaseBusiness size={21}/></div><h3 className="mt-4 text-sm font-black text-slate-900">{title}</h3><p className="mx-auto mt-2 max-w-sm text-xs leading-5 text-slate-500">{body}</p>{action && onAction && <button onClick={onAction} className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#063D2A] px-4 py-2.5 text-xs font-bold text-white">{action}<ArrowRight size={14}/></button>}</div>
+}
+
+function Drawer({ onClose, title, icon: Icon, children }) {
+  return <div className="fixed inset-0 z-[70] flex justify-end bg-slate-950/35 backdrop-blur-sm" onMouseDown={event => { if (event.target === event.currentTarget) onClose() }}><aside className="flex h-full w-full max-w-sm flex-col overflow-y-auto bg-white p-5 shadow-2xl sm:p-6"><div className="flex items-center justify-between border-b border-slate-100 pb-4"><div className="flex items-center gap-2.5"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#EAF3E5] text-[#063D2A]"><Icon size={18}/></span><h2 className="text-sm font-black">{title}</h2></div><button onClick={onClose} className="rounded-xl p-2 text-slate-400 hover:bg-slate-100" aria-label="Close drawer"><X size={18}/></button></div><div className="flex-1 py-5">{children}</div><div className="border-t border-slate-100 pt-4"><p className="text-center text-[10px] font-semibold text-slate-400">PayDrop · Creator workspace</p></div></aside></div>
 }
