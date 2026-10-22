@@ -679,6 +679,7 @@ export default function Dashboard() {
         @supports (backdrop-filter: blur(12px)) { .paydrop-shell .pd-glass { background: rgba(255,255,255,.76); backdrop-filter: blur(16px) saturate(145%); } }
         @media (max-width: 640px) { .paydrop-shell { padding-bottom: env(safe-area-inset-bottom); } .paydrop-shell button { min-height: 36px; } }
       `}</style>
+
       {toast && (
         <div className="fixed left-1/2 top-4 z-[100] w-[calc(100%-2rem)] max-w-md -translate-x-1/2">
           <div className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-semibold shadow-xl ${toast.type === 'error' ? 'border-rose-200 bg-white text-rose-700' : 'border-emerald-100 bg-[#063D2A] text-white'}`}>
@@ -692,7 +693,11 @@ export default function Dashboard() {
       )}
 
       {mobileMenuOpen && (
-        <button aria-label="Close navigation overlay" className="fixed inset-0 z-40 bg-slate-950/30 lg:hidden" onClick={() => setMobileMenuOpen(false)}/>
+        <div 
+          aria-label="Close navigation overlay" 
+          className="fixed inset-0 z-40 bg-slate-950/30 lg:hidden cursor-pointer" 
+          onClick={() => setMobileMenuOpen(false)}
+        />
       )}
 
       <aside className={`fixed inset-y-0 left-0 z-50 flex w-[276px] flex-col border-r border-slate-200/80 bg-white px-5 py-6 transition-transform duration-200 lg:translate-x-0 ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
@@ -982,7 +987,6 @@ export default function Dashboard() {
         </main>
       </div>
 
-      {/* Mobile quick navigation */}
       <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-slate-200/80 bg-white/95 px-2 pb-[max(.6rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-xl lg:hidden">
         {navItems.map(item => {
           const Icon = item.icon
@@ -1008,7 +1012,6 @@ export default function Dashboard() {
         })}
       </nav>
 
-      {/* Payment request wizard */}
       {wizardOpen && (
         <div className="fixed inset-0 z-[60] flex items-end justify-center bg-slate-950/45 p-0 backdrop-blur-sm sm:items-center sm:p-5">
           <div className="flex max-h-[94dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-[30px] border border-white/70 bg-white shadow-2xl sm:max-h-[90vh] sm:rounded-[32px]">
@@ -1305,7 +1308,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Studio insights drawer */}
       {assistantOpen && (
         <Drawer onClose={() => setAssistantOpen(false)} title="Studio insights" icon={Sparkles}>
           <div className="rounded-2xl bg-[#F4F7F2] p-4">
@@ -1336,7 +1338,6 @@ export default function Dashboard() {
         </Drawer>
       )}
 
-      {/* Profile drawer */}
       {profileOpen && (
         <Drawer onClose={() => setProfileOpen(false)} title="Account settings" icon={Settings2}>
           <div className="flex items-center gap-3 rounded-2xl bg-[#F4F7F2] p-4">
