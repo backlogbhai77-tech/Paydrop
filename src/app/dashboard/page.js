@@ -24,6 +24,12 @@ const CLOUDINARY_CLOUD_NAME =
 const CLOUDINARY_UPLOAD_PRESET =
   process.env.NEXT_PUBLIC_CLOUDINARY_PRESET || 'releasedrop_vault'
 
+function haptic(pattern = 8) {
+  if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+    try { navigator.vibrate(pattern) } catch {}
+  }
+}
+
 function formatCurrency(value, currency = 'INR') {
   const amount = Number(value) || 0
 
@@ -89,7 +95,7 @@ function MiniStat({ icon: Icon, label, value, note, tone = 'green' }) {
   }
 
   return (
-    <div className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-sm sm:p-6">
+    <div className="rounded-3xl border border-white/80 bg-white/85 p-5 shadow-[0_8px_30px_rgba(6,61,42,.045)] backdrop-blur-xl sm:p-6">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs font-semibold text-slate-500">{label}</p>
@@ -309,7 +315,7 @@ export default function Dashboard() {
     })
   }, [paid, currency])
 
-  const uploadFile = file =>
+  const uploadFile = (file, fileIndex = 0, fileCount = 1) =>
     new Promise((resolve, reject) => {
       const form = new FormData()
       form.append('file', file)
@@ -324,9 +330,14 @@ export default function Dashboard() {
 
       xhr.upload.onprogress = event => {
         if (event.lengthComputable) {
-          setProgress(Math.round((event.loaded / event.total) * 95))
+          const overall = ((fileIndex + event.loaded / event.total) / fileCount) * 95
+          setProgress(Math.min(95, Math.round(overall)))
         }
       }
+
+      xhr.timeout = 180000
+      xhr.ontimeout = () => reject(new Error(`Upload timed out for ${file.name}. Check your connection and retry.`))
+      xhr.onabort = () => reject(new Error(`Upload cancelled for ${file.name}.`))
 
       xhr.onload = () => {
         try {
@@ -364,7 +375,7 @@ export default function Dashboard() {
       }
 
       xhr.onerror = () =>
-        reject(new Error('Network connection interrupted during upload'))
+        reject(new Error(`Network connection interrupted while uploading ${file.name}.`))
 
       xhr.send(form)
     })
@@ -385,15 +396,23 @@ export default function Dashboard() {
       return
     }
 
+    const MAX_FILE_BYTES = 100 * 1024 * 1024
+    const oversized = files.find(file => file.size > MAX_FILE_BYTES)
+    if (oversized) {
+      notify(`${oversized.name} exceeds the 100 MB per-file limit.`, 'error')
+      haptic([30, 40, 30])
+      return
+    }
+
     setUploading(true)
     setProgress(0)
+    haptic(10)
 
     try {
       const manifest = []
 
       for (let index = 0; index < files.length; index++) {
-        setProgress(Math.round((index / files.length) * 100))
-        manifest.push(await uploadFile(files[index]))
+        manifest.push(await uploadFile(files[index], index, files.length))
       }
 
       setProgress(98)
@@ -452,6 +471,7 @@ export default function Dashboard() {
 
       setProgress(100)
       notify('Payment request created successfully.')
+      haptic([12, 35, 12])
 
       setTitle('')
       setClientName('')
@@ -466,6 +486,7 @@ export default function Dashboard() {
     } catch (error) {
       console.error(error)
       notify(error.message || 'Could not create payment request.', 'error')
+      haptic([30, 40, 30])
     } finally {
       setUploading(false)
       setProgress(0)
@@ -556,6 +577,7 @@ export default function Dashboard() {
   }
 
   const openWizard = () => {
+    haptic(8)
     setStep(1)
     setWizardOpen(true)
   }
@@ -638,7 +660,25 @@ export default function Dashboard() {
   } 112 L 12 112 Z`
 
   return (
-    <div className="min-h-screen bg-[#F4F7F2] text-slate-900 antialiased selection:bg-[#94EC36] selection:text-[#063D2A]">
+    <div className="paydrop-shell min-h-screen bg-[#F4F7F2] text-slate-900 antialiased selection:bg-[#94EC36] selection:text-[#063D2A]">
+      <style jsx global>{`
+        :root { color-scheme: light; }
+        html { scroll-behavior: smooth; }
+        body { background: #F4F7F2; }
+        .paydrop-shell { --pd-ink: #063D2A; --pd-lime: #94EC36; background: radial-gradient(ellipse at 85% 0%, rgba(148,236,54,.11), transparent 32%), #F4F7F2; }
+        .paydrop-shell button, .paydrop-shell a, .paydrop-shell input, .paydrop-shell select, .paydrop-shell textarea { -webkit-tap-highlight-color: transparent; }
+        .paydrop-shell button, .paydrop-shell a { transition: transform .18s ease, box-shadow .2s ease, background-color .2s ease, border-color .2s ease, color .2s ease; }
+        .paydrop-shell button:active, .paydrop-shell a:active { transform: scale(.985); }
+        .paydrop-shell button:focus-visible, .paydrop-shell a:focus-visible, .paydrop-shell input:focus-visible, .paydrop-shell select:focus-visible, .paydrop-shell textarea:focus-visible { outline: 3px solid rgba(148,236,54,.75); outline-offset: 3px; }
+        .paydrop-shell aside, .paydrop-shell main, .paydrop-shell section { animation: pd-enter .42s cubic-bezier(.2,.75,.25,1) both; }
+        .paydrop-shell .rounded-3xl, .paydrop-shell .rounded-2xl { transition: box-shadow .22s ease, border-color .22s ease, transform .22s ease; }
+        .paydrop-shell .border-slate-200\/80.bg-white:hover { box-shadow: 0 16px 40px rgba(6,61,42,.055); border-color: rgba(6,61,42,.16); }
+        .paydrop-shell input, .paydrop-shell textarea, .paydrop-shell select { max-width: 100%; }
+        @keyframes pd-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; } }
+        @supports (backdrop-filter: blur(12px)) { .paydrop-shell .pd-glass { background: rgba(255,255,255,.76); backdrop-filter: blur(16px) saturate(145%); } }
+        @media (max-width: 640px) { .paydrop-shell { padding-bottom: env(safe-area-inset-bottom); } .paydrop-shell button { min-height: 36px; } }
+      `}</style>
       {toast && (
         <div className="fixed left-1/2 top-4 z-[100] w-[calc(100%-2rem)] max-w-md -translate-x-1/2">
           <div className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-semibold shadow-xl ${toast.type === 'error' ? 'border-rose-200 bg-white text-rose-700' : 'border-emerald-100 bg-[#063D2A] text-white'}`}>
@@ -679,7 +719,7 @@ export default function Dashboard() {
             return (
               <button
                 key={item.id}
-                onClick={() => { setTab(item.id); setMobileMenuOpen(false); setActiveChat(null) }}
+                onClick={() => { haptic(6); setTab(item.id); setMobileMenuOpen(false); setActiveChat(null) }}
                 className={`flex w-full items-center gap-3 rounded-2xl px-3.5 py-3 text-left text-[13px] font-semibold transition ${selected ? 'bg-[#063D2A] text-white shadow-lg shadow-[#063D2A]/10' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950'}`}
               >
                 <Icon size={18} className={selected ? 'text-[#94EC36]' : 'text-slate-400'}/>
@@ -818,7 +858,7 @@ export default function Dashboard() {
               </section>
 
               <section className="grid gap-6 lg:grid-cols-3">
-                <div className="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm lg:col-span-2">
+                <div className="rounded-3xl border border-white/80 bg-white/85 p-6 shadow-[0_8px_30px_rgba(6,61,42,.045)] backdrop-blur-xl lg:col-span-2">
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <h2 className="text-base font-black text-slate-950">Recent deliverables</h2>
@@ -837,7 +877,7 @@ export default function Dashboard() {
                 </div>
 
                 <div className="space-y-6">
-                  <div className="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm">
+                  <div className="rounded-3xl border border-white/80 bg-white/85 p-6 shadow-[0_8px_30px_rgba(6,61,42,.045)] backdrop-blur-xl">
                     <h2 className="text-base font-black text-slate-950">Project status</h2>
                     <p className="mt-0.5 text-xs text-slate-500">Breakdown of active requests</p>
                     <div className="mt-5 space-y-4">
@@ -875,7 +915,7 @@ export default function Dashboard() {
 
           {(tab === 'revisions' || tab === 'chat') && (
             <div className="grid gap-6 lg:grid-cols-3">
-              <div className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-sm">
+              <div className="rounded-3xl border border-white/80 bg-white/85 p-5 shadow-[0_8px_30px_rgba(6,61,42,.045)] backdrop-blur-xl">
                 <h2 className="text-sm font-black text-slate-950">Client conversations</h2>
                 <p className="mt-0.5 text-xs text-slate-500">Messages sent via client portals</p>
                 <div className="mt-4 space-y-2">
@@ -894,7 +934,7 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              <div className="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm lg:col-span-2">
+              <div className="rounded-3xl border border-white/80 bg-white/85 p-6 shadow-[0_8px_30px_rgba(6,61,42,.045)] backdrop-blur-xl lg:col-span-2">
                 {activeChat ? (
                   <div className="flex h-[500px] flex-col">
                     <div className="border-b border-slate-100 pb-4">
@@ -928,7 +968,7 @@ export default function Dashboard() {
 
           {tab === 'wallet' && (
             <div className="space-y-6">
-              <div className="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm">
+              <div className="rounded-3xl border border-white/80 bg-white/85 p-6 shadow-[0_8px_30px_rgba(6,61,42,.045)] backdrop-blur-xl">
                 <h2 className="text-base font-black text-slate-950">Payout Settings</h2>
                 <p className="mt-1 text-xs text-slate-500">Configure your bank and settlement options for automated transfers.</p>
                 <div className="mt-6 rounded-2xl border border-dashed border-slate-200 bg-[#F8FAF6] p-6 text-center">
@@ -1017,7 +1057,7 @@ export default function Dashboard() {
                     onDrop={event => {
                       event.preventDefault()
                       setDragging(false)
-                      setFiles(previous => [...previous, ...Array.from(event.dataTransfer.files)])
+                      setFiles(previous => { const incoming = Array.from(event.dataTransfer.files || []); const valid = incoming.filter(file => file.size <= 100 * 1024 * 1024); if (valid.length !== incoming.length) notify('Files over 100 MB were skipped.', 'error'); return [...previous, ...valid] })
                     }}
                     className={`rounded-3xl border-2 border-dashed p-7 text-center transition sm:p-10 ${dragging ? 'border-[#063D2A] bg-lime-50' : 'border-slate-200 bg-[#F8FAF6]'}`}
                   >
@@ -1031,9 +1071,10 @@ export default function Dashboard() {
                       <input
                         type="file"
                         multiple
+                        accept="image/*,video/*,audio/*,.zip,.rar,.7z,.pdf,.psd,.ai,.fig,.sketch,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.md,.json,.js,.jsx,.ts,.tsx,.html,.css,.py,.java,.cpp,.c,.sql,.mov,.mp4,.m4v,.webm,.mkv,.avi"
                         className="hidden"
                         onChange={event => {
-                          setFiles(previous => [...previous, ...Array.from(event.target.files || [])])
+                          setFiles(previous => { const incoming = Array.from(event.target.files || []); const valid = incoming.filter(file => file.size <= 100 * 1024 * 1024); if (valid.length !== incoming.length) notify('Files over 100 MB were skipped.', 'error'); return [...previous, ...valid] })
                           event.target.value = ''
                         }}
                       />
