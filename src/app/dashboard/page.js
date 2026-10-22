@@ -1,6 +1,7 @@
+```react
 'use client'
 
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { auth, db } from '../../lib/firebase'
 import { onAuthStateChanged, signOut } from 'firebase/auth'
@@ -18,18 +19,25 @@ import {
   Sparkles, Trash2, UploadCloud, Wallet, X
 } from 'lucide-react'
 
+// Fallback Cloudinary environment configuration
 const CLOUDINARY_CLOUD_NAME =
   process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'mrfujhf8'
 
 const CLOUDINARY_UPLOAD_PRESET =
   process.env.NEXT_PUBLIC_CLOUDINARY_PRESET || 'releasedrop_vault'
 
+/**
+ * Trigger lightweight haptic feedback on supported touch devices
+ */
 function haptic(pattern = 8) {
-  if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+  if (typeof window !== 'undefined' && typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
     try { navigator.vibrate(pattern) } catch {}
   }
 }
 
+/**
+ * Format numerical currency values safely
+ */
 function formatCurrency(value, currency = 'INR') {
   const amount = Number(value) || 0
 
@@ -47,10 +55,15 @@ function formatCurrency(value, currency = 'INR') {
   }
 }
 
+/**
+ * Extract 2-letter uppercase initials from names or email handles
+ */
 function initials(name = 'Creator') {
+  if (!name) return 'CR'
   return (
     name.trim()
       .split(/\s+/)
+      .filter(Boolean)
       .slice(0, 2)
       .map(part => part[0])
       .join('')
@@ -58,6 +71,9 @@ function initials(name = 'Creator') {
   )
 }
 
+/**
+ * Status Badge Component
+ */
 function StatusBadge({ status }) {
   const paid = status === 'Paid'
   const expired = status === 'Expired' || status === 'Cancelled'
@@ -86,6 +102,9 @@ function StatusBadge({ status }) {
   )
 }
 
+/**
+ * Compact Stat Card Component
+ */
 function MiniStat({ icon: Icon, label, value, note, tone = 'green' }) {
   const tones = {
     green: 'bg-emerald-50 text-emerald-800',
@@ -103,7 +122,7 @@ function MiniStat({ icon: Icon, label, value, note, tone = 'green' }) {
             {value}
           </p>
         </div>
-        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${tones[tone]}`}>
+        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${tones[tone] || tones.green}`}>
           <Icon size={18} />
         </div>
       </div>
@@ -113,6 +132,7 @@ function MiniStat({ icon: Icon, label, value, note, tone = 'green' }) {
 }
 
 export default function Dashboard() {
+  const [mounted, setMounted] = useState(false)
   const [user, setUser] = useState(null)
   const [authLoading, setAuthLoading] = useState(true)
   const [deliveries, setDeliveries] = useState([])
@@ -141,16 +161,21 @@ export default function Dashboard() {
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState(0)
 
-  const [activeChat, setActiveChat] = useState(null)
+  const [activeChatId, setActiveChatId] = useState(null)
   const [reply, setReply] = useState('')
 
-  const notify = (message, type = 'success') => {
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const notify = useCallback((message, type = 'success') => {
     setToast({ message, type })
     if (typeof window !== 'undefined') {
       window.setTimeout(() => setToast(null), 3200)
     }
-  }
+  }, [])
 
+  // Firebase Authentication & Firestore Listener
   useEffect(() => {
     let stopSnapshot = null
 
@@ -166,43 +191,39 @@ export default function Dashboard() {
       if (currentUser) {
         setDataLoading(true)
 
-        const q = query(
-          collection(db, 'deliveries'),
-          where('userId', '==', currentUser.uid)
-        )
+        try {
+          const q = query(
+            collection(db, 'deliveries'),
+            where('userId', '==', currentUser.uid)
+          )
 
-        stopSnapshot = onSnapshot(
-          q,
-          snap => {
-            const items = snap.docs.map(item => ({
-              id: item.id,
-              ...item.data(),
-            }))
+          stopSnapshot = onSnapshot(
+            q,
+            snap => {
+              const items = snap.docs.map(item => ({
+                id: item.id,
+                ...item.data(),
+              }))
 
-            items.sort(
-              (a, b) =>
-                (b.createdAt?.seconds || 0) -
-                (a.createdAt?.seconds || 0)
-            )
+              items.sort(
+                (a, b) =>
+                  (b.createdAt?.seconds || 0) -
+                  (a.createdAt?.seconds || 0)
+              )
 
-            setDeliveries(items)
-            setDataLoading(false)
-
-            setActiveChat(previous =>
-              previous
-                ? items.find(item => item.id === previous.id) || previous
-                : null
-            )
-          },
-          error => {
-            console.error('Firestore subscription failed:', error)
-            setDataLoading(false)
-            notify(
-              'Could not load projects. Check your connection.',
-              'error'
-            )
-          }
-        )
+              setDeliveries(items)
+              setDataLoading(false)
+            },
+            error => {
+              console.error('Firestore subscription failed:', error)
+              setDataLoading(false)
+              notify('Could not load projects. Check your connection.', 'error')
+            }
+          )
+        } catch (err) {
+          console.error('Firestore query initialization failed:', err)
+          setDataLoading(false)
+        }
       } else {
         setDeliveries([])
         setDataLoading(false)
@@ -213,7 +234,11 @@ export default function Dashboard() {
       stopAuth()
       if (stopSnapshot) stopSnapshot()
     }
-  }, [])
+  }, [notify])
+
+  const activeChat = useMemo(() => {
+    return deliveries.find(d => d.id === activeChatId) || null
+  }, [deliveries, activeChatId])
 
   const paid = useMemo(
     () => deliveries.filter(item => item.status === 'Paid'),
@@ -279,11 +304,7 @@ export default function Dashboard() {
     const year = now.getFullYear()
 
     return Array.from({ length: 6 }, (_, index) => {
-      const monthDate = new Date(
-        year,
-        now.getMonth() - 5 + index,
-        1
-      )
+      const monthDate = new Date(year, now.getMonth() - 5 + index, 1)
 
       const sum = paid
         .filter(item => {
@@ -336,18 +357,14 @@ export default function Dashboard() {
       }
 
       xhr.timeout = 180000
-      xhr.ontimeout = () => reject(new Error(`Upload timed out for ${file.name}. Check your connection and retry.`))
+      xhr.ontimeout = () => reject(new Error(`Upload timed out for ${file.name}.`))
       xhr.onabort = () => reject(new Error(`Upload cancelled for ${file.name}.`))
 
       xhr.onload = () => {
         try {
           const result = JSON.parse(xhr.responseText)
 
-          if (
-            xhr.status >= 200 &&
-            xhr.status < 300 &&
-            result.secure_url
-          ) {
+          if (xhr.status >= 200 && xhr.status < 300 && result.secure_url) {
             const previewUrl = file.type.startsWith('image/')
               ? result.secure_url.replace(
                   '/upload/',
@@ -446,9 +463,9 @@ export default function Dashboard() {
         createdAt: serverTimestamp(),
       })
 
-      const portalUrl = `${window.location.origin}/d/${ref.id}`
+      const portalUrl = typeof window !== 'undefined' ? `${window.location.origin}/d/${ref.id}` : ''
 
-      if (clientEmail.trim()) {
+      if (clientEmail.trim() && portalUrl) {
         fetch('/api/send-email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -494,6 +511,7 @@ export default function Dashboard() {
   }
 
   const copyPortal = async id => {
+    if (typeof window === 'undefined') return
     const url = `${window.location.origin}/d/${id}`
 
     try {
@@ -505,10 +523,11 @@ export default function Dashboard() {
   }
 
   const shareProject = async item => {
+    if (typeof window === 'undefined') return
     const url = `${window.location.origin}/d/${item.id}`
 
     try {
-      if (navigator.share) {
+      if (typeof navigator !== 'undefined' && navigator.share) {
         await navigator.share({
           title: `PayDrop: ${item.title}`,
           text: `Review deliverables for ${item.title}`,
@@ -518,23 +537,20 @@ export default function Dashboard() {
         await navigator.clipboard.writeText(url)
       }
 
-      notify(navigator.share ? 'Share sheet opened.' : 'Portal link copied.')
+      notify('Portal link processed.')
     } catch (error) {
       if (error?.name !== 'AbortError') copyPortal(item.id)
     }
   }
 
   const removeProject = async id => {
-    if (
-      !window.confirm(
-        'Permanently delete this project? This cannot be undone.'
-      )
-    ) {
+    if (typeof window !== 'undefined' && !window.confirm('Permanently delete this project? This cannot be undone.')) {
       return
     }
 
     try {
       await deleteDoc(doc(db, 'deliveries', id))
+      if (activeChatId === id) setActiveChatId(null)
       notify('Project deleted.')
     } catch (error) {
       console.error(error)
@@ -599,7 +615,7 @@ export default function Dashboard() {
     { id: 'wallet', label: 'Wallet & payouts', icon: Wallet },
   ]
 
-  if (authLoading) {
+  if (!mounted || authLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#F4F7F2] text-sm font-semibold text-slate-500">
         <div className="mr-3 h-5 w-5 animate-spin rounded-full border-2 border-[#063D2A] border-t-transparent" />
@@ -649,15 +665,10 @@ export default function Dashboard() {
   }))
 
   const chartLine = points
-    .map(
-      (point, index) =>
-        `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`
-    )
+    .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`)
     .join(' ')
 
-  const chartArea = `${chartLine} L ${
-    points[points.length - 1]?.x || 387
-  } 112 L 12 112 Z`
+  const chartArea = `${chartLine} L ${points[points.length - 1]?.x || 387} 112 L 12 112 Z`
 
   return (
     <div className="paydrop-shell min-h-screen bg-[#F4F7F2] text-slate-900 antialiased selection:bg-[#94EC36] selection:text-[#063D2A]">
@@ -672,7 +683,6 @@ export default function Dashboard() {
         .paydrop-shell button:focus-visible, .paydrop-shell a:focus-visible, .paydrop-shell input:focus-visible, .paydrop-shell select:focus-visible, .paydrop-shell textarea:focus-visible { outline: 3px solid rgba(148,236,54,.75); outline-offset: 3px; }
         .paydrop-shell aside, .paydrop-shell main, .paydrop-shell section { animation: pd-enter .42s cubic-bezier(.2,.75,.25,1) both; }
         .paydrop-shell .rounded-3xl, .paydrop-shell .rounded-2xl { transition: box-shadow .22s ease, border-color .22s ease, transform .22s ease; }
-        .paydrop-shell .border-slate-200\/80.bg-white:hover { box-shadow: 0 16px 40px rgba(6,61,42,.055); border-color: rgba(6,61,42,.16); }
         .paydrop-shell input, .paydrop-shell textarea, .paydrop-shell select { max-width: 100%; }
         @keyframes pd-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
         @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; } }
@@ -724,7 +734,7 @@ export default function Dashboard() {
             return (
               <button
                 key={item.id}
-                onClick={() => { haptic(6); setTab(item.id); setMobileMenuOpen(false); setActiveChat(null) }}
+                onClick={() => { haptic(6); setTab(item.id); setMobileMenuOpen(false); setActiveChatId(null) }}
                 className={`flex w-full items-center gap-3 rounded-2xl px-3.5 py-3 text-left text-[13px] font-semibold transition ${selected ? 'bg-[#063D2A] text-white shadow-lg shadow-[#063D2A]/10' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950'}`}
               >
                 <Icon size={18} className={selected ? 'text-[#94EC36]' : 'text-slate-400'}/>
@@ -925,7 +935,7 @@ export default function Dashboard() {
                 <p className="mt-0.5 text-xs text-slate-500">Messages sent via client portals</p>
                 <div className="mt-4 space-y-2">
                   {deliveries.filter(d => d.messages?.length > 0).map(item => (
-                    <button key={item.id} onClick={() => { setActiveChat(item); setTab('chat') }} className={`flex w-full items-center gap-3 rounded-2xl p-3 text-left transition ${activeChat?.id === item.id ? 'bg-[#F4F8F1] border border-[#94EC36]' : 'border border-slate-100 hover:bg-slate-50'}`}>
+                    <button key={item.id} onClick={() => { setActiveChatId(item.id); setTab('chat') }} className={`flex w-full items-center gap-3 rounded-2xl p-3 text-left transition ${activeChat?.id === item.id ? 'bg-[#F4F8F1] border border-[#94EC36]' : 'border border-slate-100 hover:bg-slate-50'}`}>
                       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#EAF3E5] text-xs font-black text-[#063D2A]">{initials(item.clientName)}</span>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-xs font-bold text-slate-900">{item.title}</p>
@@ -995,7 +1005,7 @@ export default function Dashboard() {
           return (
             <button
               key={item.id}
-              onClick={() => { setTab(item.id); setActiveChat(null) }}
+              onClick={() => { setTab(item.id); setActiveChatId(null) }}
               className={`relative flex flex-col items-center gap-1 rounded-xl py-1.5 ${selected ? 'text-[#063D2A]' : 'text-slate-400'}`}
             >
               <span className="relative">
@@ -1500,3 +1510,4 @@ function Drawer({ onClose, title, icon: Icon, children }) {
     </div>
   )
 }
+```
