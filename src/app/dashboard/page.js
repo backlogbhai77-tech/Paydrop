@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { auth, db } from '../../lib/firebase'
 import { onAuthStateChanged, signOut } from 'firebase/auth'
@@ -9,10 +9,10 @@ import {
   serverTimestamp, updateDoc, where
 } from 'firebase/firestore'
 import {
-  Activity, ArrowDownRight, ArrowLeft, ArrowRight, ArrowUpRight, Bell,
-  BriefcaseBusiness, Check, CheckCircle2, ChevronDown, ChevronRight,
-  CircleHelp, Clock3, Copy, CreditCard, ExternalLink, Eye, EyeOff,
-  File, FileArchive, Film, Home, Image as ImageIcon, LayoutDashboard,
+  Activity, ArrowRight, ArrowUpRight,
+  BriefcaseBusiness, Check, ChevronRight,
+  CircleHelp, Clock3, Copy, ExternalLink, Eye, EyeOff,
+  File, FileArchive, Film, Image as ImageIcon, LayoutDashboard,
   LockKeyhole, LogOut, Menu, MessageCircle, MessageSquare,
   MoreHorizontal, Plus, Search, Send, Settings2, Share2, ShieldCheck,
   Sparkles, Trash2, UploadCloud, Wallet, X
@@ -23,6 +23,7 @@ const CLOUDINARY_CLOUD_NAME =
 
 const CLOUDINARY_UPLOAD_PRESET =
   process.env.NEXT_PUBLIC_CLOUDINARY_PRESET || 'releasedrop_vault'
+const MAX_FILE_BYTES = 100 * 1024 * 1024
 
 function haptic(pattern = 8) {
   if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
@@ -137,6 +138,7 @@ export default function Dashboard() {
   const [amount, setAmount] = useState('')
   const [expiry, setExpiry] = useState('7')
   const [files, setFiles] = useState([])
+  const fileInputRef = useRef(null)
   const [dragging, setDragging] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState(0)
@@ -144,11 +146,50 @@ export default function Dashboard() {
   const [activeChat, setActiveChat] = useState(null)
   const [reply, setReply] = useState('')
 
+  const toastTimerRef = useRef(null)
+
   const notify = (message, type = 'success') => {
     setToast({ message, type })
     if (typeof window !== 'undefined') {
-      window.setTimeout(() => setToast(null), 3200)
+      if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current)
+      toastTimerRef.current = window.setTimeout(() => setToast(null), 3800)
     }
+  }
+
+  useEffect(() => () => {
+    if (toastTimerRef.current && typeof window !== 'undefined') {
+      window.clearTimeout(toastTimerRef.current)
+    }
+  }, [])
+
+  const addSelectedFiles = (fileList) => {
+    const incoming = Array.from(fileList || [])
+    if (!incoming.length) return
+
+    const valid = incoming.filter(file => file.size <= MAX_FILE_BYTES)
+    const oversizedCount = incoming.length - valid.length
+    if (oversizedCount > 0) {
+      notify(`${oversizedCount} file${oversizedCount === 1 ? '' : 's'} skipped: each file must be 100 MB or less.`, 'error')
+    }
+
+    if (!valid.length) return
+
+    setFiles(previous => {
+      const keys = new Set(previous.map(file => `${file.name}:${file.size}:${file.lastModified}`))
+      const unique = valid.filter(file => {
+        const key = `${file.name}:${file.size}:${file.lastModified}`
+        if (keys.has(key)) return false
+        keys.add(key)
+        return true
+      })
+      return unique.length ? [...previous, ...unique] : previous
+    })
+  }
+
+  const onFilePickerChange = (event) => {
+    addSelectedFiles(event.currentTarget.files)
+    // Reset after copying File objects so the same file can be selected again later.
+    event.currentTarget.value = ''
   }
 
   useEffect(() => {
@@ -221,7 +262,7 @@ export default function Dashboard() {
   )
 
   const pending = useMemo(
-    () => deliveries.filter(item => item.status !== 'Paid'),
+    () => deliveries.filter(item => !['Paid', 'Expired', 'Cancelled'].includes(item.status)),
     [deliveries]
   )
 
@@ -317,66 +358,74 @@ export default function Dashboard() {
 
   const uploadFile = (file, fileIndex = 0, fileCount = 1) =>
     new Promise((resolve, reject) => {
+      if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
+        reject(new Error('Upload is not configured. Add the Cloudinary cloud name and unsigned upload preset to your environment variables.'))
+        return
+      }
+
       const form = new FormData()
-      form.append('file', file)
+      form.append('file', file, file.name)
       form.append('upload_preset', CLOUDINARY_UPLOAD_PRESET)
 
       const xhr = new XMLHttpRequest()
+      const uploadUrl = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`
 
-      xhr.open(
-        'POST',
-        `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`
-      )
+      xhr.open('POST', uploadUrl, true)
+      xhr.timeout = 180000
 
       xhr.upload.onprogress = event => {
-        if (event.lengthComputable) {
+        if (event.lengthComputable && event.total > 0) {
           const overall = ((fileIndex + event.loaded / event.total) / fileCount) * 95
-          setProgress(Math.min(95, Math.round(overall)))
+          setProgress(Math.max(0, Math.min(95, Math.round(overall))))
         }
       }
-
-      xhr.timeout = 180000
-      xhr.ontimeout = () => reject(new Error(`Upload timed out for ${file.name}. Check your connection and retry.`))
-      xhr.onabort = () => reject(new Error(`Upload cancelled for ${file.name}.`))
 
       xhr.onload = () => {
+        let result = null
         try {
-          const result = JSON.parse(xhr.responseText)
-
-          if (
-            xhr.status >= 200 &&
-            xhr.status < 300 &&
-            result.secure_url
-          ) {
-            const previewUrl = file.type.startsWith('image/')
-              ? result.secure_url.replace(
-                  '/upload/',
-                  '/upload/l_text:Arial_24_bold:PAYDROP%20%E2%80%A2%20PREVIEW%20COPY,o_35,a_-30/'
-                )
-              : result.secure_url
-
-            resolve({
-              name: file.name,
-              size: `${(file.size / (1024 * 1024)).toFixed(2)} MB`,
-              type: file.type || 'application/octet-stream',
-              rawUrl: result.secure_url,
-              previewUrl,
-            })
-          } else {
-            reject(new Error(result?.error?.message || 'Upload failed'))
-          }
-        } catch (error) {
-          reject(
-            error instanceof Error
-              ? error
-              : new Error('Could not process upload response')
-          )
+          result = JSON.parse(xhr.responseText || '{}')
+        } catch {
+          reject(new Error(`Cloudinary returned an unreadable response for ${file.name} (HTTP ${xhr.status}).`))
+          return
         }
+
+        if (xhr.status >= 200 && xhr.status < 300 && result?.secure_url) {
+          const rawUrl = result.secure_url
+          const shouldWatermarkPreview = file.type?.startsWith('image/') || file.type?.startsWith('video/') || ['image', 'video'].includes(result.resource_type)
+          const previewUrl = shouldWatermarkPreview
+            ? rawUrl.replace(
+                '/upload/',
+                '/upload/l_text:Arial_24_bold:PAYDROP%20%E2%80%A2%20PREVIEW%20COPY,o_35,a_-30/'
+              )
+            : rawUrl
+
+          resolve({
+            name: file.name,
+            size: `${(file.size / (1024 * 1024)).toFixed(2)} MB`,
+            type: file.type || 'application/octet-stream',
+            rawUrl,
+            previewUrl,
+            resourceType: result.resource_type || 'auto',
+            format: result.format || '',
+          })
+          return
+        }
+
+        const serverMessage = result?.error?.message || `HTTP ${xhr.status}`
+        let friendlyMessage = `Upload failed for “${file.name}”: ${serverMessage}`
+        if (/upload preset|unsigned/i.test(serverMessage)) {
+          friendlyMessage = `Cloudinary rejected the upload preset “${CLOUDINARY_UPLOAD_PRESET}”. In Cloudinary, confirm this preset exists and is configured for unsigned browser uploads.`
+        } else if (/too large|file size|maximum.*size|size.*limit/i.test(serverMessage)) {
+          friendlyMessage = `Cloudinary rejected “${file.name}” because it exceeds an upload size or account limit. Try a smaller file or adjust the Cloudinary plan/preset limit.`
+        } else if (/not allowed|format|extension|resource type/i.test(serverMessage)) {
+          friendlyMessage = `Cloudinary does not allow this file type (“${file.name}”). Review the allowed formats and resource-type settings in your upload preset.`
+        }
+        reject(new Error(friendlyMessage))
       }
 
-      xhr.onerror = () =>
-        reject(new Error(`Network connection interrupted while uploading ${file.name}.`))
-
+      xhr.onerror = () => reject(new Error(`Network error while uploading “${file.name}”. Check your connection and try again.`))
+      xhr.ontimeout = () => reject(new Error(`Upload timed out for “${file.name}”. Check your connection and retry.`))
+      xhr.onabort = () => reject(new Error(`Upload was cancelled for “${file.name}”.`))
       xhr.send(form)
     })
 
@@ -396,10 +445,9 @@ export default function Dashboard() {
       return
     }
 
-    const MAX_FILE_BYTES = 100 * 1024 * 1024
     const oversized = files.find(file => file.size > MAX_FILE_BYTES)
     if (oversized) {
-      notify(`${oversized.name} exceeds the 100 MB per-file limit.`, 'error')
+      notify(`“${oversized.name}” exceeds the 100 MB per-file limit. Remove it or choose a smaller file.`, 'error')
       haptic([30, 40, 30])
       return
     }
@@ -420,10 +468,9 @@ export default function Dashboard() {
       const gross = Number(amount)
       const fee = Math.max(Math.round(gross * 0.05), 1)
       const expiresAt = new Date()
-
-      expiresAt.setDate(
-        expiresAt.getDate() + (expiry === 'never' ? 3650 : Number(expiry))
-      )
+      if (expiry !== 'never') {
+        expiresAt.setDate(expiresAt.getDate() + Number(expiry))
+      }
 
       const ref = await addDoc(collection(db, 'deliveries'), {
         userId: user.uid,
@@ -440,7 +487,7 @@ export default function Dashboard() {
         watermarkText: 'PAYDROP • PREVIEW COPY',
         status: 'Awaiting Payment',
         files: manifest,
-        expiresAt: expiresAt.toISOString(),
+        expiresAt: expiry === 'never' ? null : expiresAt.toISOString(),
         viewCount: 0,
         messages: [],
         createdAt: serverTimestamp(),
@@ -448,29 +495,42 @@ export default function Dashboard() {
 
       const portalUrl = `${window.location.origin}/d/${ref.id}`
 
+      let emailNotificationFailed = false
       if (clientEmail.trim()) {
-        fetch('/api/send-email', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            clientEmail: clientEmail.trim(),
-            clientName: clientName.trim() || 'Client',
-            creatorName:
-              user.displayName ||
-              user.email?.split('@')[0] ||
-              'Creator',
-            projectTitle: title.trim(),
-            amount: gross,
-            currency,
-            portalUrl,
-          }),
-        }).catch(error =>
+        try {
+          const emailResponse = await fetch('/api/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              clientEmail: clientEmail.trim(),
+              clientName: clientName.trim() || 'Client',
+              creatorName:
+                user.displayName ||
+                user.email?.split('@')[0] ||
+                'Creator',
+              projectTitle: title.trim(),
+              amount: gross,
+              currency,
+              portalUrl,
+            }),
+          })
+          if (!emailResponse.ok) {
+            emailNotificationFailed = true
+            console.error('Email dispatch failed:', emailResponse.status, await emailResponse.text())
+          }
+        } catch (error) {
+          emailNotificationFailed = true
           console.error('Email dispatch failed:', error)
-        )
+        }
       }
 
       setProgress(100)
-      notify('Payment request created successfully.')
+      notify(
+        emailNotificationFailed
+          ? 'Request created, but the email notification failed. Check the email API route and SMTP settings.'
+          : 'Payment request created successfully.',
+        emailNotificationFailed ? 'error' : 'success'
+      )
       haptic([12, 35, 12])
 
       setTitle('')
@@ -660,24 +720,68 @@ export default function Dashboard() {
   } 112 L 12 112 Z`
 
   return (
-    <div className="paydrop-shell min-h-screen bg-[#F4F7F2] text-slate-900 antialiased selection:bg-[#94EC36] selection:text-[#063D2A]">
+    <div className="paydrop-shell min-h-screen w-full bg-[#F5F7F4] text-slate-900 antialiased selection:bg-[#A4E64B] selection:text-[#063D2A]">
       <style jsx global>{`
         :root { color-scheme: light; }
-        html { scroll-behavior: smooth; }
-        body { background: #F4F7F2; }
-        .paydrop-shell { --pd-ink: #063D2A; --pd-lime: #94EC36; background: radial-gradient(ellipse at 85% 0%, rgba(148,236,54,.11), transparent 32%), #F4F7F2; }
+        html { scroll-behavior: auto; width: 100%; max-width: 100%; overflow-x: clip; }
+        body { margin: 0; width: 100%; max-width: 100%; overflow-x: clip; background: #F5F7F4; }
+        *, *::before, *::after { box-sizing: border-box; }
+        .paydrop-shell { --pd-ink: #073D2B; --pd-lime: #A4E64B; width: 100%; min-height: 100dvh; overflow-x: clip; background: #F5F7F4; }
         .paydrop-shell button, .paydrop-shell a, .paydrop-shell input, .paydrop-shell select, .paydrop-shell textarea { -webkit-tap-highlight-color: transparent; }
-        .paydrop-shell button, .paydrop-shell a { transition: transform .18s ease, box-shadow .2s ease, background-color .2s ease, border-color .2s ease, color .2s ease; }
-        .paydrop-shell button:active, .paydrop-shell a:active { transform: scale(.985); }
-        .paydrop-shell button:focus-visible, .paydrop-shell a:focus-visible, .paydrop-shell input:focus-visible, .paydrop-shell select:focus-visible, .paydrop-shell textarea:focus-visible { outline: 3px solid rgba(148,236,54,.75); outline-offset: 3px; }
-        .paydrop-shell main > section, .paydrop-shell main > div { animation: pd-enter .32s cubic-bezier(.2,.75,.25,1) both; }
-        .paydrop-shell .rounded-3xl, .paydrop-shell .rounded-2xl { transition: box-shadow .22s ease, border-color .22s ease, transform .22s ease; }
-        .paydrop-shell .border-slate-200\/80.bg-white:hover { box-shadow: 0 16px 40px rgba(6,61,42,.055); border-color: rgba(6,61,42,.16); }
-        .paydrop-shell input, .paydrop-shell textarea, .paydrop-shell select { max-width: 100%; }
-        @keyframes pd-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; } }
-        @supports (backdrop-filter: blur(12px)) { .paydrop-shell .pd-glass { background: rgba(255,255,255,.76); backdrop-filter: blur(16px) saturate(145%); } }
-        @media (max-width: 640px) { .paydrop-shell { padding-bottom: env(safe-area-inset-bottom); } .paydrop-shell button { min-height: 36px; } }
+        /* Keep controls steady: no scale-on-press, card lift, or section entrance transforms. */
+        .paydrop-shell button, .paydrop-shell a { transition: background-color .16s ease, border-color .16s ease, color .16s ease, box-shadow .16s ease; }
+        .paydrop-shell button:active, .paydrop-shell a:active { transform: none !important; }
+        .paydrop-shell button:focus-visible, .paydrop-shell a:focus-visible, .paydrop-shell input:focus-visible, .paydrop-shell select:focus-visible, .paydrop-shell textarea:focus-visible { outline: 3px solid rgba(164,230,75,.85); outline-offset: 2px; }
+        .paydrop-shell main > section, .paydrop-shell main > div { animation: none !important; }
+        .paydrop-shell .rounded-3xl, .paydrop-shell .rounded-2xl { transition: box-shadow .16s ease, border-color .16s ease; }
+        .paydrop-shell .border-slate-200\/80.bg-white:hover { box-shadow: 0 8px 24px rgba(6,61,42,.05); border-color: rgba(6,61,42,.14); }
+        .paydrop-shell input, .paydrop-shell textarea, .paydrop-shell select { width: auto; max-width: 100%; min-width: 0; font-size: 16px; }
+        .paydrop-shell input[type="text"], .paydrop-shell input[type="email"], .paydrop-shell input[type="number"], .paydrop-shell input[type="search"], .paydrop-shell textarea { width: 100%; }
+        .paydrop-shell input[type="file"] { width: 100% !important; height: 100% !important; max-width: none; cursor: pointer; }
+        .paydrop-shell img, .paydrop-shell svg { max-width: 100%; }
+        .paydrop-shell main { min-width: 0; width: 100%; }
+        .paydrop-shell main > * { min-width: 0; }
+        .paydrop-shell :where(section, article, aside, header, nav, div) { min-width: 0; }
+        .paydrop-shell main > section { min-width: 0; }
+        .paydrop-shell h1, .paydrop-shell h2, .paydrop-shell h3 { text-wrap: balance; }
+        .paydrop-shell p { overflow-wrap: anywhere; }
+        .paydrop-shell .pd-glass { background: rgba(255,255,255,.88); border: 1px solid rgba(226,232,240,.8); box-shadow: 0 8px 26px rgba(6,61,42,.035); }
+        @media (min-width: 1024px) { .paydrop-shell aside[aria-label="Main navigation"] { transform: translateX(0) !important; } }
+        @media (max-width: 1023px) {
+          .paydrop-shell { padding-bottom: env(safe-area-inset-bottom); }
+          .paydrop-shell main { padding-top: 1.1rem !important; padding-left: 1rem !important; padding-right: 1rem !important; padding-bottom: 6.5rem !important; }
+          .paydrop-shell main > section { margin-bottom: 0; }
+          .paydrop-shell header > div { padding: .75rem 1rem !important; }
+          .paydrop-shell header h1 { font-size: 1.05rem !important; line-height: 1.35; }
+          .paydrop-shell .mobile-bottom-nav { min-height: 68px; }
+        }
+        @media (max-width: 640px) {
+          /* Comfortable mobile reading size without forcing the whole page to scale. */
+          .paydrop-shell .text-\[10px\] { font-size: .6875rem !important; }
+          .paydrop-shell .text-\[11px\] { font-size: .75rem !important; }
+          .paydrop-shell .text-xs { font-size: .8125rem !important; line-height: 1.45; }
+          .paydrop-shell .rounded-\[30px\] { border-radius: 22px !important; }
+          .paydrop-shell main { gap: 1rem !important; }
+          .paydrop-shell main > section { gap: .75rem; }
+          .paydrop-shell main .shadow-\[0_8px_30px_rgba\(6\,61\,42\,\.045\)\] { box-shadow: 0 5px 18px rgba(6,61,42,.035); }
+          .paydrop-shell main section.grid { gap: .75rem !important; }
+          .paydrop-shell main section > .rounded-3xl { padding: 1rem !important; }
+          .paydrop-shell main section.relative.rounded-\[30px\] { padding: 1.25rem !important; }
+          .paydrop-shell main section.relative.rounded-\[30px\] .text-4xl { font-size: 2.15rem; line-height: 1.12; letter-spacing: -.04em; }
+          .paydrop-shell main section.relative.rounded-\[30px\] .mt-7 { margin-top: 1.25rem; }
+          .paydrop-shell main section.relative.rounded-\[30px\] .h-32 { height: 6.25rem; }
+          .paydrop-shell main section.grid.grid-cols-2 > div { min-width: 0; }
+          .paydrop-shell main section.grid.grid-cols-2 > div p.text-2xl { font-size: 1.2rem; line-height: 1.35; }
+          .paydrop-shell main section.grid.grid-cols-2 > div .h-10.w-10 { width: 2.25rem; height: 2.25rem; }
+          .paydrop-shell button { min-height: 42px; }
+          .paydrop-shell .mobile-bottom-nav { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: .15rem; padding-left: .35rem; padding-right: .35rem; padding-top: .45rem; }
+          .paydrop-shell .mobile-bottom-nav button { min-height: 56px; gap: .28rem; border-radius: 12px; padding: .4rem .2rem; }
+          .paydrop-shell .mobile-bottom-nav button svg { width: 22px; height: 22px; flex: 0 0 auto; }
+          .paydrop-shell .mobile-bottom-nav button span:last-child { font-size: 12px !important; line-height: 1.2; white-space: nowrap; }
+          .paydrop-shell .project-row-actions button, .paydrop-shell .project-row-actions a { min-height: 40px; }
+          .paydrop-shell [class*="max-w-"] { min-width: 0; }
+        }
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; scroll-behavior: auto !important; transition: none !important; } }
       `}</style>
       {toast && (
         <div className="fixed left-1/2 top-4 z-[100] w-[calc(100%-2rem)] max-w-md -translate-x-1/2">
@@ -780,7 +884,7 @@ export default function Dashboard() {
           </div>
         </header>
 
-        <main className="mx-auto max-w-[1500px] space-y-6 px-4 pb-28 pt-6 sm:px-7 sm:pt-8 lg:px-9 lg:pb-10">
+        <main className="mx-auto w-full max-w-[1440px] space-y-5 px-4 pb-28 pt-5 sm:px-7 sm:pt-7 lg:px-9 lg:pb-10">
           {tab === 'overview' && (
             <>
               <section className="relative overflow-hidden rounded-[30px] bg-[#063D2A] p-6 text-white shadow-xl shadow-[#063D2A]/10 sm:rounded-[34px] sm:p-8 lg:p-9">
@@ -850,7 +954,7 @@ export default function Dashboard() {
                 </div>
               </section>
 
-              <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <section className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
                 <MiniStat icon={Wallet} label="Settled earnings" value={formatCurrency(totalRevenue, currency)} note={`${paid.length} project${paid.length === 1 ? '' : 's'} marked paid`} tone="green"/>
                 <MiniStat icon={Clock3} label="Awaiting payment" value={formatCurrency(pendingValue, currency)} note={`${pending.length} request${pending.length === 1 ? '' : 's'} not marked paid`} tone="amber"/>
                 <MiniStat icon={BriefcaseBusiness} label="Total projects" value={deliveries.length.toLocaleString()} note="Across your workspace" tone="blue"/>
@@ -870,9 +974,14 @@ export default function Dashboard() {
                     {deliveries.slice(0, 4).map(item => (
                       <ProjectRow key={item.id} item={item} currency={currency} onCopy={copyPortal} onShare={shareProject} onDelete={removeProject} compact />
                     ))}
-                    {deliveries.length === 0 && (
-                      <EmptyState title="No projects created" body="Create your first request to share files and collect client payments." action="Create request" onAction={openWizard} />
-                    )}
+                    {deliveries.length === 0 && (dataLoading ? (
+                      <div role="status" className="flex items-center justify-center gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-6 text-sm font-medium text-slate-500">
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#073D2B]/25 border-t-[#073D2B]" />
+                        Loading your projects…
+                      </div>
+                    ) : (
+                      <EmptyState title="No projects yet" body="Create your first request to share files and manage client handovers." action="Create request" onAction={openWizard} />
+                    ))}
                   </div>
                 </div>
 
@@ -906,9 +1015,14 @@ export default function Dashboard() {
                 {filtered.map(item => (
                   <ProjectRow key={item.id} item={item} currency={currency} onCopy={copyPortal} onShare={shareProject} onDelete={removeProject} />
                 ))}
-                {filtered.length === 0 && (
-                  <EmptyState title="No matching projects" body="Try adjusting your search terms or create a new payment request." action="New request" onAction={openWizard} />
-                )}
+                {filtered.length === 0 && (dataLoading ? (
+                  <div role="status" className="flex items-center justify-center gap-3 rounded-2xl border border-slate-100 bg-white p-8 text-sm font-medium text-slate-500">
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#073D2B]/25 border-t-[#073D2B]" />
+                    Loading your projects…
+                  </div>
+                ) : (
+                  <EmptyState title={search ? 'No matching projects' : 'No projects yet'} body={search ? 'Try adjusting your search terms.' : 'Create your first payment request to share files with a client.'} action="New request" onAction={openWizard} />
+                ))}
               </div>
             </div>
           )}
@@ -916,15 +1030,15 @@ export default function Dashboard() {
           {(tab === 'revisions' || tab === 'chat') && (
             <div className="grid gap-6 lg:grid-cols-3">
               <div className="rounded-3xl border border-white/80 bg-white/85 p-5 shadow-[0_8px_30px_rgba(6,61,42,.045)] backdrop-blur-xl">
-                <h2 className="text-sm font-black text-slate-950">Client conversations</h2>
+                <h2 className="text-base font-black text-slate-950">Client conversations</h2>
                 <p className="mt-0.5 text-xs text-slate-500">Messages sent via client portals</p>
                 <div className="mt-4 space-y-2">
                   {deliveries.filter(d => d.messages?.length > 0).map(item => (
                     <button key={item.id} onClick={() => { setActiveChat(item); setTab('chat') }} className={`flex w-full items-center gap-3 rounded-2xl p-3 text-left transition ${activeChat?.id === item.id ? 'bg-[#F4F8F1] border border-[#94EC36]' : 'border border-slate-100 hover:bg-slate-50'}`}>
                       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#EAF3E5] text-xs font-black text-[#063D2A]">{initials(item.clientName)}</span>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-xs font-bold text-slate-900">{item.title}</p>
-                        <p className="mt-0.5 truncate text-[11px] text-slate-500">{item.messages[item.messages.length - 1]?.text}</p>
+                        <p className="truncate text-sm font-bold text-slate-900">{item.title}</p>
+                        <p className="mt-0.5 truncate text-xs text-slate-500">{item.messages[item.messages.length - 1]?.text}</p>
                       </div>
                     </button>
                   ))}
@@ -944,14 +1058,14 @@ export default function Dashboard() {
                     <div className="flex-1 overflow-y-auto py-4 space-y-3">
                       {activeChat.messages?.map((msg, i) => (
                         <div key={i} className={`flex ${msg.sender === 'creator' ? 'justify-end' : 'justify-start'}`}>
-                          <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-xs ${msg.sender === 'creator' ? 'bg-[#063D2A] text-white' : 'bg-slate-100 text-slate-800'}`}>
+                          <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-5 ${msg.sender === 'creator' ? 'bg-[#063D2A] text-white' : 'bg-slate-100 text-slate-800'}`}>
                             <p>{msg.text}</p>
                           </div>
                         </div>
                       ))}
                     </div>
                     <div className="flex gap-2 border-t border-slate-100 pt-4">
-                      <input type="text" value={reply} onChange={e => setReply(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendReply()} placeholder="Type your reply..." className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-xs outline-none focus:border-[#063D2A]" />
+                      <input type="text" value={reply} onChange={e => setReply(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendReply()} placeholder="Write a client reply…" className="min-w-0 flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-[#063D2A]" />
                       <button onClick={sendReply} className="rounded-xl bg-[#063D2A] px-4 py-2.5 text-xs font-bold text-white"><Send size={15}/></button>
                     </div>
                   </div>
@@ -970,11 +1084,12 @@ export default function Dashboard() {
             <div className="space-y-6">
               <div className="rounded-3xl border border-white/80 bg-white/85 p-6 shadow-[0_8px_30px_rgba(6,61,42,.045)] backdrop-blur-xl">
                 <h2 className="text-base font-black text-slate-950">Payout Settings</h2>
-                <p className="mt-1 text-xs text-slate-500">Configure your bank and settlement options for automated transfers.</p>
+                <p className="mt-1 text-xs text-slate-500">Payment and payout connections are not enabled in this version.</p>
                 <div className="mt-6 rounded-2xl border border-dashed border-slate-200 bg-[#F8FAF6] p-6 text-center">
-                  <Wallet size={28} className="mx-auto text-slate-400"/>
-                  <p className="mt-3 text-xs font-bold text-slate-700">Bank Integration Pending</p>
-                  <p className="mt-1 text-[11px] text-slate-500">Connect Stripe or Razorpay in settings to automate payouts directly to your bank account.</p>
+                  <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-slate-500 shadow-sm"><Wallet size={23}/></span>
+                  <p className="mt-4 text-sm font-bold text-slate-800">Payment gateway not connected</p>
+                  <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">PayDrop is currently tracking requests and their manually recorded status. No real funds, escrow balance or bank transfers are processed in this version.</p>
+                  <span className="mt-4 inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800"><span className="h-1.5 w-1.5 rounded-full bg-amber-500"/> Demo mode</span>
                 </div>
               </div>
             </div>
@@ -983,7 +1098,7 @@ export default function Dashboard() {
       </div>
 
       {/* Mobile quick navigation */}
-      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-slate-200/80 bg-white/95 px-2 pb-[max(.6rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-xl lg:hidden">
+      <nav className="mobile-bottom-nav fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-slate-200/80 bg-white/95 px-2 pb-[max(.6rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-xl lg:hidden">
         {navItems.map(item => {
           const Icon = item.icon
           const selected = tab === item.id || (tab === 'chat' && item.id === 'revisions')
@@ -995,12 +1110,12 @@ export default function Dashboard() {
               className={`relative flex flex-col items-center gap-1 rounded-xl py-1.5 ${selected ? 'text-[#063D2A]' : 'text-slate-400'}`}
             >
               <span className="relative">
-                <Icon size={19}/>
+                <Icon size={22}/>
                 {item.id === 'revisions' && unread.length > 0 && (
                   <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white"/>
                 )}
               </span>
-              <span className={`text-[9px] ${selected ? 'font-extrabold' : 'font-semibold'}`}>
+              <span className={`text-[11px] ${selected ? 'font-extrabold' : 'font-semibold'}`}>
                 {item.id === 'overview' ? 'Home' : item.id === 'projects' ? 'Projects' : item.id === 'revisions' ? 'Messages' : 'Wallet'}
               </span>
             </button>
@@ -1057,7 +1172,7 @@ export default function Dashboard() {
                     onDrop={event => {
                       event.preventDefault()
                       setDragging(false)
-                      setFiles(previous => { const incoming = Array.from(event.dataTransfer.files || []); const valid = incoming.filter(file => file.size <= 100 * 1024 * 1024); if (valid.length !== incoming.length) notify('Files over 100 MB were skipped.', 'error'); return [...previous, ...valid] })
+                      addSelectedFiles(event.dataTransfer.files)
                     }}
                     className={`rounded-3xl border-2 border-dashed p-7 text-center transition sm:p-10 ${dragging ? 'border-[#063D2A] bg-lime-50' : 'border-slate-200 bg-[#F8FAF6]'}`}
                   >
@@ -1065,20 +1180,22 @@ export default function Dashboard() {
                       <UploadCloud size={23}/>
                     </div>
                     <p className="mt-4 text-sm font-extrabold">Drop your files here</p>
-                    <p className="mt-1 text-xs text-slate-500">ZIP, images, video, PDFs and project files</p>
-                    <label className="mt-4 inline-flex cursor-pointer items-center gap-2 rounded-xl bg-[#063D2A] px-4 py-2.5 text-xs font-bold text-white">
-                      Browse files
-                      <input
-                        type="file"
-                        multiple
-                        accept="image/*,video/*,audio/*,.zip,.rar,.7z,.pdf,.psd,.ai,.fig,.sketch,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.md,.json,.js,.jsx,.ts,.tsx,.html,.css,.py,.java,.cpp,.c,.sql,.mov,.mp4,.m4v,.webm,.mkv,.avi"
-                        className="hidden"
-                        onChange={event => {
-                          setFiles(previous => { const incoming = Array.from(event.target.files || []); const valid = incoming.filter(file => file.size <= 100 * 1024 * 1024); if (valid.length !== incoming.length) notify('Files over 100 MB were skipped.', 'error'); return [...previous, ...valid] })
-                          event.target.value = ''
-                        }}
-                      />
-                    </label>
+                    <p className="mt-1 text-xs text-slate-500">Images, video, audio, ZIP, PDFs, source files and more</p>
+                    <div className="mt-5 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+                      <label className="relative inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-xl bg-[#073D2B] px-5 py-3 text-sm font-bold text-white shadow-sm transition-colors hover:bg-[#0A5139] focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-lime-500">
+                        <UploadCloud size={18} aria-hidden="true" />
+                        <span>Choose files</span>
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          multiple
+                          aria-label="Choose deliverable files to upload"
+                          className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                          onChange={onFilePickerChange}
+                        />
+                      </label>
+                      <span className="text-xs font-medium text-slate-500">{files.length ? `${files.length} file${files.length === 1 ? '' : 's'} selected` : 'Any file type · up to 100 MB each'}</span>
+                    </div>
                   </div>
 
                   {files.length > 0 && (
@@ -1094,7 +1211,7 @@ export default function Dashboard() {
                           </span>
                           <button
                             onClick={() => setFiles(previous => previous.filter((_, i) => i !== index))}
-                            className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-500 hover:bg-rose-50 hover:text-rose-600"
                             aria-label={`Remove ${file.name}`}
                           >
                             <X size={15}/>
@@ -1105,7 +1222,7 @@ export default function Dashboard() {
                   )}
 
                   <p className="text-[11px] leading-5 text-slate-400">
-                    This implementation uploads files from the browser to Cloudinary. Configure upload limits and access policies in your Cloudinary account.
+                    Files upload directly from your browser to Cloudinary. If an upload is rejected, the error will explain whether the preset, file type, size limit or connection needs attention.
                   </p>
                 </div>
               )}
@@ -1188,12 +1305,12 @@ export default function Dashboard() {
                           onClick={() => setExpiry(option)}
                           className={`rounded-2xl border px-2 py-3 text-xs font-bold transition ${expiry === option ? 'border-[#063D2A] bg-[#EAF3E5] text-[#063D2A]' : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'}`}
                         >
-                          {option === 'never' ? '10 years' : `${option} days`}
+                          {option === 'never' ? 'No expiry' : `${option} days`}
                         </button>
                       ))}
                     </div>
                     <p className="mt-2 text-[10px] leading-5 text-slate-400">
-                      The long expiry date does not automatically disable access unless your client portal checks expiry.
+                      Portal expiry is only enforced if the client portal validates this field. Verify that check before using this with real client files.
                     </p>
                   </div>
 
@@ -1226,7 +1343,7 @@ export default function Dashboard() {
                     </div>
                     <div className="mt-2 flex items-center justify-between text-xs">
                       <span className="text-slate-500">Link expiry</span>
-                      <span className="font-bold">{expiry === 'never' ? '10 years' : `${expiry} days`}</span>
+                      <span className="font-bold">{expiry === 'never' ? 'No expiry' : `${expiry} days`}</span>
                     </div>
                   </div>
 
@@ -1418,7 +1535,7 @@ function ProjectRow({ item, currency, onCopy, onShare, onDelete, compact = false
         </div>
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
+      <div className="project-row-actions mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
         <div className="flex flex-wrap gap-2">
           <button onClick={() => onCopy(item.id)} className="inline-flex items-center gap-1.5 rounded-xl bg-[#F0F6EC] px-3 py-2 text-[10px] font-bold text-[#063D2A] transition hover:bg-lime-100">
             <Copy size={12}/> Copy portal link
