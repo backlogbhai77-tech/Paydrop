@@ -1,4 +1,4 @@
-```react
+
 'use client'
 
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react'
@@ -49,7 +49,7 @@ function formatCurrency(value, currency = 'INR') {
       }
     ).format(amount)
   } catch {
-    return `${currency} ${amount.toFixed(2)}`
+    return currency + ' ' + amount.toFixed(2)
   }
 }
 
@@ -1365,7 +1365,7 @@ function ProjectRow({ item, currency, onCopy, onShare, onDelete, compact = false
             <Copy size={12}/> Copy portal link
           </button>
           <button onClick={() => onShare(item)} className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-[10px] font-bold text-slate-600 transition hover:bg-white">
-            <Share2 size={12}/> Share
+            Share2 size={12}/> Share
           </button>
           <Link href={`/d/${item.id}`} target="_blank" className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-[10px] font-bold text-slate-600 transition hover:bg-white">
             Open portal <ExternalLink size={12}/>
