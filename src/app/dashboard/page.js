@@ -1,7 +1,6 @@
-
 'use client'
 
-import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { auth, db } from '../../lib/firebase'
 import { onAuthStateChanged, signOut } from 'firebase/auth'
@@ -10,35 +9,30 @@ import {
   serverTimestamp, updateDoc, where
 } from 'firebase/firestore'
 import {
-  Activity, ArrowRight, BriefcaseBusiness, Check, ChevronRight,
-  CircleHelp, Clock3, Copy, ExternalLink, Eye, EyeOff, File,
-  FileArchive, Film, Image as ImageIcon, LayoutDashboard, LockKeyhole,
-  LogOut, Menu, MessageCircle, MessageSquare, MoreHorizontal, Plus,
-  Search, Send, Settings2, Share2, ShieldCheck, Sparkles, Trash2,
-  UploadCloud, Wallet, X
+  Activity, ArrowDownRight, ArrowLeft, ArrowRight, ArrowUpRight, Bell,
+  BriefcaseBusiness, Check, CheckCircle2, ChevronDown, ChevronRight,
+  CircleHelp, Clock3, Copy, CreditCard, ExternalLink, Eye, EyeOff,
+  File, FileArchive, Film, Home, Image as ImageIcon, LayoutDashboard,
+  LockKeyhole, LogOut, Menu, MessageCircle, MessageSquare,
+  MoreHorizontal, Plus, Search, Send, Settings2, Share2, ShieldCheck,
+  Sparkles, Trash2, UploadCloud, Wallet, X
 } from 'lucide-react'
 
-// Cloudinary Configuration
 const CLOUDINARY_CLOUD_NAME =
   process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'mrfujhf8'
 
 const CLOUDINARY_UPLOAD_PRESET =
   process.env.NEXT_PUBLIC_CLOUDINARY_PRESET || 'releasedrop_vault'
 
-/**
- * Haptic feedback helper safe for SSR
- */
 function haptic(pattern = 8) {
-  if (typeof window !== 'undefined' && typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+  if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
     try { navigator.vibrate(pattern) } catch {}
   }
 }
 
-/**
- * Safe currency formatter
- */
 function formatCurrency(value, currency = 'INR') {
   const amount = Number(value) || 0
+
   try {
     return new Intl.NumberFormat(
       currency === 'USD' ? 'en-US' : 'en-IN',
@@ -49,19 +43,14 @@ function formatCurrency(value, currency = 'INR') {
       }
     ).format(amount)
   } catch {
-    return currency + ' ' + amount.toFixed(2)
+    return `${currency} ${amount.toFixed(2)}`
   }
 }
 
-/**
- * Extract 2-letter uppercase initials
- */
 function initials(name = 'Creator') {
-  if (!name) return 'CR'
   return (
     name.trim()
       .split(/\s+/)
-      .filter(Boolean)
       .slice(0, 2)
       .map(part => part[0])
       .join('')
@@ -69,9 +58,6 @@ function initials(name = 'Creator') {
   )
 }
 
-/**
- * Status Badge Component
- */
 function StatusBadge({ status }) {
   const paid = status === 'Paid'
   const expired = status === 'Expired' || status === 'Cancelled'
@@ -100,9 +86,6 @@ function StatusBadge({ status }) {
   )
 }
 
-/**
- * Compact Stat Card Component
- */
 function MiniStat({ icon: Icon, label, value, note, tone = 'green' }) {
   const tones = {
     green: 'bg-emerald-50 text-emerald-800',
@@ -120,7 +103,7 @@ function MiniStat({ icon: Icon, label, value, note, tone = 'green' }) {
             {value}
           </p>
         </div>
-        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${tones[tone] || tones.green}`}>
+        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${tones[tone]}`}>
           <Icon size={18} />
         </div>
       </div>
@@ -130,10 +113,10 @@ function MiniStat({ icon: Icon, label, value, note, tone = 'green' }) {
 }
 
 export default function Dashboard() {
-  const [mounted, setMounted] = useState(false)
   const [user, setUser] = useState(null)
   const [authLoading, setAuthLoading] = useState(true)
   const [deliveries, setDeliveries] = useState([])
+  const [dataLoading, setDataLoading] = useState(true)
 
   const [tab, setTab] = useState('overview')
   const [currency, setCurrency] = useState('INR')
@@ -158,85 +141,79 @@ export default function Dashboard() {
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState(0)
 
-  const [activeChatId, setActiveChatId] = useState(null)
+  const [activeChat, setActiveChat] = useState(null)
   const [reply, setReply] = useState('')
 
-  // Ref to track component unmount status
-  const isMountedRef = useRef(true)
-
-  useEffect(() => {
-    setMounted(true)
-    return () => {
-      isMountedRef.current = false
-    }
-  }, [])
-
-  const notify = useCallback((message, type = 'success') => {
-    if (!isMountedRef.current) return
+  const notify = (message, type = 'success') => {
     setToast({ message, type })
-    setTimeout(() => {
-      if (isMountedRef.current) setToast(null)
-    }, 3200)
-  }, [])
+    if (typeof window !== 'undefined') {
+      window.setTimeout(() => setToast(null), 3200)
+    }
+  }
 
-  // Firebase Auth & Realtime Listener Setup
   useEffect(() => {
-    if (!mounted) return
+    let stopSnapshot = null
 
-    let unsubscribeFirestore = null
-
-    const unsubscribeAuth = onAuthStateChanged(auth, currentUser => {
-      if (!isMountedRef.current) return
-
+    const stopAuth = onAuthStateChanged(auth, currentUser => {
       setUser(currentUser)
       setAuthLoading(false)
 
-      if (unsubscribeFirestore) {
-        unsubscribeFirestore()
-        unsubscribeFirestore = null
+      if (stopSnapshot) {
+        stopSnapshot()
+        stopSnapshot = null
       }
 
       if (currentUser) {
-        try {
-          const q = query(
-            collection(db, 'deliveries'),
-            where('userId', '==', currentUser.uid)
-          )
+        setDataLoading(true)
 
-          unsubscribeFirestore = onSnapshot(
-            q,
-            snapshot => {
-              if (!isMountedRef.current) return
-              const items = snapshot.docs.map(docSnap => ({
-                id: docSnap.id,
-                ...docSnap.data(),
-              }))
+        const q = query(
+          collection(db, 'deliveries'),
+          where('userId', '==', currentUser.uid)
+        )
 
-              items.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
-              setDeliveries(items)
-            },
-            error => {
-              console.error('Firestore listener error:', error)
-              if (isMountedRef.current) notify('Failed to sync projects in real time.', 'error')
-            }
-          )
-        } catch (err) {
-          console.error('Error initializing Firestore query:', err)
-        }
+        stopSnapshot = onSnapshot(
+          q,
+          snap => {
+            const items = snap.docs.map(item => ({
+              id: item.id,
+              ...item.data(),
+            }))
+
+            items.sort(
+              (a, b) =>
+                (b.createdAt?.seconds || 0) -
+                (a.createdAt?.seconds || 0)
+            )
+
+            setDeliveries(items)
+            setDataLoading(false)
+
+            setActiveChat(previous =>
+              previous
+                ? items.find(item => item.id === previous.id) || previous
+                : null
+            )
+          },
+          error => {
+            console.error('Firestore subscription failed:', error)
+            setDataLoading(false)
+            notify(
+              'Could not load projects. Check your connection.',
+              'error'
+            )
+          }
+        )
       } else {
         setDeliveries([])
+        setDataLoading(false)
       }
     })
 
     return () => {
-      unsubscribeAuth()
-      if (unsubscribeFirestore) unsubscribeFirestore()
+      stopAuth()
+      if (stopSnapshot) stopSnapshot()
     }
-  }, [mounted, notify])
-
-  const activeChat = useMemo(() => {
-    return deliveries.find(d => d.id === activeChatId) || null
-  }, [deliveries, activeChatId])
+  }, [])
 
   const paid = useMemo(
     () => deliveries.filter(item => item.status === 'Paid'),
@@ -252,7 +229,7 @@ export default function Dashboard() {
     () =>
       deliveries.filter(
         item =>
-          item.messages?.length > 0 &&
+          item.messages?.length &&
           item.messages[item.messages.length - 1]?.sender === 'client'
       ),
     [deliveries]
@@ -264,7 +241,8 @@ export default function Dashboard() {
         .filter(item => (item.currency || 'INR') === currency)
         .reduce(
           (sum, item) =>
-            sum + (Number(item.creatorPayout) || Number(item.grossAmount) || 0),
+            sum +
+            (Number(item.creatorPayout) || Number(item.grossAmount) || 0),
           0
         ),
     [paid, currency]
@@ -286,23 +264,26 @@ export default function Dashboard() {
     [deliveries, currency]
   )
 
-  const filtered = useMemo(() => {
-    if (!search.trim()) return deliveries
-    const queryStr = search.toLowerCase()
-    return deliveries.filter(item =>
-      `${item.title || ''} ${item.clientName || ''} ${item.clientEmail || ''}`
-        .toLowerCase()
-        .includes(queryStr)
-    )
-  }, [deliveries, search])
+  const filtered = useMemo(
+    () =>
+      deliveries.filter(item =>
+        `${item.title || ''} ${item.clientName || ''} ${item.clientEmail || ''}`
+          .toLowerCase()
+          .includes(search.toLowerCase())
+      ),
+    [deliveries, search]
+  )
 
   const monthly = useMemo(() => {
     const now = new Date()
-    const currentYear = now.getFullYear()
-    const currentMonth = now.getMonth()
+    const year = now.getFullYear()
 
     return Array.from({ length: 6 }, (_, index) => {
-      const monthDate = new Date(currentYear, currentMonth - 5 + index, 1)
+      const monthDate = new Date(
+        year,
+        now.getMonth() - 5 + index,
+        1
+      )
 
       const sum = paid
         .filter(item => {
@@ -314,6 +295,7 @@ export default function Dashboard() {
           }
 
           const date = new Date(item.createdAt.seconds * 1000)
+
           return (
             date.getMonth() === monthDate.getMonth() &&
             date.getFullYear() === monthDate.getFullYear()
@@ -333,30 +315,14 @@ export default function Dashboard() {
     })
   }, [paid, currency])
 
-  const chartData = useMemo(() => {
-    const chartMax = Math.max(...monthly.map(item => item.value), 1)
-    const points = monthly.map((item, index) => ({
-      ...item,
-      x: 12 + index * 75,
-      y: 98 - (item.value / chartMax) * 70,
-    }))
-
-    const line = points
-      .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`)
-      .join(' ')
-
-    const area = `${line} L ${points[points.length - 1]?.x || 387} 112 L 12 112 Z`
-
-    return { points, line, area }
-  }, [monthly])
-
-  const uploadFile = useCallback((file, fileIndex = 0, fileCount = 1) =>
+  const uploadFile = (file, fileIndex = 0, fileCount = 1) =>
     new Promise((resolve, reject) => {
       const form = new FormData()
       form.append('file', file)
       form.append('upload_preset', CLOUDINARY_UPLOAD_PRESET)
 
       const xhr = new XMLHttpRequest()
+
       xhr.open(
         'POST',
         `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`
@@ -370,13 +336,18 @@ export default function Dashboard() {
       }
 
       xhr.timeout = 180000
-      xhr.ontimeout = () => reject(new Error(`Upload timed out for ${file.name}.`))
+      xhr.ontimeout = () => reject(new Error(`Upload timed out for ${file.name}. Check your connection and retry.`))
       xhr.onabort = () => reject(new Error(`Upload cancelled for ${file.name}.`))
 
       xhr.onload = () => {
         try {
           const result = JSON.parse(xhr.responseText)
-          if (xhr.status >= 200 && xhr.status < 300 && result.secure_url) {
+
+          if (
+            xhr.status >= 200 &&
+            xhr.status < 300 &&
+            result.secure_url
+          ) {
             const previewUrl = file.type.startsWith('image/')
               ? result.secure_url.replace(
                   '/upload/',
@@ -394,14 +365,20 @@ export default function Dashboard() {
           } else {
             reject(new Error(result?.error?.message || 'Upload failed'))
           }
-        } catch {
-          reject(new Error('Could not parse upload response'))
+        } catch (error) {
+          reject(
+            error instanceof Error
+              ? error
+              : new Error('Could not process upload response')
+          )
         }
       }
 
-      xhr.onerror = () => reject(new Error(`Network error while uploading ${file.name}.`))
+      xhr.onerror = () =>
+        reject(new Error(`Network connection interrupted while uploading ${file.name}.`))
+
       xhr.send(form)
-    }), [])
+    })
 
   const deploy = async () => {
     if (
@@ -412,7 +389,10 @@ export default function Dashboard() {
       Number(amount) <= 0 ||
       !files.length
     ) {
-      notify('Please fill in all required fields and add at least one file.', 'error')
+      notify(
+        'Add a project name, valid client email, amount and at least one file.',
+        'error'
+      )
       return
     }
 
@@ -430,11 +410,13 @@ export default function Dashboard() {
 
     try {
       const manifest = []
+
       for (let index = 0; index < files.length; index++) {
         manifest.push(await uploadFile(files[index], index, files.length))
       }
 
       setProgress(98)
+
       const gross = Number(amount)
       const fee = Math.max(Math.round(gross * 0.05), 1)
       const expiresAt = new Date()
@@ -443,11 +425,12 @@ export default function Dashboard() {
         expiresAt.getDate() + (expiry === 'never' ? 3650 : Number(expiry))
       )
 
-      await addDoc(collection(db, 'deliveries'), {
+      const ref = await addDoc(collection(db, 'deliveries'), {
         userId: user.uid,
         userEmail: user.email || '',
         title: title.trim(),
-        clientName: clientName.trim() || clientEmail.split('@')[0] || 'Client',
+        clientName:
+          clientName.trim() || clientEmail.split('@')[0] || 'Client',
         clientEmail: clientEmail.trim(),
         clientMessage: clientMessage.trim(),
         grossAmount: gross,
@@ -463,8 +446,31 @@ export default function Dashboard() {
         createdAt: serverTimestamp(),
       })
 
+      const portalUrl = `${window.location.origin}/d/${ref.id}`
+
+      if (clientEmail.trim()) {
+        fetch('/api/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            clientEmail: clientEmail.trim(),
+            clientName: clientName.trim() || 'Client',
+            creatorName:
+              user.displayName ||
+              user.email?.split('@')[0] ||
+              'Creator',
+            projectTitle: title.trim(),
+            amount: gross,
+            currency,
+            portalUrl,
+          }),
+        }).catch(error =>
+          console.error('Email dispatch failed:', error)
+        )
+      }
+
       setProgress(100)
-      notify('Payment request created successfully!')
+      notify('Payment request created successfully.')
       haptic([12, 35, 12])
 
       setTitle('')
@@ -482,31 +488,27 @@ export default function Dashboard() {
       notify(error.message || 'Could not create payment request.', 'error')
       haptic([30, 40, 30])
     } finally {
-      if (isMountedRef.current) {
-        setUploading(false)
-        setProgress(0)
-      }
+      setUploading(false)
+      setProgress(0)
     }
   }
 
-  const copyPortal = useCallback(async id => {
-    if (typeof window === 'undefined') return
+  const copyPortal = async id => {
     const url = `${window.location.origin}/d/${id}`
 
     try {
       await navigator.clipboard.writeText(url)
-      notify('Client portal link copied to clipboard!')
+      notify('Client portal link copied.')
     } catch {
       notify(url, 'error')
     }
-  }, [notify])
+  }
 
-  const shareProject = useCallback(async item => {
-    if (typeof window === 'undefined') return
+  const shareProject = async item => {
     const url = `${window.location.origin}/d/${item.id}`
 
     try {
-      if (typeof navigator !== 'undefined' && navigator.share) {
+      if (navigator.share) {
         await navigator.share({
           title: `PayDrop: ${item.title}`,
           text: `Review deliverables for ${item.title}`,
@@ -515,32 +517,37 @@ export default function Dashboard() {
       } else {
         await navigator.clipboard.writeText(url)
       }
-      notify('Link copied to clipboard!')
+
+      notify(navigator.share ? 'Share sheet opened.' : 'Portal link copied.')
     } catch (error) {
       if (error?.name !== 'AbortError') copyPortal(item.id)
     }
-  }, [copyPortal, notify])
+  }
 
-  const removeProject = useCallback(async id => {
-    if (typeof window !== 'undefined' && !window.confirm('Are you sure you want to delete this project?')) {
+  const removeProject = async id => {
+    if (
+      !window.confirm(
+        'Permanently delete this project? This cannot be undone.'
+      )
+    ) {
       return
     }
 
     try {
       await deleteDoc(doc(db, 'deliveries', id))
-      if (activeChatId === id) setActiveChatId(null)
       notify('Project deleted.')
     } catch (error) {
       console.error(error)
-      notify('Could not delete project.', 'error')
+      notify('Could not delete this project.', 'error')
     }
-  }, [activeChatId, notify])
+  }
 
   const sendReply = async () => {
     if (!activeChat || !reply.trim()) return
 
     try {
       const existing = activeChat.messages || []
+
       await updateDoc(doc(db, 'deliveries', activeChat.id), {
         messages: [
           ...existing,
@@ -556,7 +563,16 @@ export default function Dashboard() {
       notify('Reply sent.')
     } catch (error) {
       console.error(error)
-      notify('Failed to send reply.', 'error')
+      notify('Could not send reply.', 'error')
+    }
+  }
+
+  const logout = async () => {
+    try {
+      await signOut(auth)
+    } catch (error) {
+      console.error(error)
+      notify('Sign out failed.', 'error')
     }
   }
 
@@ -566,7 +582,7 @@ export default function Dashboard() {
     setWizardOpen(true)
   }
 
-  const navItems = useMemo(() => [
+  const navItems = [
     { id: 'overview', label: 'Overview', icon: LayoutDashboard },
     {
       id: 'projects',
@@ -581,9 +597,9 @@ export default function Dashboard() {
       count: unread.length,
     },
     { id: 'wallet', label: 'Wallet & payouts', icon: Wallet },
-  ], [deliveries.length, unread.length])
+  ]
 
-  if (!mounted || authLoading) {
+  if (authLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#F4F7F2] text-sm font-semibold text-slate-500">
         <div className="mr-3 h-5 w-5 animate-spin rounded-full border-2 border-[#063D2A] border-t-transparent" />
@@ -599,12 +615,15 @@ export default function Dashboard() {
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#94EC36] text-2xl font-black text-[#063D2A]">
             P
           </div>
+
           <h1 className="mt-5 text-2xl font-black tracking-tight text-slate-950">
             Your studio is waiting
           </h1>
+
           <p className="mt-2 text-sm leading-6 text-slate-500">
             Sign in to manage your projects, client handovers and payment requests.
           </p>
+
           <Link
             href="/login"
             className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#063D2A] px-5 py-3.5 text-sm font-bold text-white transition hover:bg-[#09523A]"
@@ -621,6 +640,25 @@ export default function Dashboard() {
     user.email?.split('@')[0] ||
     'Creator'
 
+  const chartMax = Math.max(...monthly.map(item => item.value), 1)
+
+  const points = monthly.map((item, index) => ({
+    ...item,
+    x: 12 + index * 75,
+    y: 98 - (item.value / chartMax) * 70,
+  }))
+
+  const chartLine = points
+    .map(
+      (point, index) =>
+        `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`
+    )
+    .join(' ')
+
+  const chartArea = `${chartLine} L ${
+    points[points.length - 1]?.x || 387
+  } 112 L 12 112 Z`
+
   return (
     <div className="paydrop-shell min-h-screen bg-[#F4F7F2] text-slate-900 antialiased selection:bg-[#94EC36] selection:text-[#063D2A]">
       <style jsx global>{`
@@ -632,10 +670,15 @@ export default function Dashboard() {
         .paydrop-shell button, .paydrop-shell a { transition: transform .18s ease, box-shadow .2s ease, background-color .2s ease, border-color .2s ease, color .2s ease; }
         .paydrop-shell button:active, .paydrop-shell a:active { transform: scale(.985); }
         .paydrop-shell button:focus-visible, .paydrop-shell a:focus-visible, .paydrop-shell input:focus-visible, .paydrop-shell select:focus-visible, .paydrop-shell textarea:focus-visible { outline: 3px solid rgba(148,236,54,.75); outline-offset: 3px; }
+        .paydrop-shell main > section, .paydrop-shell main > div { animation: pd-enter .32s cubic-bezier(.2,.75,.25,1) both; }
+        .paydrop-shell .rounded-3xl, .paydrop-shell .rounded-2xl { transition: box-shadow .22s ease, border-color .22s ease, transform .22s ease; }
+        .paydrop-shell .border-slate-200\/80.bg-white:hover { box-shadow: 0 16px 40px rgba(6,61,42,.055); border-color: rgba(6,61,42,.16); }
         .paydrop-shell input, .paydrop-shell textarea, .paydrop-shell select { max-width: 100%; }
+        @keyframes pd-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; } }
+        @supports (backdrop-filter: blur(12px)) { .paydrop-shell .pd-glass { background: rgba(255,255,255,.76); backdrop-filter: blur(16px) saturate(145%); } }
+        @media (max-width: 640px) { .paydrop-shell { padding-bottom: env(safe-area-inset-bottom); } .paydrop-shell button { min-height: 36px; } }
       `}</style>
-
-      {/* Toast Notification */}
       {toast && (
         <div className="fixed left-1/2 top-4 z-[100] w-[calc(100%-2rem)] max-w-md -translate-x-1/2">
           <div className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-semibold shadow-xl ${toast.type === 'error' ? 'border-rose-200 bg-white text-rose-700' : 'border-emerald-100 bg-[#063D2A] text-white'}`}>
@@ -648,17 +691,11 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Mobile Drawer Backdrop */}
       {mobileMenuOpen && (
-        <div 
-          aria-label="Close navigation overlay" 
-          className="fixed inset-0 z-40 bg-slate-950/30 lg:hidden cursor-pointer backdrop-blur-xs" 
-          onClick={() => setMobileMenuOpen(false)}
-        />
+        <button aria-label="Close navigation overlay" className="fixed inset-0 z-40 touch-none bg-slate-950/30 lg:hidden" onClick={() => setMobileMenuOpen(false)}/>
       )}
 
-      {/* Sidebar Navigation */}
-      <aside className={`fixed inset-y-0 left-0 z-50 flex w-[276px] flex-col border-r border-slate-200/80 bg-white px-5 py-6 transition-transform duration-200 lg:translate-x-0 ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside aria-label="Main navigation" className={`fixed inset-y-0 left-0 z-50 flex w-[min(86vw,276px)] flex-col overflow-y-auto overscroll-contain border-r border-slate-200/80 bg-white px-5 py-6 transition-transform duration-200 ease-out will-change-transform lg:translate-x-0 lg:overflow-y-auto ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="flex items-center justify-between px-1">
           <button onClick={() => { setTab('overview'); setMobileMenuOpen(false) }} className="flex items-center gap-3">
             <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#94EC36] text-xl font-black text-[#063D2A] shadow-sm">P</span>
@@ -667,11 +704,11 @@ export default function Dashboard() {
           <button className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 lg:hidden" onClick={() => setMobileMenuOpen(false)} aria-label="Close menu"><X size={19}/></button>
         </div>
 
-        <div className="mt-8 rounded-2xl border border-[#DDEBD7] bg-[#F4F8F1] p-3.5">
+        <div className="mt-9 rounded-2xl border border-[#DDEBD7] bg-[#F4F8F1] p-3.5">
           <div className="flex items-center gap-2 text-xs font-bold text-[#063D2A]">
             <ShieldCheck size={16}/><span>Creator workspace</span><span className="ml-auto h-2 w-2 rounded-full bg-emerald-500"/>
           </div>
-          <p className="mt-1 pl-6 text-[11px] text-slate-500">Your files. Your clients. One place.</p>
+          <p className="mt-1.5 pl-6 text-[11px] text-slate-500">Your files. Your clients. One place.</p>
         </div>
 
         <p className="mb-3 mt-8 px-3 text-[10px] font-extrabold uppercase tracking-[.18em] text-slate-400">Workspace</p>
@@ -682,7 +719,7 @@ export default function Dashboard() {
             return (
               <button
                 key={item.id}
-                onClick={() => { haptic(6); setTab(item.id); setMobileMenuOpen(false); setActiveChatId(null) }}
+                onClick={() => { haptic(6); setTab(item.id); setMobileMenuOpen(false); setActiveChat(null) }}
                 className={`flex w-full items-center gap-3 rounded-2xl px-3.5 py-3 text-left text-[13px] font-semibold transition ${selected ? 'bg-[#063D2A] text-white shadow-lg shadow-[#063D2A]/10' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950'}`}
               >
                 <Icon size={18} className={selected ? 'text-[#94EC36]' : 'text-slate-400'}/>
@@ -719,12 +756,11 @@ export default function Dashboard() {
         </div>
       </aside>
 
-      {/* Main App Content Area */}
       <div className="min-h-screen lg:pl-[276px]">
         <header className="sticky top-0 z-30 border-b border-slate-200/70 bg-[#F4F7F2]/90 backdrop-blur-xl">
           <div className="mx-auto flex max-w-[1500px] items-center justify-between gap-3 px-4 py-4 sm:px-7 lg:px-9">
             <div className="flex min-w-0 items-center gap-3">
-              <button onClick={() => setMobileMenuOpen(true)} className="rounded-xl border border-slate-200 bg-white p-2.5 text-slate-700 lg:hidden" aria-label="Open navigation"><Menu size={19}/></button>
+              <button onClick={() => { haptic(6); setMobileMenuOpen(true) }} className="rounded-xl border border-slate-200 bg-white p-2.5 text-slate-700 lg:hidden" aria-label="Open navigation"><Menu size={19}/></button>
               <div className="min-w-0">
                 <div className="hidden items-center gap-2 text-[10px] font-bold uppercase tracking-[.16em] text-slate-400 sm:flex">
                   <span>PayDrop Studio</span><ChevronRight size={12}/><span className="text-slate-500">{navItems.find(item => item.id === tab)?.label || (tab === 'chat' ? 'Client messages' : 'Overview')}</span>
@@ -776,7 +812,7 @@ export default function Dashboard() {
                         <Plus size={16}/> Request payment
                       </button>
                       <button onClick={() => setTab('projects')} className="inline-flex items-center gap-2 rounded-2xl border border-white/20 bg-white/10 px-5 py-3 text-xs font-bold text-white transition hover:bg-white/15">
-                        View projects <ChevronRight size={15}/>
+                        View projects <ArrowUpRight size={15}/>
                       </button>
                     </div>
                   </div>
@@ -798,9 +834,9 @@ export default function Dashboard() {
                           </linearGradient>
                         </defs>
                         {[25,55,85].map(y => <line key={y} x1="0" x2="400" y1={y} y2={y} stroke="white" strokeOpacity=".12" strokeDasharray="4 6"/>)}
-                        <path d={chartData.area} fill="url(#paydropRevenueFill)"/>
-                        <path d={chartData.line} fill="none" stroke="#94EC36" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
-                        {chartData.points.map((point, index) => <circle key={point.label + index} cx={point.x} cy={point.y} r="3.5" fill="#063D2A" stroke="#94EC36" strokeWidth="2"/>)}
+                        <path d={chartArea} fill="url(#paydropRevenueFill)"/>
+                        <path d={chartLine} fill="none" stroke="#94EC36" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+                        {points.map((point, index) => <circle key={point.label + index} cx={point.x} cy={point.y} r="3.5" fill="#063D2A" stroke="#94EC36" strokeWidth="2"/>)}
                       </svg>
                     </div>
                     <div className="mt-3 flex justify-between text-[10px] font-semibold text-emerald-100/55">
@@ -816,9 +852,9 @@ export default function Dashboard() {
 
               <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <MiniStat icon={Wallet} label="Settled earnings" value={formatCurrency(totalRevenue, currency)} note={`${paid.length} project${paid.length === 1 ? '' : 's'} marked paid`} tone="green"/>
-                <MiniStat icon={Clock3} label="Awaiting payment" value={formatCurrency(pendingValue, currency)} note={`${pending.length} request${pending.length === 1 ? '' : 's'} pending`} tone="amber"/>
-                <MiniStat icon={BriefcaseBusiness} label="Total projects" value={deliveries.length.toLocaleString()} note="Across workspace" tone="blue"/>
-                <MiniStat icon={MessageCircle} label="Client replies" value={unread.length.toLocaleString()} note={unread.length ? 'Needs attention' : 'All caught up'} tone="lime"/>
+                <MiniStat icon={Clock3} label="Awaiting payment" value={formatCurrency(pendingValue, currency)} note={`${pending.length} request${pending.length === 1 ? '' : 's'} not marked paid`} tone="amber"/>
+                <MiniStat icon={BriefcaseBusiness} label="Total projects" value={deliveries.length.toLocaleString()} note="Across your workspace" tone="blue"/>
+                <MiniStat icon={MessageCircle} label="Client replies" value={unread.length.toLocaleString()} note={unread.length ? 'Needs your attention' : 'You are all caught up'} tone="lime"/>
               </section>
 
               <section className="grid gap-6 lg:grid-cols-3">
@@ -826,7 +862,7 @@ export default function Dashboard() {
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <h2 className="text-base font-black text-slate-950">Recent deliverables</h2>
-                      <p className="mt-0.5 text-xs text-slate-500">Quick view of your payment requests</p>
+                      <p className="mt-0.5 text-xs text-slate-500">Quick view of your recent payment requests</p>
                     </div>
                     <button onClick={() => setTab('projects')} className="text-xs font-bold text-[#063D2A] hover:underline">View all</button>
                   </div>
@@ -884,7 +920,7 @@ export default function Dashboard() {
                 <p className="mt-0.5 text-xs text-slate-500">Messages sent via client portals</p>
                 <div className="mt-4 space-y-2">
                   {deliveries.filter(d => d.messages?.length > 0).map(item => (
-                    <button key={item.id} onClick={() => { setActiveChatId(item.id); setTab('chat') }} className={`flex w-full items-center gap-3 rounded-2xl p-3 text-left transition ${activeChat?.id === item.id ? 'bg-[#F4F8F1] border border-[#94EC36]' : 'border border-slate-100 hover:bg-slate-50'}`}>
+                    <button key={item.id} onClick={() => { setActiveChat(item); setTab('chat') }} className={`flex w-full items-center gap-3 rounded-2xl p-3 text-left transition ${activeChat?.id === item.id ? 'bg-[#F4F8F1] border border-[#94EC36]' : 'border border-slate-100 hover:bg-slate-50'}`}>
                       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#EAF3E5] text-xs font-black text-[#063D2A]">{initials(item.clientName)}</span>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-xs font-bold text-slate-900">{item.title}</p>
@@ -934,11 +970,11 @@ export default function Dashboard() {
             <div className="space-y-6">
               <div className="rounded-3xl border border-white/80 bg-white/85 p-6 shadow-[0_8px_30px_rgba(6,61,42,.045)] backdrop-blur-xl">
                 <h2 className="text-base font-black text-slate-950">Payout Settings</h2>
-                <p className="mt-1 text-xs text-slate-500">Configure bank transfers and payment settlement preferences.</p>
+                <p className="mt-1 text-xs text-slate-500">Configure your bank and settlement options for automated transfers.</p>
                 <div className="mt-6 rounded-2xl border border-dashed border-slate-200 bg-[#F8FAF6] p-6 text-center">
                   <Wallet size={28} className="mx-auto text-slate-400"/>
                   <p className="mt-3 text-xs font-bold text-slate-700">Bank Integration Pending</p>
-                  <p className="mt-1 text-[11px] text-slate-500">Connect your account with Stripe or Razorpay to automate settlements directly to your bank account.</p>
+                  <p className="mt-1 text-[11px] text-slate-500">Connect Stripe or Razorpay in settings to automate payouts directly to your bank account.</p>
                 </div>
               </div>
             </div>
@@ -946,7 +982,7 @@ export default function Dashboard() {
         </main>
       </div>
 
-      {/* Bottom Mobile Navigation */}
+      {/* Mobile quick navigation */}
       <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-slate-200/80 bg-white/95 px-2 pb-[max(.6rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-xl lg:hidden">
         {navItems.map(item => {
           const Icon = item.icon
@@ -955,7 +991,7 @@ export default function Dashboard() {
           return (
             <button
               key={item.id}
-              onClick={() => { setTab(item.id); setActiveChatId(null) }}
+              onClick={() => { setTab(item.id); setActiveChat(null) }}
               className={`relative flex flex-col items-center gap-1 rounded-xl py-1.5 ${selected ? 'text-[#063D2A]' : 'text-slate-400'}`}
             >
               <span className="relative">
@@ -972,7 +1008,7 @@ export default function Dashboard() {
         })}
       </nav>
 
-      {/* Payment Request Creation Wizard */}
+      {/* Payment request wizard */}
       {wizardOpen && (
         <div className="fixed inset-0 z-[60] flex items-end justify-center bg-slate-950/45 p-0 backdrop-blur-sm sm:items-center sm:p-5">
           <div className="flex max-h-[94dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-[30px] border border-white/70 bg-white shadow-2xl sm:max-h-[90vh] sm:rounded-[32px]">
@@ -1011,7 +1047,7 @@ export default function Dashboard() {
                   <div>
                     <h3 className="text-sm font-extrabold">Upload your deliverables</h3>
                     <p className="mt-1 text-xs leading-5 text-slate-500">
-                      Add the files you intend to share with your client.
+                      Add the files you intend to share with your client. Only upload files you have permission to share.
                     </p>
                   </div>
 
@@ -1021,10 +1057,7 @@ export default function Dashboard() {
                     onDrop={event => {
                       event.preventDefault()
                       setDragging(false)
-                      const incoming = Array.from(event.dataTransfer.files || [])
-                      const valid = incoming.filter(file => file.size <= 100 * 1024 * 1024)
-                      if (valid.length !== incoming.length) notify('Files over 100 MB were skipped.', 'error')
-                      setFiles(prev => [...prev, ...valid])
+                      setFiles(previous => { const incoming = Array.from(event.dataTransfer.files || []); const valid = incoming.filter(file => file.size <= 100 * 1024 * 1024); if (valid.length !== incoming.length) notify('Files over 100 MB were skipped.', 'error'); return [...previous, ...valid] })
                     }}
                     className={`rounded-3xl border-2 border-dashed p-7 text-center transition sm:p-10 ${dragging ? 'border-[#063D2A] bg-lime-50' : 'border-slate-200 bg-[#F8FAF6]'}`}
                   >
@@ -1041,10 +1074,7 @@ export default function Dashboard() {
                         accept="image/*,video/*,audio/*,.zip,.rar,.7z,.pdf,.psd,.ai,.fig,.sketch,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.md,.json,.js,.jsx,.ts,.tsx,.html,.css,.py,.java,.cpp,.c,.sql,.mov,.mp4,.m4v,.webm,.mkv,.avi"
                         className="hidden"
                         onChange={event => {
-                          const incoming = Array.from(event.target.files || [])
-                          const valid = incoming.filter(file => file.size <= 100 * 1024 * 1024)
-                          if (valid.length !== incoming.length) notify('Files over 100 MB were skipped.', 'error')
-                          setFiles(prev => [...prev, ...valid])
+                          setFiles(previous => { const incoming = Array.from(event.target.files || []); const valid = incoming.filter(file => file.size <= 100 * 1024 * 1024); if (valid.length !== incoming.length) notify('Files over 100 MB were skipped.', 'error'); return [...previous, ...valid] })
                           event.target.value = ''
                         }}
                       />
@@ -1063,7 +1093,7 @@ export default function Dashboard() {
                             <span className="text-[10px] text-slate-400">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
                           </span>
                           <button
-                            onClick={() => setFiles(prev => prev.filter((_, i) => i !== index))}
+                            onClick={() => setFiles(previous => previous.filter((_, i) => i !== index))}
                             className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
                             aria-label={`Remove ${file.name}`}
                           >
@@ -1073,6 +1103,10 @@ export default function Dashboard() {
                       ))}
                     </div>
                   )}
+
+                  <p className="text-[11px] leading-5 text-slate-400">
+                    This implementation uploads files from the browser to Cloudinary. Configure upload limits and access policies in your Cloudinary account.
+                  </p>
                 </div>
               )}
 
@@ -1158,6 +1192,9 @@ export default function Dashboard() {
                         </button>
                       ))}
                     </div>
+                    <p className="mt-2 text-[10px] leading-5 text-slate-400">
+                      The long expiry date does not automatically disable access unless your client portal checks expiry.
+                    </p>
                   </div>
 
                   <div className="rounded-2xl bg-[#F4F7F2] p-4">
@@ -1165,6 +1202,9 @@ export default function Dashboard() {
                       <span className="text-slate-500">Platform fee estimate (5%)</span>
                       <span className="font-bold">{formatCurrency(Math.max(Math.round((Number(amount) || 0) * .05), 1), currency)}</span>
                     </div>
+                    <p className="mt-2 text-[10px] leading-4 text-slate-400">
+                      Illustrative estimate based on the dashboard logic, not a payment processor quote.
+                    </p>
                   </div>
                 </div>
               )}
@@ -1184,6 +1224,17 @@ export default function Dashboard() {
                       <span className="text-slate-500">Files attached</span>
                       <span className="font-bold">{files.length}</span>
                     </div>
+                    <div className="mt-2 flex items-center justify-between text-xs">
+                      <span className="text-slate-500">Link expiry</span>
+                      <span className="font-bold">{expiry === 'never' ? '10 years' : `${expiry} days`}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3 rounded-2xl border border-lime-200 bg-lime-50 p-4">
+                    <ShieldCheck size={19} className="mt-0.5 shrink-0 text-[#063D2A]"/>
+                    <p className="text-xs leading-5 text-[#315A43]">
+                      Review the details before creating the request. This creates a project record and portal link; it does not itself collect or escrow money.
+                    </p>
                   </div>
 
                   {uploading && (
@@ -1205,7 +1256,7 @@ export default function Dashboard() {
               {step > 1 && (
                 <button
                   disabled={uploading}
-                  onClick={() => setStep(prev => prev - 1)}
+                  onClick={() => setStep(previous => previous - 1)}
                   className="rounded-2xl border border-slate-200 px-5 py-3.5 text-xs font-bold text-slate-600 disabled:opacity-40"
                 >
                   Back
@@ -1224,7 +1275,7 @@ export default function Dashboard() {
                     if (step === 3 && (!amount || Number(amount) <= 0)) {
                       return notify('Enter an amount greater than zero.', 'error')
                     }
-                    setStep(prev => prev + 1)
+                    setStep(previous => previous + 1)
                   }}
                   className="ml-auto inline-flex flex-1 items-center justify-center gap-2 rounded-2xl bg-[#063D2A] px-5 py-3.5 text-xs font-extrabold text-white transition hover:bg-[#09523A] sm:flex-none"
                 >
@@ -1254,7 +1305,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Assistant Side Drawer */}
+      {/* Studio insights drawer */}
       {assistantOpen && (
         <Drawer onClose={() => setAssistantOpen(false)} title="Studio insights" icon={Sparkles}>
           <div className="rounded-2xl bg-[#F4F7F2] p-4">
@@ -1276,13 +1327,16 @@ export default function Dashboard() {
                   <span className="flex-1 text-xs font-semibold text-slate-600">{row.label}</span>
                   <span className="text-sm font-black">{row.value}</span>
                 </div>
-              )
+              );
             })}
           </div>
+          <p className="mt-5 text-[11px] leading-5 text-slate-400">
+            Insights are calculated from project records in your workspace. They are not bank balances or verified payment-provider data.
+          </p>
         </Drawer>
       )}
 
-      {/* Profile Settings Drawer */}
+      {/* Profile drawer */}
       {profileOpen && (
         <Drawer onClose={() => setProfileOpen(false)} title="Account settings" icon={Settings2}>
           <div className="flex items-center gap-3 rounded-2xl bg-[#F4F7F2] p-4">
@@ -1292,13 +1346,14 @@ export default function Dashboard() {
             <div className="min-w-0">
               <p className="truncate text-sm font-extrabold">{user.displayName || firstName}</p>
               <p className="mt-1 truncate text-xs text-slate-500">{user.email}</p>
+              <p className="mt-1 text-[10px] text-slate-400">Firebase account</p>
             </div>
           </div>
 
           <div className="mt-5 rounded-2xl border border-slate-200 p-4">
             <p className="text-xs font-extrabold">Workspace preferences</p>
             <label className="mt-4 flex items-center justify-between gap-3 text-xs font-semibold text-slate-600">
-              <span>Default currency</span>
+              <span>Default reporting currency</span>
               <select
                 value={currency}
                 onChange={event => setCurrency(event.target.value)}
@@ -1311,11 +1366,15 @@ export default function Dashboard() {
           </div>
 
           <button
-            onClick={async () => { setProfileOpen(false); await signOut(auth) }}
+            onClick={async () => { setProfileOpen(false); await logout() }}
             className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-rose-50 px-4 py-3.5 text-xs font-extrabold text-rose-700 transition hover:bg-rose-100"
           >
             <LogOut size={16}/> Sign out
           </button>
+
+          <p className="mt-4 text-[10px] leading-5 text-slate-400">
+            Bank and payout setup is not connected in this dashboard yet. Add a secure provider-backed flow before collecting financial details.
+          </p>
         </Drawer>
       )}
     </div>
@@ -1365,7 +1424,7 @@ function ProjectRow({ item, currency, onCopy, onShare, onDelete, compact = false
             <Copy size={12}/> Copy portal link
           </button>
           <button onClick={() => onShare(item)} className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-[10px] font-bold text-slate-600 transition hover:bg-white">
-            Share2 size={12}/> Share
+            <Share2 size={12}/> Share
           </button>
           <Link href={`/d/${item.id}`} target="_blank" className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-[10px] font-bold text-slate-600 transition hover:bg-white">
             Open portal <ExternalLink size={12}/>
@@ -1417,7 +1476,7 @@ function EmptyState({ title, body, action, onAction }) {
 function Drawer({ onClose, title, icon: Icon, children }) {
   return (
     <div
-      className="fixed inset-0 z-[70] flex justify-end bg-slate-950/35 backdrop-blur-xs"
+      className="fixed inset-0 z-[70] flex justify-end bg-slate-950/35 backdrop-blur-sm"
       onMouseDown={event => { if (event.target === event.currentTarget) onClose() }}
     >
       <aside className="flex h-full w-full max-w-sm flex-col overflow-y-auto bg-white p-5 shadow-2xl sm:p-6">
@@ -1433,6 +1492,9 @@ function Drawer({ onClose, title, icon: Icon, children }) {
           </button>
         </div>
         <div className="flex-1 py-5">{children}</div>
+        <div className="border-t border-slate-100 pt-4">
+          <p className="text-center text-[10px] font-semibold text-slate-400">PayDrop · Creator workspace</p>
+        </div>
       </aside>
     </div>
   )
