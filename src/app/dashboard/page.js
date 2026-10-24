@@ -65,6 +65,12 @@ function initials(name = 'Creator') {
   )
 }
 
+function formatFileSize(bytes) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 KB'
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
 function StatusBadge({ status }) {
   const paid = status === 'Paid'
   const expired = status === 'Expired' || status === 'Cancelled'
@@ -119,6 +125,136 @@ function MiniStat({ icon: Icon, label, value, note, tone = 'green' }) {
   )
 }
 
+function FileTypeIcon({ file }) {
+  const type = file?.type || ''
+
+  if (type.startsWith('image/')) return <ImageIcon size={18} />
+  if (type.startsWith('video/')) return <Film size={18} />
+  if (
+    type.includes('zip') ||
+    type.includes('compressed') ||
+    /\.zip$|\.rar$|\.7z$/i.test(file?.name || '')
+  ) {
+    return <FileArchive size={18} />
+  }
+
+  return <File size={18} />
+}
+
+function ProjectCard({ delivery, activeMenuId, setActiveMenuId, onShare, onCopyLink, onDelete, onViewMessages }) {
+  const menuOpen = activeMenuId === delivery.id
+
+  return (
+    <article className="min-w-0 rounded-3xl border border-slate-200/80 bg-white p-5 shadow-sm transition-shadow hover:shadow-md sm:p-6">
+      <div className="flex min-w-0 items-start gap-3">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-800">
+          <BriefcaseBusiness size={21} />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <h3 className="break-words text-base font-bold text-slate-950">
+            {delivery.title || 'Untitled project'}
+          </h3>
+          <p className="mt-1 break-words text-sm text-slate-500">
+            {delivery.clientName || delivery.clientEmail || 'Client not specified'}
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setActiveMenuId(menuOpen ? null : delivery.id)}
+          aria-label="Project actions"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-500 transition-colors hover:bg-slate-100"
+        >
+          <MoreHorizontal size={21} />
+        </button>
+      </div>
+
+      {menuOpen && (
+        <div className="mt-3 flex flex-wrap gap-2 rounded-2xl bg-slate-50 p-3">
+          <button
+            type="button"
+            onClick={() => {
+              setActiveMenuId(null)
+              onShare(delivery)
+            }}
+            className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-white px-3 text-sm font-semibold text-slate-700 ring-1 ring-slate-200"
+          >
+            <Share2 size={15} /> Share
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setActiveMenuId(null)
+              onCopyLink(delivery)
+            }}
+            className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-white px-3 text-sm font-semibold text-slate-700 ring-1 ring-slate-200"
+          >
+            <Copy size={15} /> Copy link
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setActiveMenuId(null)
+              onDelete(delivery)
+            }}
+            className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-white px-3 text-sm font-semibold text-red-600 ring-1 ring-red-100"
+          >
+            <Trash2 size={15} /> Delete
+          </button>
+        </div>
+      )}
+
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+        <StatusBadge status={delivery.status} />
+        <span className="text-lg font-extrabold tracking-tight text-slate-950">
+          {formatCurrency(delivery.grossAmount, delivery.currency || 'INR')}
+        </span>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-3 border-t border-slate-100 pt-4">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+            Files
+          </p>
+          <p className="mt-1 text-sm font-bold text-slate-700">
+            {delivery.files?.length || 0} attached
+          </p>
+        </div>
+
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+            Client messages
+          </p>
+          <p className="mt-1 text-sm font-bold text-slate-700">
+            {delivery.messages?.length || 0}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => onViewMessages(delivery)}
+          className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50"
+        >
+          <MessageCircle size={16} /> Messages
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onShare(delivery)}
+          className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-900 px-3 text-sm font-bold text-white transition-colors hover:bg-emerald-800"
+        >
+          Open link <ExternalLink size={15} />
+        </button>
+      </div>
+    </article>
+  )
+}
+
 export default function Dashboard() {
   const [user, setUser] = useState(null)
   const [authLoading, setAuthLoading] = useState(true)
@@ -132,7 +268,8 @@ export default function Dashboard() {
   const [toast, setToast] = useState(null)
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [profileOpen, setProfileOpen] = useState(false)
+  const [headerProfileOpen, setHeaderProfileOpen] = useState(false)
+  const [activeProjectMenuId, setActiveProjectMenuId] = useState(null)
   const [assistantOpen, setAssistantOpen] = useState(false)
   const [wizardOpen, setWizardOpen] = useState(false)
 
@@ -327,14 +464,6 @@ export default function Dashboard() {
     [pending, currency]
   )
 
-  const totalGross = useMemo(
-    () =>
-      deliveries
-        .filter(item => (item.currency || 'INR') === currency)
-        .reduce((sum, item) => sum + (Number(item.grossAmount) || 0), 0),
-    [deliveries, currency]
-  )
-
   const filtered = useMemo(
     () =>
       deliveries.filter(item =>
@@ -479,8 +608,6 @@ export default function Dashboard() {
         const isImage = file.type.startsWith('image/')
         let previewUrl = result.secure_url
 
-        // Image previews receive a visible watermark.
-        // This is a preview convenience, not a security boundary.
         if (isImage && result.public_id) {
           const publicId = result.public_id
           const version = result.version ? `v${result.version}/` : ''
@@ -830,7 +957,8 @@ export default function Dashboard() {
       </main>
     )
   }
-    const navigation = [
+
+  const navigation = [
     { id: 'overview', label: 'Overview', icon: LayoutDashboard },
     { id: 'projects', label: 'Projects', icon: BriefcaseBusiness, count: deliveries.length },
     { id: 'revisions', label: 'Messages', icon: MessageSquare, count: unread.length },
@@ -849,141 +977,6 @@ export default function Dashboard() {
 
   const pageTitle =
     navigation.find(item => item.id === tab)?.label || 'Overview'
-
-  const formatFileSize = bytes => {
-    if (!Number.isFinite(bytes) || bytes <= 0) return '0 KB'
-    if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-  }
-
-  const FileTypeIcon = ({ file }) => {
-    const type = file?.type || ''
-
-    if (type.startsWith('image/')) return <ImageIcon size={18} />
-    if (type.startsWith('video/')) return <Film size={18} />
-    if (
-      type.includes('zip') ||
-      type.includes('compressed') ||
-      /\.zip$|\.rar$|\.7z$/i.test(file?.name || '')
-    ) {
-      return <FileArchive size={18} />
-    }
-
-    return <File size={18} />
-  }
-
-  const ProjectCard = ({ delivery }) => (
-    <article className="min-w-0 rounded-3xl border border-slate-200/80 bg-white p-5 shadow-sm transition-shadow hover:shadow-md sm:p-6">
-      <div className="flex min-w-0 items-start gap-3">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-800">
-          <BriefcaseBusiness size={21} />
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <h3 className="break-words text-base font-bold text-slate-950">
-            {delivery.title || 'Untitled project'}
-          </h3>
-          <p className="mt-1 break-words text-sm text-slate-500">
-            {delivery.clientName || delivery.clientEmail || 'Client not specified'}
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setProfileOpen(profileOpen === delivery.id ? false : delivery.id)}
-          aria-label="Project actions"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-500 transition-colors hover:bg-slate-100"
-        >
-          <MoreHorizontal size={21} />
-        </button>
-      </div>
-
-      {profileOpen === delivery.id && (
-        <div className="mt-3 flex flex-wrap gap-2 rounded-2xl bg-slate-50 p-3">
-          <button
-            type="button"
-            onClick={() => {
-              setProfileOpen(false)
-              shareVault(delivery)
-            }}
-            className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-white px-3 text-sm font-semibold text-slate-700 ring-1 ring-slate-200"
-          >
-            <Share2 size={15} /> Share
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setProfileOpen(false)
-              copyDeliveryLink(delivery)
-            }}
-            className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-white px-3 text-sm font-semibold text-slate-700 ring-1 ring-slate-200"
-          >
-            <Copy size={15} /> Copy link
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setProfileOpen(false)
-              deleteVault(delivery)
-            }}
-            className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-white px-3 text-sm font-semibold text-red-600 ring-1 ring-red-100"
-          >
-            <Trash2 size={15} /> Delete
-          </button>
-        </div>
-      )}
-
-      <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-        <StatusBadge status={delivery.status} />
-        <span className="text-lg font-extrabold tracking-tight text-slate-950">
-          {formatCurrency(delivery.grossAmount, delivery.currency || 'INR')}
-        </span>
-      </div>
-
-      <div className="mt-4 grid grid-cols-2 gap-3 border-t border-slate-100 pt-4">
-        <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-            Files
-          </p>
-          <p className="mt-1 text-sm font-bold text-slate-700">
-            {delivery.files?.length || 0} attached
-          </p>
-        </div>
-
-        <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-            Client messages
-          </p>
-          <p className="mt-1 text-sm font-bold text-slate-700">
-            {delivery.messages?.length || 0}
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-4 flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={() => {
-            setActiveChat(delivery)
-            setTab('revisions')
-          }}
-          className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50"
-        >
-          <MessageCircle size={16} /> Messages
-        </button>
-
-        <button
-          type="button"
-          onClick={() => shareVault(delivery)}
-          className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-900 px-3 text-sm font-bold text-white transition-colors hover:bg-emerald-800"
-        >
-          Open link <ExternalLink size={15} />
-        </button>
-      </div>
-    </article>
-  )
 
   return (
     <main className="min-h-screen overflow-x-clip bg-[#f5f8f5] text-slate-900">
@@ -1269,7 +1262,7 @@ export default function Dashboard() {
 
             <button
               type="button"
-              onClick={() => setProfileOpen(!profileOpen)}
+              onClick={() => setHeaderProfileOpen(!headerProfileOpen)}
               aria-label="Open profile menu"
               className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-sm font-extrabold text-emerald-950 ring-1 ring-emerald-200"
             >
@@ -1300,7 +1293,7 @@ export default function Dashboard() {
             </select>
           </div>
 
-          {profileOpen === true && (
+          {headerProfileOpen && (
             <div className="absolute right-4 top-[68px] z-40 w-64 rounded-2xl border border-slate-200 bg-white p-3 shadow-xl sm:right-6">
               <p className="truncate px-3 py-2 text-sm font-bold text-slate-900">
                 {displayName}
@@ -1311,7 +1304,7 @@ export default function Dashboard() {
               <button
                 type="button"
                 onClick={() => {
-                  setProfileOpen(false)
+                  setHeaderProfileOpen(false)
                   logout()
                 }}
                 className="flex min-h-10 w-full items-center gap-2 rounded-xl px-3 text-sm font-semibold text-red-600 hover:bg-red-50"
@@ -1563,14 +1556,27 @@ export default function Dashboard() {
                 ) : (
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                     {pending.slice(0, 3).map(delivery => (
-                      <ProjectCard key={delivery.id} delivery={delivery} />
+                      <ProjectCard
+                        key={delivery.id}
+                        delivery={delivery}
+                        activeMenuId={activeProjectMenuId}
+                        setActiveMenuId={setActiveProjectMenuId}
+                        onShare={shareVault}
+                        onCopyLink={copyDeliveryLink}
+                        onDelete={deleteVault}
+                        onViewMessages={item => {
+                          setActiveChat(item)
+                          setTab('revisions')
+                        }}
+                      />
                     ))}
                   </div>
                 )}
               </section>
             </section>
           )}
-                    {tab === 'projects' && (
+
+          {tab === 'projects' && (
             <section className="space-y-6">
               <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
                 <div>
@@ -1644,7 +1650,19 @@ export default function Dashboard() {
               ) : (
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                   {visibleProjects.map(delivery => (
-                    <ProjectCard key={delivery.id} delivery={delivery} />
+                    <ProjectCard
+                      key={delivery.id}
+                      delivery={delivery}
+                      activeMenuId={activeProjectMenuId}
+                      setActiveMenuId={setActiveProjectMenuId}
+                      onShare={shareVault}
+                      onCopyLink={copyDeliveryLink}
+                      onDelete={deleteVault}
+                      onViewMessages={item => {
+                        setActiveChat(item)
+                        setTab('revisions')
+                      }}
+                    />
                   ))}
                 </div>
               )}
@@ -1979,7 +1997,8 @@ export default function Dashboard() {
               </section>
             </section>
           )}
-                    {wizardOpen && (
+
+          {wizardOpen && (
             <div
               className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/45 backdrop-blur-sm sm:items-center sm:p-5"
               onMouseDown={event => {
