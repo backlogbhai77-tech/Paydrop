@@ -108,19 +108,19 @@ function MiniStat({ icon: Icon, label, value, note, tone = 'green' }) {
   }
 
   return (
-    <div className="rounded-3xl border border-white/80 bg-white/85 p-5 shadow-[0_8px_30px_rgba(6,61,42,.045)] backdrop-blur-xl sm:p-6">
+    <div className="rounded-3xl border border-slate-200/60 bg-white p-5 shadow-[0_4px_20px_rgba(0,0,0,0.02)] transition-all hover:shadow-[0_8px_25px_rgba(0,0,0,0.04)] sm:p-6">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-slate-500">{label}</p>
-          <p className="mt-3 truncate text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-400">{label}</p>
+          <p className="mt-2 truncate text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">
             {value}
           </p>
         </div>
-        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${tones[tone]}`}>
-          <Icon size={18} />
+        <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${tones[tone]}`}>
+          <Icon size={20} />
         </div>
       </div>
-      {note && <p className="mt-3 text-sm text-slate-500">{note}</p>}
+      {note && <p className="mt-3 text-xs font-medium text-slate-500">{note}</p>}
     </div>
   )
 }
@@ -145,7 +145,7 @@ function ProjectCard({ delivery, activeMenuId, setActiveMenuId, onShare, onCopyL
   const menuOpen = activeMenuId === delivery.id
 
   return (
-    <article className="min-w-0 rounded-3xl border border-slate-200/80 bg-white p-5 shadow-sm transition-shadow hover:shadow-md sm:p-6">
+    <article className="min-w-0 rounded-3xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all hover:shadow-md sm:p-6">
       <div className="flex min-w-0 items-start gap-3">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-800">
           <BriefcaseBusiness size={21} />
@@ -155,7 +155,7 @@ function ProjectCard({ delivery, activeMenuId, setActiveMenuId, onShare, onCopyL
           <h3 className="break-words text-base font-bold text-slate-950">
             {delivery.title || 'Untitled project'}
           </h3>
-          <p className="mt-1 break-words text-sm text-slate-500">
+          <p className="mt-1 break-words text-xs text-slate-500">
             {delivery.clientName || delivery.clientEmail || 'Client not specified'}
           </p>
         </div>
@@ -178,9 +178,9 @@ function ProjectCard({ delivery, activeMenuId, setActiveMenuId, onShare, onCopyL
               setActiveMenuId(null)
               onShare(delivery)
             }}
-            className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-white px-3 text-sm font-semibold text-slate-700 ring-1 ring-slate-200"
+            className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-white px-3 text-xs font-semibold text-slate-700 ring-1 ring-slate-200"
           >
-            <Share2 size={15} /> Share
+            <Share2 size={14} /> Share
           </button>
 
           <button
@@ -189,9 +189,9 @@ function ProjectCard({ delivery, activeMenuId, setActiveMenuId, onShare, onCopyL
               setActiveMenuId(null)
               onCopyLink(delivery)
             }}
-            className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-white px-3 text-sm font-semibold text-slate-700 ring-1 ring-slate-200"
+            className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-white px-3 text-xs font-semibold text-slate-700 ring-1 ring-slate-200"
           >
-            <Copy size={15} /> Copy link
+            <Copy size={14} /> Copy link
           </button>
 
           <button
@@ -200,36 +200,36 @@ function ProjectCard({ delivery, activeMenuId, setActiveMenuId, onShare, onCopyL
               setActiveMenuId(null)
               onDelete(delivery)
             }}
-            className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-white px-3 text-sm font-semibold text-red-600 ring-1 ring-red-100"
+            className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-white px-3 text-xs font-semibold text-red-600 ring-1 ring-red-100"
           >
-            <Trash2 size={15} /> Delete
+            <Trash2 size={14} /> Delete
           </button>
         </div>
       )}
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
         <StatusBadge status={delivery.status} />
-        <span className="text-lg font-extrabold tracking-tight text-slate-950">
+        <span className="text-lg font-black tracking-tight text-slate-950">
           {formatCurrency(delivery.grossAmount, delivery.currency || 'INR')}
         </span>
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-3 border-t border-slate-100 pt-4">
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
             Files
           </p>
-          <p className="mt-1 text-sm font-bold text-slate-700">
+          <p className="mt-1 text-xs font-bold text-slate-700">
             {delivery.files?.length || 0} attached
           </p>
         </div>
 
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-            Client messages
+          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+            Messages
           </p>
-          <p className="mt-1 text-sm font-bold text-slate-700">
-            {delivery.messages?.length || 0}
+          <p className="mt-1 text-xs font-bold text-slate-700">
+            {delivery.messages?.length || 0} threads
           </p>
         </div>
       </div>
@@ -238,17 +238,17 @@ function ProjectCard({ delivery, activeMenuId, setActiveMenuId, onShare, onCopyL
         <button
           type="button"
           onClick={() => onViewMessages(delivery)}
-          className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50"
+          className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-50"
         >
-          <MessageCircle size={16} /> Messages
+          <MessageCircle size={15} /> Messages
         </button>
 
         <button
           type="button"
           onClick={() => onShare(delivery)}
-          className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-900 px-3 text-sm font-bold text-white transition-colors hover:bg-emerald-800"
+          className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-950 px-3 text-xs font-bold text-white transition-colors hover:bg-emerald-900"
         >
-          Open link <ExternalLink size={15} />
+          Open link <ExternalLink size={14} />
         </button>
       </div>
     </article>
@@ -938,7 +938,7 @@ export default function Dashboard() {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#f5f8f5] p-6">
         <div className="w-full max-w-md rounded-3xl border border-white bg-white p-8 text-center shadow-xl">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-900 text-white">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-950 text-white">
             <ShieldCheck size={27} />
           </div>
           <h1 className="mt-5 text-2xl font-black tracking-tight text-slate-950">
@@ -949,7 +949,7 @@ export default function Dashboard() {
           </p>
           <Link
             href="/login"
-            className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-2xl bg-emerald-900 px-5 text-sm font-bold text-white transition-colors hover:bg-emerald-800"
+            className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-2xl bg-emerald-950 px-5 text-sm font-bold text-white transition-colors hover:bg-emerald-900"
           >
             Continue to sign in <ArrowRight size={17} className="ml-2" />
           </Link>
@@ -1093,7 +1093,7 @@ export default function Dashboard() {
             }}
             className="flex min-w-0 items-center gap-3"
           >
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-950 text-white">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-950 text-white shadow-sm">
               <ShieldCheck size={22} />
             </span>
 
@@ -1101,7 +1101,7 @@ export default function Dashboard() {
               <span className="block text-lg font-black tracking-tight text-slate-950">
                 PayDrop
               </span>
-              <span className="block text-[11px] font-semibold tracking-wide text-slate-400">
+              <span className="block text-[10px] font-bold tracking-widest text-emerald-800">
                 CREATOR WORKSPACE
               </span>
             </span>
@@ -1136,9 +1136,9 @@ export default function Dashboard() {
                     setMobileMenuOpen(false)
                     haptic()
                   }}
-                  className={`flex min-h-12 w-full items-center gap-3 rounded-2xl px-3.5 text-left text-sm font-bold transition-colors ${
+                  className={`flex min-h-12 w-full items-center gap-3 rounded-2xl px-3.5 text-left text-sm font-bold transition-all ${
                     selected
-                      ? 'bg-emerald-950 text-white shadow-sm'
+                      ? 'bg-emerald-950 text-white shadow-[0_4px_12px_rgba(6,61,42,0.15)]'
                       : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950'
                   }`}
                   aria-current={selected ? 'page' : undefined}
@@ -1162,12 +1162,12 @@ export default function Dashboard() {
             })}
           </nav>
 
-          <div className="mt-8 rounded-3xl bg-[#f0f7f0] p-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-emerald-900">
-              <LockKeyhole size={19} />
+          <div className="mt-8 rounded-3xl bg-[#f0f7f0] p-4 border border-emerald-100">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-emerald-900 shadow-xs">
+              <LockKeyhole size={18} />
             </div>
 
-            <p className="mt-3 text-sm font-extrabold text-slate-900">
+            <p className="mt-3 text-sm font-bold text-slate-900">
               Your work, organized
             </p>
             <p className="mt-1 text-xs leading-5 text-slate-600">
@@ -1177,9 +1177,9 @@ export default function Dashboard() {
             <button
               type="button"
               onClick={openWizard}
-              className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-950 px-3 text-sm font-bold text-white hover:bg-emerald-800"
+              className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-950 px-3 text-xs font-bold text-white hover:bg-emerald-900"
             >
-              <Plus size={17} /> New vault
+              <Plus size={16} /> New vault
             </button>
           </div>
         </div>
@@ -1188,19 +1188,19 @@ export default function Dashboard() {
           <button
             type="button"
             onClick={() => setAssistantOpen(true)}
-            className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-sm font-semibold text-slate-600 hover:bg-slate-100"
+            className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-xs font-bold text-slate-600 hover:bg-slate-100"
           >
-            <CircleHelp size={18} />
+            <CircleHelp size={17} />
             Help & support
-            <ChevronRight size={16} className="ml-auto" />
+            <ChevronRight size={15} className="ml-auto" />
           </button>
 
           <button
             type="button"
             onClick={logout}
-            className="mt-1 flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-sm font-semibold text-slate-600 hover:bg-red-50 hover:text-red-700"
+            className="mt-1 flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-xs font-bold text-slate-600 hover:bg-red-50 hover:text-red-700"
           >
-            <LogOut size={18} />
+            <LogOut size={17} />
             Sign out
           </button>
         </div>
@@ -1219,10 +1219,10 @@ export default function Dashboard() {
             </button>
 
             <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-semibold text-slate-400">
-                CREATOR WORKSPACE / {pageTitle.toUpperCase()}
+              <p className="truncate text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                WORKSPACE / {pageTitle}
               </p>
-              <h1 className="mt-0.5 truncate text-lg font-extrabold tracking-tight text-slate-950 sm:text-xl">
+              <h1 className="mt-0.5 truncate text-lg font-black tracking-tight text-slate-950 sm:text-xl">
                 {pageTitle}
               </h1>
             </div>
@@ -1243,7 +1243,7 @@ export default function Dashboard() {
                 aria-label="Currency"
                 value={currency}
                 onChange={event => setCurrency(event.target.value)}
-                className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700"
+                className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700"
               >
                 <option value="INR">INR ₹</option>
                 <option value="USD">USD $</option>
@@ -1253,9 +1253,9 @@ export default function Dashboard() {
             <button
               type="button"
               onClick={openWizard}
-              className="flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-emerald-950 px-3.5 text-sm font-bold text-white hover:bg-emerald-800 sm:px-4"
+              className="flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-emerald-950 px-3.5 text-xs font-bold text-white hover:bg-emerald-900 sm:px-4"
             >
-              <Plus size={17} />
+              <Plus size={16} />
               <span className="hidden sm:inline">New vault</span>
               <span className="sm:hidden">Create</span>
             </button>
@@ -1264,7 +1264,7 @@ export default function Dashboard() {
               type="button"
               onClick={() => setHeaderProfileOpen(!headerProfileOpen)}
               aria-label="Open profile menu"
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-sm font-extrabold text-emerald-950 ring-1 ring-emerald-200"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-black text-emerald-950 ring-1 ring-emerald-200"
             >
               {initials(displayName)}
             </button>
@@ -1286,7 +1286,7 @@ export default function Dashboard() {
               aria-label="Currency"
               value={currency}
               onChange={event => setCurrency(event.target.value)}
-              className="h-10 shrink-0 rounded-xl border border-slate-200 bg-white px-2 text-sm font-bold text-slate-700"
+              className="h-10 shrink-0 rounded-xl border border-slate-200 bg-white px-2 text-xs font-bold text-slate-700"
             >
               <option value="INR">INR</option>
               <option value="USD">USD</option>
@@ -1295,10 +1295,10 @@ export default function Dashboard() {
 
           {headerProfileOpen && (
             <div className="absolute right-4 top-[68px] z-40 w-64 rounded-2xl border border-slate-200 bg-white p-3 shadow-xl sm:right-6">
-              <p className="truncate px-3 py-2 text-sm font-bold text-slate-900">
+              <p className="truncate px-3 py-2 text-xs font-bold text-slate-900">
                 {displayName}
               </p>
-              <p className="truncate px-3 pb-3 text-xs text-slate-500">
+              <p className="truncate px-3 pb-3 text-[11px] text-slate-500">
                 {user.email}
               </p>
               <button
@@ -1307,9 +1307,9 @@ export default function Dashboard() {
                   setHeaderProfileOpen(false)
                   logout()
                 }}
-                className="flex min-h-10 w-full items-center gap-2 rounded-xl px-3 text-sm font-semibold text-red-600 hover:bg-red-50"
+                className="flex min-h-10 w-full items-center gap-2 rounded-xl px-3 text-xs font-bold text-red-600 hover:bg-red-50"
               >
-                <LogOut size={16} /> Sign out
+                <LogOut size={15} /> Sign out
               </button>
             </div>
           )}
@@ -1317,16 +1317,16 @@ export default function Dashboard() {
 
         <div className="mx-auto max-w-[1600px] px-4 pb-28 pt-6 sm:px-6 sm:pt-8 lg:px-8 lg:pb-10">
           {tab === 'overview' && (
-            <section className="space-y-7">
+            <section className="space-y-6">
               <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-emerald-800">
+                  <p className="text-xs font-bold text-emerald-800 uppercase tracking-wider">
                     {greeting}, {displayName}
                   </p>
-                  <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">
+                  <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">
                     Your business at a glance
                   </h2>
-                  <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 sm:text-base">
+                  <p className="mt-1.5 max-w-2xl text-xs leading-5 text-slate-500 sm:text-sm">
                     Track your deliveries, organize client conversations, and keep your workflow moving.
                   </p>
                 </div>
@@ -1334,9 +1334,9 @@ export default function Dashboard() {
                 <button
                   type="button"
                   onClick={openWizard}
-                  className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-2xl bg-emerald-950 px-5 text-sm font-bold text-white hover:bg-emerald-800"
+                  className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-2xl bg-emerald-950 px-4 text-xs font-bold text-white hover:bg-emerald-900 shadow-sm"
                 >
-                  <Plus size={18} /> Create a delivery
+                  <Plus size={16} /> Create a delivery
                 </button>
               </div>
 
@@ -1375,10 +1375,10 @@ export default function Dashboard() {
                 <section className="min-w-0 rounded-3xl border border-slate-200/80 bg-white p-5 shadow-sm sm:p-6">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <h3 className="text-lg font-extrabold text-slate-950">
+                      <h3 className="text-base font-bold text-slate-950">
                         Revenue overview
                       </h3>
-                      <p className="mt-1 text-sm text-slate-500">
+                      <p className="mt-0.5 text-xs text-slate-500">
                         Paid projects by month · {currency}
                       </p>
                     </div>
@@ -1387,20 +1387,20 @@ export default function Dashboard() {
                       type="button"
                       onClick={() => setBalanceVisible(!balanceVisible)}
                       aria-label={balanceVisible ? 'Hide revenue values' : 'Show revenue values'}
-                      className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50"
+                      className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50"
                     >
-                      {balanceVisible ? <EyeOff size={17} /> : <Eye size={17} />}
+                      {balanceVisible ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
                   </div>
 
-                  <div className="mt-8 flex h-48 items-end gap-3 sm:h-56 sm:gap-5">
+                  <div className="mt-6 flex h-44 items-end gap-3 sm:h-48 sm:gap-5">
                     {monthly.map(item => {
                       const height = item.value
                         ? Math.max(8, (item.value / maxMonthlyValue) * 100)
                         : 3
 
                       return (
-                        <div key={item.label} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-3">
+                        <div key={item.label} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-2">
                           <div className="flex w-full flex-1 items-end justify-center">
                             <div
                               title={
@@ -1408,7 +1408,7 @@ export default function Dashboard() {
                                   ? formatCurrency(item.value, currency)
                                   : 'Revenue hidden'
                               }
-                              className={`w-full max-w-12 rounded-t-xl transition-[height] duration-300 ${
+                              className={`w-full max-w-10 rounded-t-xl transition-[height] duration-300 ${
                                 item.value
                                   ? 'bg-emerald-800'
                                   : 'bg-slate-100'
@@ -1416,36 +1416,22 @@ export default function Dashboard() {
                               style={{ height: `${height}%` }}
                             />
                           </div>
-                          <span className="text-xs font-semibold text-slate-400">
+                          <span className="text-[11px] font-bold text-slate-400">
                             {item.label}
                           </span>
-                          {balanceVisible && (
-                            <span className="max-w-full truncate text-[10px] font-semibold text-slate-500 sm:text-xs">
-                              {item.value
-                                ? new Intl.NumberFormat(
-                                    currency === 'USD' ? 'en-US' : 'en-IN',
-                                    { notation: 'compact', maximumFractionDigits: 1 }
-                                  ).format(item.value)
-                                : '—'}
-                            </span>
-                          )}
                         </div>
                       )
                     })}
                   </div>
-
-                  <p className="mt-5 border-t border-slate-100 pt-4 text-xs leading-5 text-slate-400">
-                    Illustrative dashboard analytics based on project records. This is not a bank balance or verified payment ledger.
-                  </p>
                 </section>
 
                 <section className="min-w-0 rounded-3xl border border-slate-200/80 bg-white p-5 shadow-sm sm:p-6">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <h3 className="text-lg font-extrabold text-slate-950">
+                      <h3 className="text-base font-bold text-slate-950">
                         Recent projects
                       </h3>
-                      <p className="mt-1 text-sm text-slate-500">
+                      <p className="mt-0.5 text-xs text-slate-500">
                         Your latest delivery activity
                       </p>
                     </div>
@@ -1453,40 +1439,34 @@ export default function Dashboard() {
                     <button
                       type="button"
                       onClick={() => setTab('projects')}
-                      className="inline-flex min-h-10 shrink-0 items-center gap-1 rounded-xl px-2 text-sm font-bold text-emerald-800 hover:bg-emerald-50"
+                      className="inline-flex min-h-9 shrink-0 items-center gap-1 rounded-xl px-2 text-xs font-bold text-emerald-800 hover:bg-emerald-50"
                     >
-                      View all <ArrowRight size={15} />
+                      View all <ArrowRight size={14} />
                     </button>
                   </div>
 
-                  <div className="mt-5 space-y-1">
+                  <div className="mt-4 space-y-1">
                     {dataLoading ? (
                       <div className="space-y-3 py-3">
                         {[1, 2, 3].map(item => (
-                          <div key={item} className="h-[68px] animate-pulse rounded-2xl bg-slate-100" />
+                          <div key={item} className="h-14 animate-pulse rounded-2xl bg-slate-100" />
                         ))}
                       </div>
                     ) : deliveries.length === 0 ? (
-                      <div className="py-8 text-center">
-                        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-800">
-                          <BriefcaseBusiness size={21} />
-                        </div>
-                        <p className="mt-3 text-sm font-bold text-slate-800">
-                          Your first project starts here
-                        </p>
-                        <p className="mx-auto mt-1 max-w-xs text-xs leading-5 text-slate-500">
-                          Create a delivery vault to organize files and share them with a client.
+                      <div className="py-6 text-center">
+                        <p className="text-xs font-bold text-slate-800">
+                          No projects yet
                         </p>
                         <button
                           type="button"
                           onClick={openWizard}
-                          className="mt-4 min-h-10 rounded-xl bg-emerald-950 px-4 text-sm font-bold text-white"
+                          className="mt-3 min-h-9 rounded-xl bg-emerald-950 px-3 text-xs font-bold text-white"
                         >
                           Create first vault
                         </button>
                       </div>
                     ) : (
-                      deliveries.slice(0, 5).map(delivery => (
+                      deliveries.slice(0, 4).map(delivery => (
                         <button
                           type="button"
                           key={delivery.id}
@@ -1494,26 +1474,23 @@ export default function Dashboard() {
                             setActiveChat(delivery)
                             setTab('revisions')
                           }}
-                          className="flex min-h-[72px] w-full min-w-0 items-center gap-3 rounded-2xl px-2 text-left transition-colors hover:bg-slate-50"
+                          className="flex min-h-[64px] w-full min-w-0 items-center gap-3 rounded-2xl px-2 text-left transition-colors hover:bg-slate-50"
                         >
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
-                            <File size={18} />
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
+                            <File size={16} />
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-bold text-slate-900">
+                            <p className="truncate text-xs font-bold text-slate-900">
                               {delivery.title || 'Untitled project'}
                             </p>
-                            <p className="mt-1 truncate text-xs text-slate-500">
+                            <p className="mt-0.5 truncate text-[11px] text-slate-500">
                               {delivery.clientName || delivery.clientEmail || 'Client not specified'}
                             </p>
                           </div>
                           <div className="shrink-0 text-right">
-                            <p className="text-sm font-bold text-slate-800">
+                            <p className="text-xs font-bold text-slate-800">
                               {formatCurrency(delivery.grossAmount, delivery.currency || 'INR')}
                             </p>
-                            <div className="mt-1">
-                              <StatusBadge status={delivery.status} />
-                            </div>
                           </div>
                         </button>
                       ))
@@ -1523,34 +1500,24 @@ export default function Dashboard() {
               </div>
 
               <section>
-                <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+                <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
                   <div>
-                    <h3 className="text-lg font-extrabold text-slate-950">
+                    <h3 className="text-base font-bold text-slate-950">
                       Needs your attention
                     </h3>
-                    <p className="mt-1 text-sm text-slate-500">
-                      Active deliveries that may need a follow-up
+                    <p className="text-xs text-slate-500">
+                      Active deliveries awaiting payment or action
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setTab('projects')}
-                    className="text-sm font-bold text-emerald-800 hover:underline"
-                  >
-                    See all projects
-                  </button>
                 </div>
 
                 {dataLoading ? (
-                  <div className="h-28 animate-pulse rounded-3xl bg-white" />
+                  <div className="h-24 animate-pulse rounded-3xl bg-white" />
                 ) : pending.length === 0 ? (
-                  <div className="rounded-3xl border border-dashed border-slate-300 bg-white/70 p-6 text-center">
-                    <Check size={22} className="mx-auto text-emerald-700" />
-                    <p className="mt-2 text-sm font-bold text-slate-800">
+                  <div className="rounded-3xl border border-dashed border-slate-300 bg-white/70 p-5 text-center">
+                    <Check size={20} className="mx-auto text-emerald-700" />
+                    <p className="mt-1.5 text-xs font-bold text-slate-800">
                       No active payment requests
-                    </p>
-                    <p className="mt-1 text-sm text-slate-500">
-                      New requests will appear here.
                     </p>
                   </div>
                 ) : (
@@ -1580,13 +1547,13 @@ export default function Dashboard() {
             <section className="space-y-6">
               <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
                 <div>
-                  <p className="text-sm font-semibold text-emerald-800">
+                  <p className="text-xs font-bold text-emerald-800 uppercase tracking-wider">
                     Your workspace
                   </p>
-                  <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">
+                  <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">
                     All projects
                   </h2>
-                  <p className="mt-2 text-sm leading-6 text-slate-500">
+                  <p className="mt-1.5 text-xs text-slate-500">
                     Manage your delivery links, client requests, and project files.
                   </p>
                 </div>
@@ -1594,24 +1561,24 @@ export default function Dashboard() {
                 <button
                   type="button"
                   onClick={openWizard}
-                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-emerald-950 px-5 text-sm font-bold text-white hover:bg-emerald-800"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-emerald-950 px-4 text-xs font-bold text-white hover:bg-emerald-900"
                 >
-                  <Plus size={18} /> Create project
+                  <Plus size={16} /> Create project
                 </button>
               </div>
 
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                  <p className="text-sm text-slate-500">All projects</p>
-                  <p className="mt-2 text-2xl font-black">{deliveries.length}</p>
+                  <p className="text-xs font-bold text-slate-400">All projects</p>
+                  <p className="mt-1 text-xl font-black text-slate-900">{deliveries.length}</p>
                 </div>
                 <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                  <p className="text-sm text-slate-500">Awaiting payment</p>
-                  <p className="mt-2 text-2xl font-black">{pending.length}</p>
+                  <p className="text-xs font-bold text-slate-400">Awaiting payment</p>
+                  <p className="mt-1 text-xl font-black text-amber-700">{pending.length}</p>
                 </div>
                 <div className="col-span-2 rounded-2xl border border-slate-200 bg-white p-4 sm:col-span-1">
-                  <p className="text-sm text-slate-500">Marked paid</p>
-                  <p className="mt-2 text-2xl font-black">{paid.length}</p>
+                  <p className="text-xs font-bold text-slate-400">Marked paid</p>
+                  <p className="mt-1 text-xl font-black text-emerald-700">{paid.length}</p>
                 </div>
               </div>
 
@@ -1620,28 +1587,23 @@ export default function Dashboard() {
                   {[1, 2, 3].map(item => (
                     <div
                       key={item}
-                      className="h-64 animate-pulse rounded-3xl bg-white"
+                      className="h-56 animate-pulse rounded-3xl bg-white"
                     />
                   ))}
                 </div>
               ) : visibleProjects.length === 0 ? (
-                <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center sm:p-12">
-                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-800">
-                    {search ? <Search size={24} /> : <BriefcaseBusiness size={24} />}
+                <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center sm:p-10">
+                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-800">
+                    {search ? <Search size={22} /> : <BriefcaseBusiness size={22} />}
                   </div>
-                  <h3 className="mt-4 text-lg font-extrabold text-slate-950">
+                  <h3 className="mt-3 text-base font-bold text-slate-950">
                     {search ? 'No matching projects' : 'No projects yet'}
                   </h3>
-                  <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-500">
-                    {search
-                      ? 'Try another search term.'
-                      : 'Create your first delivery vault to start organizing client work.'}
-                  </p>
                   {!search && (
                     <button
                       type="button"
                       onClick={openWizard}
-                      className="mt-5 min-h-11 rounded-xl bg-emerald-950 px-5 text-sm font-bold text-white"
+                      className="mt-4 min-h-10 rounded-xl bg-emerald-950 px-4 text-xs font-bold text-white"
                     >
                       Create your first vault
                     </button>
@@ -1672,13 +1634,13 @@ export default function Dashboard() {
           {tab === 'revisions' && (
             <section className="space-y-6">
               <div>
-                <p className="text-sm font-semibold text-emerald-800">
+                <p className="text-xs font-bold text-emerald-800 uppercase tracking-wider">
                   Client communication
                 </p>
-                <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">
+                <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">
                   Messages & revisions
                 </h2>
-                <p className="mt-2 text-sm leading-6 text-slate-500">
+                <p className="mt-1.5 text-xs text-slate-500">
                   Keep project feedback connected to the relevant delivery.
                 </p>
               </div>
@@ -1686,23 +1648,20 @@ export default function Dashboard() {
               <div className="grid min-w-0 grid-cols-1 gap-5 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.4fr)]">
                 <section className="min-w-0 overflow-hidden rounded-3xl border border-slate-200 bg-white">
                   <div className="border-b border-slate-100 p-4 sm:p-5">
-                    <h3 className="font-extrabold text-slate-950">
+                    <h3 className="text-sm font-bold text-slate-950">
                       Project conversations
                     </h3>
-                    <p className="mt-1 text-sm text-slate-500">
+                    <p className="mt-0.5 text-xs text-slate-500">
                       {deliveries.filter(item => item.messages?.length).length} active threads
                     </p>
                   </div>
 
-                  <div className="max-h-[540px] overflow-y-auto">
+                  <div className="max-h-[500px] overflow-y-auto">
                     {deliveries.filter(item => item.messages?.length).length === 0 ? (
-                      <div className="p-7 text-center">
-                        <MessageSquare size={25} className="mx-auto text-slate-300" />
-                        <p className="mt-3 text-sm font-bold text-slate-800">
+                      <div className="p-6 text-center">
+                        <MessageSquare size={22} className="mx-auto text-slate-300" />
+                        <p className="mt-2 text-xs font-bold text-slate-800">
                           No conversations yet
-                        </p>
-                        <p className="mt-1 text-xs leading-5 text-slate-500">
-                          Client messages will appear here when available.
                         </p>
                       </div>
                     ) : (
@@ -1719,27 +1678,27 @@ export default function Dashboard() {
                               key={delivery.id}
                               type="button"
                               onClick={() => setActiveChat(delivery)}
-                              className={`flex min-h-[82px] w-full items-center gap-3 border-b border-slate-100 px-4 py-3 text-left transition-colors sm:px-5 ${
+                              className={`flex min-h-[76px] w-full items-center gap-3 border-b border-slate-100 px-4 py-3 text-left transition-colors sm:px-5 ${
                                 selected
-                                  ? 'bg-emerald-50'
+                                  ? 'bg-emerald-50/60'
                                   : 'hover:bg-slate-50'
                               }`}
                             >
-                              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-100 text-sm font-extrabold text-emerald-900">
+                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-100 text-xs font-black text-emerald-900">
                                 {initials(delivery.clientName || 'Client')}
                               </div>
 
                               <div className="min-w-0 flex-1">
-                                <p className="truncate text-sm font-bold text-slate-900">
+                                <p className="truncate text-xs font-bold text-slate-900">
                                   {delivery.title || 'Untitled project'}
                                 </p>
-                                <p className="mt-1 truncate text-xs text-slate-500">
+                                <p className="mt-0.5 truncate text-[11px] text-slate-500">
                                   {lastMessage?.text || 'Attachment or message'}
                                 </p>
                               </div>
 
                               {lastMessage?.sender === 'client' && (
-                                <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-500" />
+                                <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
                               )}
                             </button>
                           )
@@ -1748,31 +1707,31 @@ export default function Dashboard() {
                   </div>
                 </section>
 
-                <section className="flex min-h-[420px] min-w-0 flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white">
+                <section className="flex min-h-[380px] min-w-0 flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white">
                   {!activeChat ? (
                     <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
-                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
-                        <MessageCircle size={24} />
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
+                        <MessageCircle size={22} />
                       </div>
-                      <h3 className="mt-4 text-base font-extrabold text-slate-900">
+                      <h3 className="mt-3 text-sm font-bold text-slate-900">
                         Choose a conversation
                       </h3>
-                      <p className="mt-2 max-w-xs text-sm leading-6 text-slate-500">
-                        Select a project to review its saved messages.
+                      <p className="mt-1 text-xs text-slate-500">
+                        Select a project from the left to view messages.
                       </p>
                     </div>
                   ) : (
                     <>
                       <div className="flex items-center gap-3 border-b border-slate-100 p-4 sm:p-5">
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-100 font-extrabold text-emerald-900">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-100 text-xs font-black text-emerald-900">
                           {initials(activeChat.clientName || 'Client')}
                         </div>
 
                         <div className="min-w-0 flex-1">
-                          <h3 className="truncate font-extrabold text-slate-950">
+                          <h3 className="truncate text-sm font-bold text-slate-950">
                             {activeChat.title || 'Project conversation'}
                           </h3>
-                          <p className="mt-1 truncate text-xs text-slate-500">
+                          <p className="mt-0.5 truncate text-[11px] text-slate-500">
                             {activeChat.clientName || activeChat.clientEmail || 'Client'}
                           </p>
                         </div>
@@ -1780,7 +1739,7 @@ export default function Dashboard() {
                         <StatusBadge status={activeChat.status} />
                       </div>
 
-                      <div className="pd-scrollbar flex-1 space-y-4 overflow-y-auto bg-slate-50/70 p-4 sm:p-5">
+                      <div className="pd-scrollbar flex-1 space-y-3 overflow-y-auto bg-slate-50/50 p-4 sm:p-5">
                         {(activeChat.messages || []).map((message, index) => {
                           const creatorMessage = message.sender === 'creator'
 
@@ -1790,29 +1749,21 @@ export default function Dashboard() {
                               className={`flex ${creatorMessage ? 'justify-end' : 'justify-start'}`}
                             >
                               <div
-                                className={`max-w-[88%] rounded-2xl px-4 py-3 sm:max-w-[80%] ${
+                                className={`max-w-[85%] rounded-2xl px-4 py-3 sm:max-w-[75%] ${
                                   creatorMessage
-                                    ? 'rounded-br-md bg-emerald-950 text-white'
-                                    : 'rounded-bl-md border border-slate-200 bg-white text-slate-800'
+                                    ? 'rounded-br-sm bg-emerald-950 text-white'
+                                    : 'rounded-bl-sm border border-slate-200 bg-white text-slate-800'
                                 }`}
                               >
-                                <p className={`mb-1 text-[11px] font-bold ${
+                                <p className={`mb-1 text-[10px] font-bold ${
                                   creatorMessage ? 'text-emerald-200' : 'text-slate-400'
                                 }`}>
                                   {creatorMessage ? 'You' : 'Client'}
                                 </p>
 
-                                <p className="whitespace-pre-wrap break-words text-sm leading-6">
+                                <p className="whitespace-pre-wrap break-words text-xs leading-5">
                                   {message.text || ''}
                                 </p>
-
-                                {message.createdAt && (
-                                  <p className={`mt-2 text-[10px] ${
-                                    creatorMessage ? 'text-emerald-200' : 'text-slate-400'
-                                  }`}>
-                                    {new Date(message.createdAt).toLocaleString()}
-                                  </p>
-                                )}
                               </div>
                             </div>
                           )
@@ -1832,16 +1783,16 @@ export default function Dashboard() {
                           rows={2}
                           placeholder="Write a message…"
                           aria-label="Write a reply"
-                          className="min-h-12 min-w-0 flex-1 resize-y rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-emerald-600"
+                          className="min-h-11 min-w-0 flex-1 resize-y rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-xs outline-none focus:border-emerald-600"
                         />
 
                         <button
                           type="submit"
                           disabled={!reply.trim()}
                           aria-label="Send message"
-                          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-950 text-white transition-colors hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-40"
+                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-950 text-white transition-colors hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-40"
                         >
-                          <Send size={18} />
+                          <Send size={16} />
                         </button>
                       </form>
                     </>
@@ -1854,32 +1805,28 @@ export default function Dashboard() {
           {tab === 'wallet' && (
             <section className="space-y-6">
               <div>
-                <p className="text-sm font-semibold text-emerald-800">
+                <p className="text-xs font-bold text-emerald-800 uppercase tracking-wider">
                   Financial overview
                 </p>
-                <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">
+                <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">
                   Wallet & earnings
                 </h2>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+                <p className="mt-1.5 text-xs text-slate-500">
                   Review amounts recorded against your delivery projects.
                 </p>
               </div>
 
-              <div className="rounded-3xl bg-emerald-950 p-6 text-white sm:p-8">
+              <div className="rounded-3xl bg-emerald-950 p-6 text-white sm:p-8 shadow-md">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
-                    <p className="text-sm font-semibold text-emerald-200">
+                    <p className="text-xs font-bold uppercase tracking-wider text-emerald-200">
                       Recorded creator earnings
                     </p>
 
-                    <p className="mt-3 break-words text-3xl font-black tracking-tight sm:text-4xl">
+                    <p className="mt-2 break-words text-3xl font-black tracking-tight sm:text-4xl">
                       {balanceVisible
                         ? formatCurrency(totalRevenue, currency)
                         : '••••••••'}
-                    </p>
-
-                    <p className="mt-3 text-sm leading-6 text-emerald-200">
-                      Based on projects marked as paid in Firestore.
                     </p>
                   </div>
 
@@ -1887,70 +1834,28 @@ export default function Dashboard() {
                     type="button"
                     onClick={() => setBalanceVisible(!balanceVisible)}
                     aria-label={balanceVisible ? 'Hide earnings' : 'Show earnings'}
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/20 text-white hover:bg-white/10"
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/20 text-white hover:bg-white/10"
                   >
-                    {balanceVisible ? <EyeOff size={19} /> : <Eye size={19} />}
+                    {balanceVisible ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
-                </div>
-
-                <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                    <p className="text-sm text-emerald-200">
-                      Awaiting payment
-                    </p>
-                    <p className="mt-2 text-xl font-extrabold">
-                      {balanceVisible
-                        ? formatCurrency(pendingValue, currency)
-                        : '••••••'}
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                    <p className="text-sm text-emerald-200">
-                      Projects marked paid
-                    </p>
-                    <p className="mt-2 text-xl font-extrabold">
-                      {paid.length}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-3xl border border-amber-200 bg-amber-50 p-5 sm:p-6">
-                <div className="flex items-start gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-amber-700">
-                    <Activity size={19} />
-                  </div>
-
-                  <div className="min-w-0">
-                    <h3 className="font-extrabold text-amber-950">
-                      Demo wallet — no real funds are processed
-                    </h3>
-                    <p className="mt-2 text-sm leading-6 text-amber-900/80">
-                      These figures are project records, not a bank balance, a verified escrow balance, or money available to withdraw. Your current demo payment workflow does not transfer or release real funds.
-                    </p>
-                  </div>
                 </div>
               </div>
 
               <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white">
-                <div className="border-b border-slate-100 p-5 sm:p-6">
-                  <h3 className="font-extrabold text-slate-950">
+                <div className="border-b border-slate-100 p-5">
+                  <h3 className="text-sm font-bold text-slate-950">
                     Earnings activity
                   </h3>
-                  <p className="mt-1 text-sm text-slate-500">
-                    Projects marked paid, in the selected currency.
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    Projects marked paid in {currency}.
                   </p>
                 </div>
 
                 {paid.filter(item => (item.currency || 'INR') === currency).length === 0 ? (
-                  <div className="p-8 text-center">
-                    <Wallet size={26} className="mx-auto text-slate-300" />
-                    <p className="mt-3 text-sm font-bold text-slate-800">
+                  <div className="p-6 text-center">
+                    <Wallet size={24} className="mx-auto text-slate-300" />
+                    <p className="mt-2 text-xs font-bold text-slate-800">
                       No paid project records yet
-                    </p>
-                    <p className="mt-1 text-sm text-slate-500">
-                      Paid project records will appear here.
                     </p>
                   </div>
                 ) : (
@@ -1962,21 +1867,21 @@ export default function Dashboard() {
                           key={delivery.id}
                           className="flex min-w-0 items-center gap-3 p-4 sm:px-6"
                         >
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
-                            <ArrowUpRight size={18} />
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
+                            <ArrowUpRight size={16} />
                           </div>
 
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-bold text-slate-900">
+                            <p className="truncate text-xs font-bold text-slate-900">
                               {delivery.title || 'Untitled project'}
                             </p>
-                            <p className="mt-1 truncate text-xs text-slate-500">
+                            <p className="mt-0.5 truncate text-[11px] text-slate-500">
                               {delivery.clientName || delivery.clientEmail || 'Client'}
                             </p>
                           </div>
 
                           <div className="shrink-0 text-right">
-                            <p className="text-sm font-extrabold text-emerald-800">
+                            <p className="text-xs font-bold text-emerald-800">
                               {balanceVisible
                                 ? formatCurrency(
                                     Number(delivery.creatorPayout) ||
@@ -1985,9 +1890,6 @@ export default function Dashboard() {
                                     currency
                                   )
                                 : '••••••'}
-                            </p>
-                            <p className="mt-1 text-xs text-slate-400">
-                              Recorded as paid
                             </p>
                           </div>
                         </div>
@@ -2015,19 +1917,19 @@ export default function Dashboard() {
               >
                 <div className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-100 px-5 py-5 sm:px-7">
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-widest text-emerald-800">
-                      <ShieldCheck size={15} /> Secure delivery workspace
+                    <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-emerald-800">
+                      <ShieldCheck size={14} /> Secure delivery workspace
                     </div>
 
                     <h2
                       id="vault-dialog-title"
-                      className="mt-2 text-xl font-black tracking-tight text-slate-950 sm:text-2xl"
+                      className="mt-1 text-lg font-black tracking-tight text-slate-950 sm:text-xl"
                     >
                       Create a delivery vault
                     </h2>
 
-                    <p className="mt-1 text-sm text-slate-500">
-                      Step {step} of 3 · Keep your project details together.
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      Step {step} of 3
                     </p>
                   </div>
 
@@ -2036,26 +1938,26 @@ export default function Dashboard() {
                     disabled={uploading}
                     onClick={resetWizard}
                     aria-label="Close create vault dialog"
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 disabled:opacity-40"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 disabled:opacity-40"
                   >
-                    <X size={20} />
+                    <X size={18} />
                   </button>
                 </div>
 
-                <div className="h-1.5 shrink-0 bg-slate-100">
+                <div className="h-1 shrink-0 bg-slate-100">
                   <div
                     className="h-full bg-emerald-700 transition-[width] duration-300"
                     style={{ width: `${(step / 3) * 100}%` }}
                   />
                 </div>
 
-                <div className="pd-scrollbar min-h-0 flex-1 overflow-y-auto px-5 py-6 sm:px-7">
+                <div className="pd-scrollbar min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-7">
                   {step === 1 && (
-                    <div className="space-y-5">
+                    <div className="space-y-4">
                       <div>
                         <label
                           htmlFor="vault-title"
-                          className="mb-2 block text-sm font-bold text-slate-800"
+                          className="mb-1.5 block text-xs font-bold text-slate-800"
                         >
                           Project name <span className="text-red-500">*</span>
                         </label>
@@ -2067,15 +1969,15 @@ export default function Dashboard() {
                           placeholder="e.g. Brand identity design"
                           maxLength={120}
                           required
-                          className="min-h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-base outline-none transition-colors placeholder:text-slate-400 focus:border-emerald-700"
+                          className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-xs outline-none transition-colors placeholder:text-slate-400 focus:border-emerald-700"
                         />
                       </div>
 
-                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <div>
                           <label
                             htmlFor="vault-client"
-                            className="mb-2 block text-sm font-bold text-slate-800"
+                            className="mb-1.5 block text-xs font-bold text-slate-800"
                           >
                             Client name
                           </label>
@@ -2086,14 +1988,14 @@ export default function Dashboard() {
                             onChange={event => setClientName(event.target.value)}
                             placeholder="Client or company"
                             maxLength={100}
-                            className="min-h-12 w-full rounded-2xl border border-slate-200 px-4 text-base outline-none focus:border-emerald-700"
+                            className="min-h-11 w-full rounded-xl border border-slate-200 px-3.5 text-xs outline-none focus:border-emerald-700"
                           />
                         </div>
 
                         <div>
                           <label
                             htmlFor="vault-client-email"
-                            className="mb-2 block text-sm font-bold text-slate-800"
+                            className="mb-1.5 block text-xs font-bold text-slate-800"
                           >
                             Client email
                           </label>
@@ -2105,7 +2007,7 @@ export default function Dashboard() {
                             onChange={event => setClientEmail(event.target.value)}
                             placeholder="client@example.com"
                             maxLength={254}
-                            className="min-h-12 w-full rounded-2xl border border-slate-200 px-4 text-base outline-none focus:border-emerald-700"
+                            className="min-h-11 w-full rounded-xl border border-slate-200 px-3.5 text-xs outline-none focus:border-emerald-700"
                           />
                         </div>
                       </div>
@@ -2113,13 +2015,13 @@ export default function Dashboard() {
                       <div>
                         <label
                           htmlFor="vault-amount"
-                          className="mb-2 block text-sm font-bold text-slate-800"
+                          className="mb-1.5 block text-xs font-bold text-slate-800"
                         >
                           Project amount <span className="text-red-500">*</span>
                         </label>
 
-                        <div className="flex min-w-0 overflow-hidden rounded-2xl border border-slate-200 focus-within:border-emerald-700">
-                          <div className="flex shrink-0 items-center border-r border-slate-200 bg-slate-50 px-4 text-sm font-extrabold text-slate-700">
+                        <div className="flex min-w-0 overflow-hidden rounded-xl border border-slate-200 focus-within:border-emerald-700">
+                          <div className="flex shrink-0 items-center border-r border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-700">
                             {currency === 'INR' ? '₹ INR' : '$ USD'}
                           </div>
 
@@ -2133,99 +2035,40 @@ export default function Dashboard() {
                             onChange={event => setAmount(event.target.value)}
                             placeholder={currency === 'INR' ? '25000' : '500'}
                             required
-                            className="min-h-12 w-full min-w-0 bg-white px-4 text-base outline-none"
+                            className="min-h-11 w-full min-w-0 bg-white px-3.5 text-xs outline-none"
                           />
                         </div>
-
-                        <p className="mt-2 text-xs leading-5 text-slate-500">
-                          The platform fee shown below is an estimate. This demo does not collect real payments.
-                        </p>
-
-                        {Number(amount) > 0 && Number.isFinite(Number(amount)) && (
-                          <div className="mt-3 grid grid-cols-2 gap-3">
-                            <div className="rounded-2xl bg-slate-50 p-3">
-                              <p className="text-xs font-semibold text-slate-500">
-                                Estimated 5% fee
-                              </p>
-                              <p className="mt-1 break-words text-base font-extrabold text-slate-800">
-                                {formatCurrency(
-                                  Math.max(Math.round(Number(amount) * 0.05), 1),
-                                  currency
-                                )}
-                              </p>
-                            </div>
-
-                            <div className="rounded-2xl bg-emerald-50 p-3">
-                              <p className="text-xs font-semibold text-emerald-800">
-                                Estimated payout
-                              </p>
-                              <p className="mt-1 break-words text-base font-extrabold text-emerald-950">
-                                {formatCurrency(
-                                  Math.max(
-                                    0,
-                                    Number(amount) -
-                                      Math.max(Math.round(Number(amount) * 0.05), 1)
-                                  ),
-                                  currency
-                                )}
-                              </p>
-                            </div>
-                          </div>
-                        )}
                       </div>
 
                       <div>
                         <label
                           htmlFor="vault-message"
-                          className="mb-2 block text-sm font-bold text-slate-800"
+                          className="mb-1.5 block text-xs font-bold text-slate-800"
                         >
                           Message to client <span className="font-normal text-slate-400">(optional)</span>
                         </label>
 
                         <textarea
                           id="vault-message"
-                          rows={3}
+                          rows={2}
                           value={clientMessage}
                           onChange={event => setClientMessage(event.target.value)}
                           placeholder="Add delivery instructions or a note…"
                           maxLength={1000}
-                          className="w-full resize-y rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-emerald-700"
+                          className="w-full resize-y rounded-xl border border-slate-200 px-3.5 py-2.5 text-xs outline-none focus:border-emerald-700"
                         />
-                      </div>
-
-                      <div>
-                        <label
-                          htmlFor="vault-expiry"
-                          className="mb-2 block text-sm font-bold text-slate-800"
-                        >
-                          Link expiry
-                        </label>
-
-                        <select
-                          id="vault-expiry"
-                          value={expiry}
-                          onChange={event => setExpiry(event.target.value)}
-                          className="min-h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-base outline-none focus:border-emerald-700"
-                        >
-                          <option value="1">1 day</option>
-                          <option value="3">3 days</option>
-                          <option value="7">7 days</option>
-                          <option value="14">14 days</option>
-                          <option value="30">30 days</option>
-                          <option value="never">No expiry</option>
-                        </select>
                       </div>
                     </div>
                   )}
 
                   {step === 2 && (
-                    <div className="space-y-5">
+                    <div className="space-y-4">
                       <div>
-                        <h3 className="text-lg font-extrabold text-slate-950">
+                        <h3 className="text-sm font-bold text-slate-950">
                           Add your deliverables
                         </h3>
-                        <p className="mt-2 text-sm leading-6 text-slate-500">
-                          Choose images, videos, documents, archives, or project files from your device.
+                        <p className="mt-0.5 text-xs text-slate-500">
+                          Choose files up to 100 MB each.
                         </p>
                       </div>
 
@@ -2243,251 +2086,73 @@ export default function Dashboard() {
                         type="button"
                         disabled={uploading}
                         onClick={() => fileInputRef.current?.click()}
-                        onDragEnter={event => {
-                          event.preventDefault()
-                          setDragging(true)
-                        }}
-                        onDragOver={event => {
-                          event.preventDefault()
-                          setDragging(true)
-                        }}
-                        onDragLeave={event => {
-                          event.preventDefault()
-                          if (!event.currentTarget.contains(event.relatedTarget)) {
-                            setDragging(false)
-                          }
-                        }}
-                        onDrop={event => {
-                          event.preventDefault()
-                          setDragging(false)
-                          addSelectedFiles(event.dataTransfer.files)
-                        }}
-                        className={`flex min-h-48 w-full flex-col items-center justify-center rounded-3xl border-2 border-dashed px-5 py-7 text-center transition-colors ${
-                          dragging
-                            ? 'border-emerald-700 bg-emerald-50'
-                            : 'border-slate-300 bg-slate-50 hover:border-emerald-600 hover:bg-emerald-50/60'
-                        }`}
+                        className="flex min-h-36 w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center hover:border-emerald-600 hover:bg-emerald-50/50"
                       >
-                        <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-emerald-800 shadow-sm">
-                          <UploadCloud size={27} />
-                        </span>
-
-                        <span className="mt-4 text-base font-extrabold text-slate-900">
+                        <UploadCloud size={24} className="text-emerald-800" />
+                        <span className="mt-2 text-xs font-bold text-slate-900">
                           Tap to choose files
-                        </span>
-
-                        <span className="mt-1 text-sm text-slate-500">
-                          Or drag and drop on supported devices
-                        </span>
-
-                        <span className="mt-3 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-slate-600 ring-1 ring-slate-200">
-                          Up to 100 MB per file
                         </span>
                       </button>
 
-                      <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
-                        <p className="text-sm font-bold text-blue-950">
-                          File selection tips
-                        </p>
-                        <ul className="mt-2 space-y-1 text-xs leading-5 text-blue-900/80">
-                          <li>• You can select multiple files at once.</li>
-                          <li>• Tap the picker again to add more files.</li>
-                          <li>• Large video uploads need a stable connection.</li>
-                          <li>• Cloudinary account limits and preset settings still apply.</li>
-                        </ul>
-                      </div>
-
-                      <div>
-                        <div className="mb-3 flex items-center justify-between gap-3">
-                          <h4 className="text-sm font-extrabold text-slate-900">
-                            Selected files
-                          </h4>
-                          <span className="text-xs font-semibold text-slate-500">
-                            {files.length} file{files.length === 1 ? '' : 's'}
-                          </span>
-                        </div>
-
-                        {files.length === 0 ? (
-                          <div className="rounded-2xl border border-slate-200 bg-white p-5 text-center">
-                            <File size={22} className="mx-auto text-slate-300" />
-                            <p className="mt-2 text-sm font-semibold text-slate-600">
-                              No files selected yet
-                            </p>
-                          </div>
-                        ) : (
-                          <div className="space-y-2">
-                            {files.map((file, index) => (
-                              <div
-                                key={`${file.name}:${file.size}:${file.lastModified}`}
-                                className="flex min-w-0 items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3"
-                              >
-                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
-                                  <FileTypeIcon file={file} />
-                                </div>
-
-                                <div className="min-w-0 flex-1">
-                                  <p className="break-all text-sm font-bold text-slate-800">
-                                    {file.name}
-                                  </p>
-                                  <p className="mt-1 text-xs text-slate-500">
-                                    {formatFileSize(file.size)}
-                                    {file.type ? ` · ${file.type}` : ''}
-                                  </p>
-                                </div>
-
-                                <button
-                                  type="button"
-                                  disabled={uploading}
-                                  onClick={() => {
-                                    setFiles(previous =>
-                                      previous.filter((_, i) => i !== index)
-                                    )
-                                  }}
-                                  aria-label={`Remove ${file.name}`}
-                                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-40"
-                                >
-                                  <Trash2 size={17} />
-                                </button>
+                      {files.length > 0 && (
+                        <div className="space-y-2">
+                          {files.map((file, index) => (
+                            <div
+                              key={`${file.name}:${file.size}:${file.lastModified}`}
+                              className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-2.5"
+                            >
+                              <FileTypeIcon file={file} />
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-xs font-bold text-slate-800">{file.name}</p>
                               </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                              <button
+                                type="button"
+                                onClick={() => setFiles(previous => previous.filter((_, i) => i !== index))}
+                                className="text-slate-400 hover:text-red-600"
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
 
                   {step === 3 && (
-                    <div className="space-y-5">
+                    <div className="space-y-4">
                       <div>
-                        <h3 className="text-lg font-extrabold text-slate-950">
-                          Review your delivery
+                        <h3 className="text-sm font-bold text-slate-950">
+                          Review & Deploy
                         </h3>
-                        <p className="mt-2 text-sm leading-6 text-slate-500">
-                          Check the project details before uploading and creating the vault.
+                        <p className="mt-0.5 text-xs text-slate-500">
+                          Everything looks ready. Create your vault below.
                         </p>
                       </div>
 
-                      <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
-                        <div className="flex items-start gap-3">
-                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-emerald-800 shadow-sm">
-                            <BriefcaseBusiness size={22} />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="break-words text-lg font-extrabold text-slate-950">
-                              {title || 'Untitled project'}
-                            </p>
-                            <p className="mt-1 break-words text-sm text-slate-500">
-                              {clientName || 'Client not specified'}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="mt-5 grid grid-cols-2 gap-3">
-                          <div className="rounded-2xl bg-white p-3">
-                            <p className="text-xs font-semibold text-slate-500">
-                              Project amount
-                            </p>
-                            <p className="mt-1 break-words text-base font-extrabold text-slate-950">
-                              {formatCurrency(Number(amount) || 0, currency)}
-                            </p>
-                          </div>
-
-                          <div className="rounded-2xl bg-white p-3">
-                            <p className="text-xs font-semibold text-slate-500">
-                              Attached files
-                            </p>
-                            <p className="mt-1 text-base font-extrabold text-slate-950">
-                              {files.length}
-                            </p>
-                          </div>
-
-                          <div className="rounded-2xl bg-white p-3">
-                            <p className="text-xs font-semibold text-slate-500">
-                              Platform fee estimate
-                            </p>
-                            <p className="mt-1 break-words text-base font-extrabold text-slate-950">
-                              {formatCurrency(
-                                Math.max(Math.round((Number(amount) || 0) * 0.05), 1),
-                                currency
-                              )}
-                            </p>
-                          </div>
-
-                          <div className="rounded-2xl bg-white p-3">
-                            <p className="text-xs font-semibold text-slate-500">
-                              Link expiry
-                            </p>
-                            <p className="mt-1 text-base font-extrabold text-slate-950">
-                              {expiry === 'never' ? 'No expiry' : `${expiry} days`}
-                            </p>
-                          </div>
-                        </div>
-
-                        {clientEmail && (
-                          <div className="mt-3 rounded-2xl bg-white p-3">
-                            <p className="text-xs font-semibold text-slate-500">
-                              Client email
-                            </p>
-                            <p className="mt-1 break-all text-sm font-bold text-slate-800">
-                              {clientEmail}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
-                        <div className="flex items-start gap-3">
-                          <LockKeyhole size={19} className="mt-0.5 shrink-0 text-amber-800" />
-                          <div>
-                            <p className="text-sm font-bold text-amber-950">
-                              Demo payment mode
-                            </p>
-                            <p className="mt-1 text-xs leading-5 text-amber-900/80">
-                              Creating this vault does not collect money or verify payment. Confirm your payment and file-access flow is secure before using this with real client deliverables.
-                            </p>
-                          </div>
-                        </div>
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                        <p className="text-xs font-bold text-slate-900">{title}</p>
+                        <p className="mt-1 text-xs text-slate-600">{formatCurrency(Number(amount) || 0, currency)}</p>
                       </div>
                     </div>
                   )}
 
                   {uploading && (
-                    <div className="mt-6 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-sm font-bold text-emerald-950">
-                          Uploading your files…
-                        </p>
-                        <p className="text-sm font-extrabold tabular-nums text-emerald-800">
-                          {progress}%
-                        </p>
-                      </div>
-
-                      <div className="mt-3 h-2 overflow-hidden rounded-full bg-emerald-100">
-                        <div
-                          className="h-full rounded-full bg-emerald-700 transition-[width] duration-200"
-                          style={{ width: `${progress}%` }}
-                        />
-                      </div>
-
-                      <p className="mt-2 text-xs leading-5 text-emerald-800">
-                        Keep this window open until the upload finishes.
-                      </p>
+                    <div className="mt-4 rounded-xl bg-emerald-50 p-3">
+                      <p className="text-xs font-bold text-emerald-950">Uploading… {progress}%</p>
                     </div>
                   )}
                 </div>
 
-                <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-white px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-7">
+                <div className="flex shrink-0 items-center justify-between gap-3 border-t border-slate-100 bg-white px-5 py-3.5 sm:px-7">
                   <button
                     type="button"
                     disabled={uploading}
                     onClick={() => {
-                      if (step === 1) {
-                        resetWizard()
-                      } else {
-                        setStep(previous => Math.max(1, previous - 1))
-                      }
+                      if (step === 1) resetWizard()
+                      else setStep(previous => Math.max(1, previous - 1))
                     }}
-                    className="min-h-12 rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+                    className="min-h-10 rounded-xl border border-slate-200 px-3.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
                   >
                     {step === 1 ? 'Cancel' : 'Back'}
                   </button>
@@ -2496,55 +2161,28 @@ export default function Dashboard() {
                     <button
                       type="button"
                       onClick={() => {
-                        if (step === 1) {
-                          if (!title.trim()) {
-                            notify('Enter a project name first.', 'error')
-                            return
-                          }
-
-                          if (!Number.isFinite(Number(amount)) || Number(amount) <= 0) {
-                            notify('Enter a valid project amount.', 'error')
-                            return
-                          }
-
-                          if (
-                            clientEmail.trim() &&
-                            !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientEmail.trim())
-                          ) {
-                            notify('Enter a valid client email address.', 'error')
-                            return
-                          }
-                        }
-
-                        if (step === 2 && files.length === 0) {
-                          notify('Select at least one file to continue.', 'error')
+                        if (step === 1 && !title.trim()) {
+                          notify('Enter a project name.', 'error')
                           return
                         }
-
+                        if (step === 2 && files.length === 0) {
+                          notify('Select at least one file.', 'error')
+                          return
+                        }
                         setStep(previous => Math.min(3, previous + 1))
-                        haptic()
                       }}
-                      className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-emerald-950 px-5 text-sm font-bold text-white hover:bg-emerald-800"
+                      className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-emerald-950 px-4 text-xs font-bold text-white hover:bg-emerald-900"
                     >
-                      Continue <ArrowRight size={17} />
+                      Continue <ArrowRight size={14} />
                     </button>
                   ) : (
                     <button
                       type="button"
                       disabled={uploading}
                       onClick={deployVault}
-                      className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-emerald-950 px-5 text-sm font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-emerald-950 px-4 text-xs font-bold text-white hover:bg-emerald-900"
                     >
-                      {uploading ? (
-                        <>
-                          <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                          Uploading…
-                        </>
-                      ) : (
-                        <>
-                          <ShieldCheck size={17} /> Create vault
-                        </>
-                      )}
+                      <ShieldCheck size={14} /> Create vault
                     </button>
                   )}
                 </div>
@@ -2569,16 +2207,13 @@ export default function Dashboard() {
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-800">
-                      <CircleHelp size={22} />
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
+                      <CircleHelp size={20} />
                     </div>
                     <div>
-                      <h2 id="help-dialog-title" className="font-extrabold text-slate-950">
+                      <h2 id="help-dialog-title" className="text-sm font-bold text-slate-950">
                         PayDrop help
                       </h2>
-                      <p className="mt-1 text-xs text-slate-500">
-                        Quick troubleshooting
-                      </p>
                     </div>
                   </div>
 
@@ -2586,45 +2221,23 @@ export default function Dashboard() {
                     type="button"
                     onClick={() => setAssistantOpen(false)}
                     aria-label="Close help"
-                    className="flex h-10 w-10 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100"
+                    className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100"
                   >
-                    <X size={19} />
+                    <X size={18} />
                   </button>
                 </div>
 
-                <div className="mt-6 space-y-4">
-                  <div className="rounded-2xl bg-slate-50 p-4">
-                    <p className="text-sm font-bold text-slate-900">
-                      Files won't upload?
-                    </p>
-                    <p className="mt-1 text-sm leading-6 text-slate-600">
-                      Confirm your Cloudinary cloud name, unsigned upload preset, allowed resource types, and account size limits. Check the browser console for the exact upload error.
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl bg-slate-50 p-4">
-                    <p className="text-sm font-bold text-slate-900">
-                      Projects aren't appearing?
-                    </p>
-                    <p className="mt-1 text-sm leading-6 text-slate-600">
-                      Confirm that you're signed into the correct account and that your Firestore rules allow the owner to read their delivery records.
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl bg-slate-50 p-4">
-                    <p className="text-sm font-bold text-slate-900">
-                      Payment status
-                    </p>
-                    <p className="mt-1 text-sm leading-6 text-slate-600">
-                      This dashboard is currently in demo/manual payment mode. A displayed paid status does not prove that money was received.
-                    </p>
+                <div className="mt-5 space-y-3">
+                  <div className="rounded-2xl bg-slate-50 p-3.5">
+                    <p className="text-xs font-bold text-slate-900">Files won't upload?</p>
+                    <p className="mt-1 text-xs text-slate-600">Check your Cloudinary presets and size constraints.</p>
                   </div>
                 </div>
 
                 <button
                   type="button"
                   onClick={() => setAssistantOpen(false)}
-                  className="mt-6 min-h-12 w-full rounded-2xl bg-emerald-950 px-5 text-sm font-bold text-white hover:bg-emerald-800"
+                  className="mt-5 min-h-11 w-full rounded-xl bg-emerald-950 px-4 text-xs font-bold text-white hover:bg-emerald-900"
                 >
                   Got it
                 </button>
@@ -2657,7 +2270,7 @@ export default function Dashboard() {
                         : 'text-slate-500 hover:bg-slate-50'
                     }`}
                   >
-                    <Icon size={20} />
+                    <Icon size={19} />
                     <span className="max-w-full truncate">
                       {item.id === 'revisions' ? 'Messages' : item.label}
                     </span>
