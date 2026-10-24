@@ -380,7 +380,9 @@ export default function Dashboard() {
         value: sum,
       }
     })
-  }, [paid, currency])  const resetWizard = () => {
+  }, [paid, currency])
+
+  const resetWizard = () => {
     setWizardOpen(false)
     setStep(1)
     setTitle('')
