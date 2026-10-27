@@ -11,9 +11,9 @@ import {
 } from 'lucide-react'
 import confetti from 'canvas-confetti'
 
-const DEMO_PAYMENTS_ENABLED =
-  process.env.NODE_ENV !== 'production' ||
-  process.env.NEXT_PUBLIC_ENABLE_DEMO_PAYMENTS === 'true'
+// Explicitly simulated demo mode. This never processes real money.
+// Keep real payment verification disabled until a server-verified gateway is integrated.
+const DEMO_PAYMENTS_ENABLED = true
 
 function formatCurrency(amount, currency = 'INR') {
   const num = Number(amount)
@@ -128,7 +128,7 @@ export default function ClientDeliveryPortal() {
   // performed server-side with a provider webhook and restrictive Firestore rules.
   const handleFundEscrow = async () => {
     if (!DEMO_PAYMENTS_ENABLED) {
-      alert('Demo payments are disabled in production. A verified payment provider is not connected yet.')
+      alert('Demo mode only: no real payment provider is connected and no money will be collected.')
       return
     }
     if (paymentProcessing || !deliveryId || delivery?.status === 'Paid') return
@@ -238,7 +238,7 @@ export default function ClientDeliveryPortal() {
               isPaid ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'
             }`}>
               <span className={`w-2 h-2 rounded-full ${isPaid ? 'bg-emerald-500' : 'bg-amber-500 animate-ping'}`} />
-              <span>{isPaid ? 'Demo unlocked' : 'Payment demo'}</span>
+              <span>{isPaid ? 'Demo unlocked' : 'Demo payment'}</span>
             </span>
           </div>
 
