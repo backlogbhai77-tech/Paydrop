@@ -247,6 +247,13 @@ export default function ClientDeliveryPortal() {
 
       {/* BODY */}
       <main className="max-w-5xl mx-auto p-4 sm:p-8 space-y-6 print:hidden">
+        <div role="status" className="flex items-start gap-3 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-amber-950">
+          <ShieldCheck size={18} className="mt-0.5 shrink-0" />
+          <div>
+            <p className="text-xs font-black uppercase tracking-wide">Demo mode · no real payment</p>
+            <p className="mt-1 text-xs leading-5">Payment buttons simulate a demo unlock only. No money is collected, transferred, or held.</p>
+          </div>
+        </div>
 
         <div className="bg-[#063D2A] rounded-[32px] p-6 sm:p-8 text-white flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-2xl relative overflow-hidden">
           <div className="space-y-2 max-w-xl z-10">
