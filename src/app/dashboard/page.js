@@ -548,7 +548,7 @@ export default function Dashboard() {
     setWizardOpen(true)
   }
 
-    const uploadToCloudinary = file =>
+  const uploadToCloudinary = file =>
     new Promise((resolve, reject) => {
       if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
         reject(
@@ -585,9 +585,9 @@ export default function Dashboard() {
           ? event.loaded / event.total
           : 0
 
-        // Smooth mapping up to 90%, preventing any hard block at 90%
-        const computedProgress = Math.min(90, Math.max(5, Math.round(fileProgress * 90)))
-        setProgress(computedProgress)
+        setProgress(previous =>
+          Math.min(96, Math.max(previous, Math.round(fileProgress * 90)))
+        )
       }
 
       xhr.onload = () => {
@@ -610,63 +610,6 @@ export default function Dashboard() {
           fail(message)
           return
         }
-
-        if (!result.secure_url) {
-          fail('Cloudinary did not return a file URL.')
-          return
-        }
-
-        finished = true
-
-        // Smoothly glide progress from 90 to 100 on successful response
-        setProgress(100)
-
-        const isImage = file.type.startsWith('image/')
-        let previewUrl = result.secure_url
-
-        if (isImage && result.public_id) {
-          const publicId = result.public_id
-          const version = result.version ? `v${result.version}/` : ''
-          const extension = publicId.split('.').pop()
-          const withoutExtension = publicId.includes('.')
-            ? publicId.slice(0, publicId.lastIndexOf('.'))
-            : publicId
-
-          previewUrl =
-            `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/image/upload/` +
-            `l_text:Arial_28_bold:PAYDROP%20%E2%80%A2%20PREVIEW%20COPY,co_white,o_75/` +
-            `${version}${withoutExtension}.${extension}`
-        }
-
-        resolve({
-          name: file.name,
-          size: file.size,
-          sizeMB: Number((file.size / (1024 * 1024)).toFixed(2)),
-          type: file.type || 'application/octet-stream',
-          rawUrl: result.secure_url,
-          previewUrl,
-          publicId: result.public_id || null,
-          resourceType: result.resource_type || 'raw',
-        })
-      }
-
-      xhr.onerror = () => fail(
-        'Network error while uploading. Check your internet connection.'
-      )
-
-      xhr.ontimeout = () => fail(
-        'Upload timed out. Try again with a smaller file or a better connection.'
-      )
-
-      xhr.onabort = () => fail('Upload was cancelled.')
-
-      try {
-        xhr.send(formData)
-      } catch {
-        fail('Could not start the upload request.')
-      }
-    })
-
 
         if (!result.secure_url) {
           fail('Cloudinary did not return a file URL.')
