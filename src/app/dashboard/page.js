@@ -966,6 +966,27 @@ export default function Dashboard() {
     user?.email?.split('@')[0] ||
     'Creator'
 
+  const visibleProjects = useMemo(() => {
+    let list = tab === 'revisions'
+      ? filtered.filter(item => item.messages?.length)
+      : filtered
+    if (tab === 'projects' && projectStatusFilter !== 'all') {
+      list = list.filter(item => {
+        if (projectStatusFilter === 'paid') return item.status === 'Paid'
+        if (projectStatusFilter === 'pending') return !['Paid', 'Expired', 'Cancelled'].includes(item.status)
+        if (projectStatusFilter === 'closed') return ['Expired', 'Cancelled'].includes(item.status)
+        return true
+      })
+    }
+    return [...list].sort((a, b) => {
+      if (projectSort === 'title') return (a.title || '').localeCompare(b.title || '')
+      if (projectSort === 'amount-high') return (Number(b.grossAmount) || 0) - (Number(a.grossAmount) || 0)
+      const at = a.createdAt?.seconds || 0
+      const bt = b.createdAt?.seconds || 0
+      return projectSort === 'oldest' ? at - bt : bt - at
+    })
+  }, [filtered, tab, projectStatusFilter, projectSort])
+
   if (authLoading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#f5f8f5] p-6 animate-in fade-in duration-300">
@@ -1014,27 +1035,6 @@ export default function Dashboard() {
     ...monthly.map(item => item.value),
     1
   )
-
-  const visibleProjects = useMemo(() => {
-    let list = tab === 'revisions'
-      ? filtered.filter(item => item.messages?.length)
-      : filtered
-    if (tab === 'projects' && projectStatusFilter !== 'all') {
-      list = list.filter(item => {
-        if (projectStatusFilter === 'paid') return item.status === 'Paid'
-        if (projectStatusFilter === 'pending') return !['Paid', 'Expired', 'Cancelled'].includes(item.status)
-        if (projectStatusFilter === 'closed') return ['Expired', 'Cancelled'].includes(item.status)
-        return true
-      })
-    }
-    return [...list].sort((a, b) => {
-      if (projectSort === 'title') return (a.title || '').localeCompare(b.title || '')
-      if (projectSort === 'amount-high') return (Number(b.grossAmount) || 0) - (Number(a.grossAmount) || 0)
-      const at = a.createdAt?.seconds || 0
-      const bt = b.createdAt?.seconds || 0
-      return projectSort === 'oldest' ? at - bt : bt - at
-    })
-  }, [filtered, tab, projectStatusFilter, projectSort])
 
   const pageTitle =
     navigation.find(item => item.id === tab)?.label || 'Overview'
