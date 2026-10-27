@@ -11,6 +11,10 @@ import {
 } from 'lucide-react'
 import confetti from 'canvas-confetti'
 
+const DEMO_PAYMENTS_ENABLED =
+  process.env.NODE_ENV !== 'production' ||
+  process.env.NEXT_PUBLIC_ENABLE_DEMO_PAYMENTS === 'true'
+
 function formatCurrency(amount, currency = 'INR') {
   const num = Number(amount)
   if (isNaN(num)) return currency === 'USD' ? '$0' : '₹0'
@@ -119,27 +123,33 @@ export default function ClientDeliveryPortal() {
   }
 
   // PAYMENT SUCCESS WITH CONFETTI TRIGGER 🚀
+  // DEMO ONLY: this is not a real payment or regulated escrow. Do not enable
+  // this client-side status change in production; payment verification must be
+  // performed server-side with a provider webhook and restrictive Firestore rules.
   const handleFundEscrow = async () => {
+    if (!DEMO_PAYMENTS_ENABLED) {
+      alert('Demo payments are disabled in production. A verified payment provider is not connected yet.')
+      return
+    }
+    if (paymentProcessing || !deliveryId || delivery?.status === 'Paid') return
+    const confirmed = window.confirm(
+      'Demo only: no money will be charged or held. Simulate a successful payment and unlock the demo files?'
+    )
+    if (!confirmed) return
+
     setPaymentProcessing(true)
     try {
-      setTimeout(async () => {
-        await updateDoc(doc(db, 'deliveries', deliveryId), {
-          status: 'Paid',
-          paidAt: new Date().toISOString()
-        })
-        
-        // TRIGGER CONFETTI ON SUCCESS
-        confetti({
-          particleCount: 100,
-          spread: 90,
-          origin: { y: 0.6 },
-          colors: ['#a3e635', '#10b981', '#064e3b', '#84cc16', '#34d399'],
-        })
-
-        setPaymentProcessing(false)
-      }, 1500)
-    } catch {
-      alert('Payment failed. Please try again.')
+      await new Promise(resolve => window.setTimeout(resolve, 700))
+      await updateDoc(doc(db, 'deliveries', deliveryId), {
+        status: 'Paid',
+        paidAt: new Date().toISOString(),
+        paymentGatewayId: 'DEMO_SIMULATED_NO_FUNDS'
+      })
+      confetti({ particleCount: 100, spread: 90, origin: { y: 0.6 }, colors: ['#a3e635', '#10b981', '#064e3b', '#84cc16', '#34d399'] })
+    } catch (error) {
+      console.error('Demo payment simulation failed:', error)
+      alert('Demo payment could not be recorded. Check the connection and Firestore permissions.')
+    } finally {
       setPaymentProcessing(false)
     }
   }
@@ -150,7 +160,7 @@ export default function ClientDeliveryPortal() {
     return (
       <div className="min-h-screen bg-[#F0F5EE] flex flex-col items-center justify-center text-xs text-[#063D2A] gap-3 font-mono">
         <div className="w-6 h-6 border-2 border-[#063D2A] border-t-transparent rounded-full animate-spin" />
-        <span>SECURING ESCROW SESSION...</span>
+        <span>LOADING PROJECT PREVIEW...</span>
       </div>
     )
   }
@@ -228,7 +238,7 @@ export default function ClientDeliveryPortal() {
               isPaid ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'
             }`}>
               <span className={`w-2 h-2 rounded-full ${isPaid ? 'bg-emerald-500' : 'bg-amber-500 animate-ping'}`} />
-              <span>{isPaid ? 'Released' : 'Escrow Due'}</span>
+              <span>{isPaid ? 'Demo unlocked' : 'Payment demo'}</span>
             </span>
           </div>
 
@@ -377,8 +387,8 @@ export default function ClientDeliveryPortal() {
             <div className="space-y-4">
               <div className="bg-white/90 backdrop-blur-xl border border-slate-200/80 rounded-[32px] p-6 shadow-xl space-y-5 sticky top-24">
                 <div className="space-y-1">
-                  <h3 className="font-extrabold text-base text-slate-900">Escrow Action</h3>
-                  <p className="text-xs text-slate-500">Fund escrow to unlock original high-res deliverables.</p>
+                  <h3 className="font-extrabold text-base text-slate-900">Project access</h3>
+                  <p className="text-xs text-slate-500">Demo mode only. No real payment is collected; the button simulates file unlocking.</p>
                 </div>
 
                 <div className="p-4 bg-[#F0F5EE] rounded-2xl space-y-2 text-xs">
@@ -388,19 +398,19 @@ export default function ClientDeliveryPortal() {
                   </div>
                   <div className="flex justify-between text-slate-500 text-[11px]">
                     <span>Status:</span>
-                    <span className="font-bold text-slate-700">{isPaid ? 'Released' : 'Locked in Escrow'}</span>
+                    <span className="font-bold text-slate-700">{isPaid ? 'Demo unlocked' : 'Awaiting demo action'}</span>
                   </div>
                 </div>
 
                 {isPaid ? (
                   <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs space-y-3 text-center font-semibold">
                     <CheckCircle2 className="w-6 h-6 text-emerald-600 mx-auto" />
-                    <p>Escrow released! Master files unlocked for download.</p>
+                    <p>Demo payment simulated. Demo files are now unlocked; no funds were transferred.</p>
                   </div>
                 ) : (
                   <button
                     onClick={handleFundEscrow}
-                    disabled={paymentProcessing}
+                    disabled={paymentProcessing || !DEMO_PAYMENTS_ENABLED}
                     className="w-full py-4 bg-[#063D2A] hover:bg-[#094E36] text-white font-extrabold text-xs rounded-2xl shadow-xl transition active:scale-95 flex items-center justify-center gap-2"
                   >
                     {paymentProcessing ? (
@@ -408,7 +418,7 @@ export default function ClientDeliveryPortal() {
                     ) : (
                       <>
                         <Lock className="w-4 h-4 text-[#94EC36]" />
-                        <span>Fund Escrow & Unlock Files</span>
+                        <span>{DEMO_PAYMENTS_ENABLED ? 'Simulate Demo Payment' : 'Demo payment disabled in production'}</span>
                       </>
                     )}
                   </button>
@@ -417,7 +427,7 @@ export default function ClientDeliveryPortal() {
                 <div className="p-3 bg-emerald-50/60 border border-emerald-200/60 rounded-xl flex items-start gap-2.5">
                   <ShieldCheck className="w-4 h-4 text-[#063D2A] shrink-0 mt-0.5" />
                   <p className="text-[11px] text-[#063D2A] leading-relaxed">
-                    Funds remain securely in escrow until you approve final delivery.
+                    Demo only: no funds are collected, transferred or held. Real payments are not enabled.
                   </p>
                 </div>
               </div>
