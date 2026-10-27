@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { auth, db } from '../../lib/firebase'
 import { onAuthStateChanged, signOut } from 'firebase/auth'
 import {
-  addDoc, collection, deleteDoc, doc, onSnapshot, query,
+  addDoc, arrayUnion, collection, deleteDoc, doc, onSnapshot, query,
   serverTimestamp, updateDoc, where
 } from 'firebase/firestore'
 import {
@@ -298,6 +298,7 @@ export default function Dashboard() {
   const [dragging, setDragging] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState(0)
+  const [uploadPhase, setUploadPhase] = useState('Preparing your vault…')
 
   const [activeChat, setActiveChat] = useState(null)
   const [reply, setReply] = useState('')
@@ -535,6 +536,7 @@ export default function Dashboard() {
     setExpiry('7')
     setFiles([])
     setProgress(0)
+    setUploadPhase('Preparing your vault…')
     setDragging(false)
 
     if (fileInputRef.current) {
@@ -548,7 +550,7 @@ export default function Dashboard() {
     setWizardOpen(true)
   }
 
-  const uploadToCloudinary = file =>
+  const uploadToCloudinary = (file, fileIndex, totalFiles) =>
     new Promise((resolve, reject) => {
       if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
         reject(
@@ -579,15 +581,14 @@ export default function Dashboard() {
       xhr.timeout = 180000
 
       xhr.upload.onprogress = event => {
-        if (!event.lengthComputable) return
+        if (!event.lengthComputable || !event.total || totalFiles < 1) return
 
-        const fileProgress = event.total
-          ? event.loaded / event.total
-          : 0
-
-        setProgress(previous =>
-          Math.min(96, Math.max(previous, Math.round(fileProgress * 90)))
-        )
+        // Reserve progress ranges for upload, Firestore save and email dispatch.
+        // Each file contributes only its share, so progress never jumps backwards.
+        const currentFileFraction = Math.min(1, event.loaded / event.total)
+        const overallFraction = (fileIndex + currentFileFraction) / totalFiles
+        const nextProgress = Math.round(5 + overallFraction * 80)
+        setProgress(previous => Math.max(previous, Math.min(85, nextProgress)))
       }
 
       xhr.onload = () => {
@@ -624,15 +625,17 @@ export default function Dashboard() {
         if (isImage && result.public_id) {
           const publicId = result.public_id
           const version = result.version ? `v${result.version}/` : ''
-          const extension = publicId.split('.').pop()
-          const withoutExtension = publicId.includes('.')
-            ? publicId.slice(0, publicId.lastIndexOf('.'))
+          // Cloudinary public_id usually has no extension; use the returned format.
+          const extension = result.format || file.name.split('.').pop() || ''
+          const withoutExtension = extension && publicId.toLowerCase().endsWith(`.${extension.toLowerCase()}`)
+            ? publicId.slice(0, -(extension.length + 1))
             : publicId
+          const formattedPublicId = extension ? `${withoutExtension}.${extension}` : withoutExtension
 
           previewUrl =
             `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/image/upload/` +
             `l_text:Arial_28_bold:PAYDROP%20%E2%80%A2%20PREVIEW%20COPY,co_white,o_75/` +
-            `${version}${withoutExtension}.${extension}`
+            `${version}${formattedPublicId}`
         }
 
         resolve({
@@ -679,6 +682,12 @@ export default function Dashboard() {
       return
     }
 
+    if (clientEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientEmail.trim())) {
+      notify('Enter a valid client email address, or leave it blank.', 'error')
+      setStep(1)
+      return
+    }
+
     if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
       notify('Enter a valid amount greater than zero.', 'error')
       setStep(1)
@@ -697,8 +706,14 @@ export default function Dashboard() {
       return
     }
 
+    if (uploading) return
+
     setUploading(true)
     setProgress(5)
+    setUploadPhase('Preparing files…')
+
+    let emailSent = false
+    let emailFailed = false
 
     try {
       const uploadedFiles = []
@@ -706,15 +721,16 @@ export default function Dashboard() {
       for (let index = 0; index < files.length; index += 1) {
         const file = files[index]
 
-        notify(`Uploading ${file.name} (${index + 1}/${files.length})…`)
+        setUploadPhase(`Uploading file ${index + 1} of ${files.length}: ${file.name}`)
 
-        const uploaded = await uploadToCloudinary(file)
+        const uploaded = await uploadToCloudinary(file, index, files.length)
         uploadedFiles.push(uploaded)
 
-        setProgress(
-          Math.round(10 + ((index + 1) / files.length) * 80)
-        )
+        setProgress(Math.max(5, Math.round(5 + ((index + 1) / files.length) * 80)))
       }
+
+      setProgress(88)
+      setUploadPhase('Saving project details…')
 
       const platformFee = Math.max(
         Math.round(numericAmount * 0.05),
@@ -760,16 +776,23 @@ export default function Dashboard() {
         createdAt: serverTimestamp(),
       })
 
-      setProgress(95)
+      setProgress(92)
+      setUploadPhase('Project saved. Preparing client notification…')
 
       const origin = window.location.origin
       const deliveryUrl = `${origin}/d/${deliveryRef.id}`
 
       if (clientEmail.trim()) {
+        setUploadPhase('Sending client email…')
+        setProgress(96)
+        const controller = new AbortController()
+        const emailTimeout = window.setTimeout(() => controller.abort(), 15000)
+
         try {
           const response = await fetch('/api/paydrop-engine', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            signal: controller.signal,
             body: JSON.stringify({
               action: 'send-email',
               clientEmail: clientEmail.trim(),
@@ -786,35 +809,37 @@ export default function Dashboard() {
             }),
           })
 
-          if (!response.ok) {
-            console.error(
-              'Client email request failed:',
-              await response.text()
-            )
-
-            notify(
-              'Vault created, but email dispatch failed. You can copy the link manually.',
-              'error'
-            )
+          const emailResult = await response.json().catch(() => ({}))
+          if (!response.ok || emailResult?.success === false || emailResult?.ok === false) {
+            emailFailed = true
+            console.error('Client email request failed:', response.status, emailResult)
+          } else {
+            emailSent = true
           }
         } catch (emailError) {
+          emailFailed = true
           console.error('Client email error:', emailError)
-
-          notify(
-            'Vault created, but the email could not be sent. Copy the link to share it.',
-            'error'
-          )
+        } finally {
+          window.clearTimeout(emailTimeout)
         }
       }
 
       setProgress(100)
+      setUploadPhase('Vault created')
       haptic([20, 60, 20, 80])
 
       resetWizard()
       setTab('projects')
-      notify('Vault created successfully.')
+      if (emailFailed) {
+        notify('Vault created, but the email could not be confirmed. Copy the link and share it manually.', 'error')
+      } else if (emailSent) {
+        notify('Vault created and email request accepted.')
+      } else {
+        notify('Vault created successfully.')
+      }
     } catch (error) {
       console.error('Vault creation failed:', error)
+      setUploadPhase('Creation failed')
 
       notify(
         error?.message || 'Could not create the vault. Please try again.',
@@ -896,10 +921,8 @@ export default function Dashboard() {
 
     try {
       await updateDoc(doc(db, 'deliveries', activeChat.id), {
-        messages: [
-          ...(activeChat.messages || []),
-          newMessage,
-        ],
+        // Atomic append avoids overwriting a client message received at the same time.
+        messages: arrayUnion(newMessage),
       })
 
       setReply('')
@@ -2243,15 +2266,15 @@ export default function Dashboard() {
                         <div className="absolute inset-0 flex flex-col items-center justify-center text-white z-10 p-2">
                           <div className="flex items-center gap-2 font-black text-sm tracking-wide">
                             <Sparkles size={16} className="text-lime-300 animate-spin" />
-                            <span>Encrypting & Deploying Vault... {progress}%</span>
+                            <span>{uploadPhase} {progress}%</span>
                           </div>
                           <p className="text-[10px] text-emerald-200/90 font-medium mt-0.5">
-                            Applying watermark previews & sending secure dispatch
+                            Keep this window open while PayDrop finishes each step
                           </p>
                         </div>
                       </div>
                       
-                      <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
+                      <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden" role="progressbar" aria-label="Vault creation progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}>
                         <div 
                           className="h-full bg-gradient-to-r from-emerald-600 to-lime-400 transition-all duration-300"
                           style={{ width: `${progress}%` }}
