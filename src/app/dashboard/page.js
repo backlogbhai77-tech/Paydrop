@@ -71,7 +71,8 @@ function formatFileSize(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-function StatusBadge({ status }) {
+function StatusBadge({ status, delivery }) {
+  const isDemoPaid = status === 'Paid' && delivery?.paymentGatewayId === 'DEMO_SIMULATED_NO_FUNDS'
   const paid = status === 'Paid'
   const expired = status === 'Expired' || status === 'Cancelled'
 
@@ -94,7 +95,7 @@ function StatusBadge({ status }) {
               : 'bg-amber-600'
         }`}
       />
-      {status || 'Pending'}
+      {isDemoPaid ? 'Demo Unlocked' : (status || 'Pending')}
     </span>
   )
 }
@@ -214,7 +215,7 @@ function ProjectCard({ delivery, activeMenuId, setActiveMenuId, onShare, onCopyL
       )}
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-        <StatusBadge status={delivery.status} />
+        <StatusBadge status={delivery.status} delivery={delivery} />
         <span className="text-lg font-black tracking-tight text-slate-950">
           {formatCurrency(delivery.grossAmount, delivery.currency || 'INR')}
         </span>
@@ -1434,7 +1435,7 @@ export default function Dashboard() {
                     Your business at a glance
                   </h2>
                   <p className="mt-1.5 max-w-2xl text-xs leading-5 text-slate-500 sm:text-sm">
-                    Track your deliveries, organize client conversations, and keep your professional workflow moving.
+                    Your business snapshot, recent activity and the next actions that need your attention.
                   </p>
                 </div>
 
@@ -1635,23 +1636,27 @@ export default function Dashboard() {
                     </p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    {pending.slice(0, 3).map(delivery => (
-                      <ProjectCard
-                        key={delivery.id}
-                        delivery={delivery}
-                        activeMenuId={activeProjectMenuId}
-                        setActiveMenuId={setActiveProjectMenuId}
-                        onShare={shareVault}
-                        onPreview={setPreviewDelivery}
-                        onCopyLink={copyDeliveryLink}
-                        onDelete={deleteVault}
-                        onViewMessages={item => {
-                          setActiveChat(item)
-                          setTab('revisions')
-                        }}
-                      />
+                  <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white divide-y divide-slate-100">
+                    {pending.slice(0, 5).map(delivery => (
+                      <div key={delivery.id} className="flex flex-wrap items-center gap-3 px-4 py-3 sm:px-5">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-700">
+                          <Clock3 size={18} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-bold text-slate-900">{delivery.title || 'Untitled project'}</p>
+                          <p className="truncate text-xs text-slate-500">{delivery.clientName || delivery.clientEmail || 'Client not specified'} · {formatCurrency(delivery.grossAmount, delivery.currency || 'INR')}</p>
+                        </div>
+                        <StatusBadge status={delivery.status} delivery={delivery} />
+                        <button type="button" onClick={() => setPreviewDelivery(delivery)} className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-slate-200 px-3 text-xs font-bold text-slate-700 hover:border-emerald-300 hover:bg-emerald-50">
+                          <Eye size={14} /> Preview
+                        </button>
+                      </div>
                     ))}
+                    {pending.length > 5 && (
+                      <button type="button" onClick={() => setTab('projects')} className="w-full px-4 py-3 text-xs font-bold text-emerald-800 hover:bg-emerald-50">
+                        View all {pending.length} pending projects <ArrowRight size={13} className="ml-1 inline" />
+                      </button>
+                    )}
                   </div>
                 )}
               </section>
