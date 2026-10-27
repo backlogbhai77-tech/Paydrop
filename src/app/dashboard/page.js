@@ -756,7 +756,9 @@ export default function Dashboard() {
         ).toISOString()
       }
 
-      const deliveryRef = await addDoc(collection(db, 'deliveries'), {
+      // Firestore's network queue can remain pending on a bad connection. Bound the
+      // UI wait so the wizard never sits indefinitely at 88%.
+      const savePromise = addDoc(collection(db, 'deliveries'), {
         userId: user.uid,
         userEmail: user.email || '',
         title: cleanTitle,
@@ -775,6 +777,15 @@ export default function Dashboard() {
         messages: [],
         createdAt: serverTimestamp(),
       })
+      let saveTimeoutId
+      const deliveryRef = await Promise.race([
+        savePromise,
+        new Promise((_, reject) => {
+          saveTimeoutId = window.setTimeout(() => reject(new Error(
+            'Saving the vault is taking too long. Check your connection and Projects before retrying to avoid a duplicate.'
+          )), 30000)
+        }),
+      ]).finally(() => window.clearTimeout(saveTimeoutId))
 
       setProgress(92)
       setUploadPhase('Project saved. Preparing client notification…')
@@ -789,23 +800,15 @@ export default function Dashboard() {
         const emailTimeout = window.setTimeout(() => controller.abort(), 15000)
 
         try {
-          const response = await fetch('/api/paydrop-engine', {
+          const response = await fetch('/api/send-email', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             signal: controller.signal,
             body: JSON.stringify({
-              action: 'send-email',
+              portalUrl: deliveryUrl,
               clientEmail: clientEmail.trim(),
               clientName: clientName.trim(),
-              creatorName:
-                user.displayName ||
-                user.email?.split('@')[0] ||
-                'Creator',
-              creatorEmail: user.email || '',
               projectTitle: cleanTitle,
-              amount: numericAmount,
-              currency,
-              deliveryUrl,
             }),
           })
 
