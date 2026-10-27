@@ -142,7 +142,7 @@ function FileTypeIcon({ file }) {
   return <File size={18} className="text-slate-700" />
 }
 
-function ProjectCard({ delivery, activeMenuId, setActiveMenuId, onShare, onCopyLink, onDelete, onViewMessages }) {
+function ProjectCard({ delivery, activeMenuId, setActiveMenuId, onShare, onCopyLink, onDelete, onViewMessages, onPreview }) {
   const menuOpen = activeMenuId === delivery.id
 
   return (
@@ -256,11 +256,11 @@ function ProjectCard({ delivery, activeMenuId, setActiveMenuId, onShare, onCopyL
           type="button"
           onClick={() => {
             haptic(10)
-            onShare(delivery)
+            onPreview(delivery)
           }}
           className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-950 px-3 text-xs font-bold text-white transition-all hover:bg-emerald-900 shadow-sm"
         >
-          Open link <ExternalLink size={14} />
+          <Eye size={15} /> Preview
         </button>
       </div>
     </article>
@@ -277,6 +277,9 @@ export default function Dashboard() {
   const [currency, setCurrency] = useState('INR')
   const [balanceVisible, setBalanceVisible] = useState(true)
   const [search, setSearch] = useState('')
+  const [projectStatusFilter, setProjectStatusFilter] = useState('all')
+  const [projectSort, setProjectSort] = useState('newest')
+  const [previewDelivery, setPreviewDelivery] = useState(null)
   const [toast, setToast] = useState(null)
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -1011,10 +1014,26 @@ export default function Dashboard() {
     1
   )
 
-  const visibleProjects =
-    tab === 'revisions'
+  const visibleProjects = useMemo(() => {
+    let list = tab === 'revisions'
       ? filtered.filter(item => item.messages?.length)
       : filtered
+    if (tab === 'projects' && projectStatusFilter !== 'all') {
+      list = list.filter(item => {
+        if (projectStatusFilter === 'paid') return item.status === 'Paid'
+        if (projectStatusFilter === 'pending') return !['Paid', 'Expired', 'Cancelled'].includes(item.status)
+        if (projectStatusFilter === 'closed') return ['Expired', 'Cancelled'].includes(item.status)
+        return true
+      })
+    }
+    return [...list].sort((a, b) => {
+      if (projectSort === 'title') return (a.title || '').localeCompare(b.title || '')
+      if (projectSort === 'amount-high') return (Number(b.grossAmount) || 0) - (Number(a.grossAmount) || 0)
+      const at = a.createdAt?.seconds || 0
+      const bt = b.createdAt?.seconds || 0
+      return projectSort === 'oldest' ? at - bt : bt - at
+    })
+  }, [filtered, tab, projectStatusFilter, projectSort])
 
   const pageTitle =
     navigation.find(item => item.id === tab)?.label || 'Overview'
@@ -1624,6 +1643,7 @@ export default function Dashboard() {
                         activeMenuId={activeProjectMenuId}
                         setActiveMenuId={setActiveProjectMenuId}
                         onShare={shareVault}
+                        onPreview={setPreviewDelivery}
                         onCopyLink={copyDeliveryLink}
                         onDelete={deleteVault}
                         onViewMessages={item => {
@@ -1677,6 +1697,19 @@ export default function Dashboard() {
                 </div>
               </div>
 
+              <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3 sm:flex-row sm:items-center">
+                <label className="relative min-w-0 flex-1">
+                  <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search project, client or email…" className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100" />
+                </label>
+                <select value={projectStatusFilter} onChange={event => setProjectStatusFilter(event.target.value)} aria-label="Filter projects by status" className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-emerald-500">
+                  <option value="all">All statuses</option><option value="pending">Awaiting payment</option><option value="paid">Paid / demo unlocked</option><option value="closed">Expired / cancelled</option>
+                </select>
+                <select value={projectSort} onChange={event => setProjectSort(event.target.value)} aria-label="Sort projects" className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-emerald-500">
+                  <option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="title">Project name</option><option value="amount-high">Highest amount</option>
+                </select>
+              </div>
+
               {dataLoading ? (
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                   {[1, 2, 3].map(item => (
@@ -1713,6 +1746,7 @@ export default function Dashboard() {
                       activeMenuId={activeProjectMenuId}
                       setActiveMenuId={setActiveProjectMenuId}
                       onShare={shareVault}
+                      onPreview={setPreviewDelivery}
                       onCopyLink={copyDeliveryLink}
                       onDelete={deleteVault}
                       onViewMessages={item => {
@@ -2433,6 +2467,17 @@ export default function Dashboard() {
             </div>
           </nav>
         </div>
+      {previewDelivery && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/70 p-2 backdrop-blur-sm sm:p-5" role="dialog" aria-modal="true" aria-label={`Client preview: ${previewDelivery.title || 'Project'}`} onMouseDown={event => { if (event.target === event.currentTarget) setPreviewDelivery(null) }}>
+          <section className="flex h-[94vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl border border-white/20 bg-white shadow-2xl">
+            <header className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 sm:px-6">
+              <div className="min-w-0"><p className="text-[10px] font-extrabold uppercase tracking-[.16em] text-emerald-700">Client-side preview</p><h2 className="truncate text-sm font-black text-slate-950 sm:text-base">{previewDelivery.title || 'Untitled project'}</h2><p className="text-[11px] text-slate-500">Preview of the actual client portal · demo payment is simulated only</p></div>
+              <div className="flex shrink-0 items-center gap-2"><a href={`/d/${previewDelivery.id}`} target="_blank" rel="noreferrer" className="hidden min-h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 text-xs font-bold text-slate-700 hover:bg-slate-50 sm:inline-flex">Open in new tab <ExternalLink size={14}/></a><button type="button" onClick={() => setPreviewDelivery(null)} aria-label="Close preview" className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200"><X size={18}/></button></div>
+            </header>
+            <div className="relative min-h-0 flex-1 bg-[#F0F5EE]"><iframe key={previewDelivery.id} title={`Client portal preview for ${previewDelivery.title || 'project'}`} src={`/d/${previewDelivery.id}`} className="h-full w-full border-0" /></div>
+          </section>
+        </div>
+      )}
       </div>
     </main>
   )
