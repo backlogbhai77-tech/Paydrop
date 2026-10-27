@@ -1,60 +1,60 @@
 import nodemailer from 'nodemailer'
 
+const escapeHtml = value => String(value ?? '').replace(/[&<>\"']/g, char => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', "'": '&#39;',
+}[char]))
+
 export async function POST(req) {
   try {
     const body = await req.json()
-    const { clientEmail, clientName, portalUrl, projectTitle } = body
+    const clientEmail = String(body.clientEmail || '').trim()
+    const clientName = String(body.clientName || 'Client').trim()
+    const projectTitle = String(body.projectTitle || 'Your Project').trim()
+    const portalUrl = String(body.portalUrl || '').trim()
 
-    if (!clientEmail) {
-      return Response.json(
-        { success: false, error: 'Client email is required' },
-        { status: 400 }
-      )
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientEmail)) {
+      return Response.json({ success: false, error: 'A valid client email is required.' }, { status: 400 })
+    }
+    if (!portalUrl) {
+      return Response.json({ success: false, error: 'The client portal URL is required.' }, { status: 400 })
     }
 
+    let parsedUrl
+    try { parsedUrl = new URL(portalUrl) } catch {
+      return Response.json({ success: false, error: 'The client portal URL is invalid.' }, { status: 400 })
+    }
+    if (parsedUrl.protocol !== 'https:' && parsedUrl.hostname !== 'localhost') {
+      return Response.json({ success: false, error: 'The client portal must use HTTPS.' }, { status: 400 })
+    }
+
+    const smtpUser = process.env.GMAIL_USER || process.env.SMTP_USER
+    const smtpPass = process.env.GMAIL_APP_PASS || process.env.SMTP_PASS
+    if (!smtpUser || !smtpPass) {
+      return Response.json({ success: false, error: 'Email is not configured. Set GMAIL_USER and GMAIL_APP_PASS (or SMTP_USER and SMTP_PASS) in the deployment environment.' }, { status: 503 })
+    }
+
+    const safeName = escapeHtml(clientName)
+    const safeTitle = escapeHtml(projectTitle)
+    const safeUrl = escapeHtml(parsedUrl.toString())
     const transporter = nodemailer.createTransport({
       service: 'gmail',
-      auth: {
-        user: process.env.GMAIL_USER,
-        pass: process.env.GMAIL_APP_PASS,
-      },
+      auth: { user: smtpUser, pass: smtpPass },
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000,
     })
 
-    let finalLink = portalUrl
-    if (portalUrl && portalUrl.includes('/d/')) {
-      const vaultId = portalUrl.split('/d/')[1]
-      finalLink = `https://paydrop-two.vercel.app/d/${vaultId}`
-    } else if (!portalUrl) {
-      finalLink = 'https://paydrop-two.vercel.app'
-    }
+    const info = await transporter.sendMail({
+      from: `"PayDrop" <${smtpUser}>`,
+      to: clientEmail,
+      subject: `Deliverable Preview Ready: ${projectTitle}`.slice(0, 180),
+      text: `Hello ${clientName},\n\nYour deliverables for ${projectTitle} are ready on PayDrop.\n\nOpen your project: ${parsedUrl.toString()}\n\nNote: PayDrop's current payment flow is a demo and does not confirm that real funds have been received.`,
+      html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:24px;color:#0f172a"><h2>Hello ${safeName},</h2><p>Your files for <strong>${safeTitle}</strong> are ready for review on PayDrop.</p><p><a href="${safeUrl}" style="display:inline-block;background:#063D2A;color:#fff;padding:14px 22px;border-radius:10px;text-decoration:none;font-weight:bold">Open project preview</a></p><p style="font-size:12px;color:#64748b">Payment status is currently a demo workflow and does not confirm receipt of real funds.</p></div>`,
+    })
 
-    const mailOptions = {
-      from: `"PayDrop Escrow" <${process.env.GMAIL_USER}>`,
-      to: clientEmail.trim(),
-      subject: `Deliverable Preview Ready: ${projectTitle || 'Your Project'}`,
-      text: `Hello ${clientName || 'Client'},\n\nYour deliverables for ${projectTitle || 'your project'} are ready on PayDrop.\n\nView Preview & Release Payment: ${finalLink}\n\nWatermarked previews are available immediately. Master files unlock once payment is settled.`,
-      html: `
-        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
-          <h2 style="color: #0f172a; margin-bottom: 12px;">Hello ${clientName || 'Client'},</h2>
-          <p style="color: #475569; font-size: 14px; line-height: 1.5;">Your files for <strong>${projectTitle || 'your project'}</strong> are ready for inspection on PayDrop.</p>
-          
-          <div style="margin: 28px 0;">
-            <a href="${finalLink}" target="_blank" style="background-color: #063D2A; color: #ffffff; padding: 14px 28px; border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 14px; display: inline-block;">
-              View Preview & Release Payment →
-            </a>
-          </div>
-
-          <p style="color: #94a3b8; font-size: 12px; line-height: 1.4;">Watermarked previews are available immediately. Master files unlock automatically once payment is settled.</p>
-        </div>
-      `,
-    }
-
-    const info = await transporter.sendMail(mailOptions)
-    console.log('Email sent successfully:', info.messageId)
     return Response.json({ success: true, messageId: info.messageId })
-
   } catch (error) {
-    console.error('Nodemailer Error:', error)
-    return Response.json({ success: false, error: error.message }, { status: 500 })
+    console.error('PayDrop email dispatch failed:', error)
+    return Response.json({ success: false, error: 'Email could not be sent. Check the email configuration and server logs.' }, { status: 500 })
   }
 }
