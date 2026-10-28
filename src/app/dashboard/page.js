@@ -24,7 +24,10 @@ const CLOUDINARY_CLOUD_NAME =
 const CLOUDINARY_UPLOAD_PRESET =
   process.env.NEXT_PUBLIC_CLOUDINARY_PRESET || 'releasedrop_vault'
 
+// Cloudinary unsigned upload limit depends on the account/preset; keep the safe 100 MB cap.
 const MAX_FILE_BYTES = 100 * 1024 * 1024
+const UPLOAD_TIMEOUT_MS = 5 * 60 * 1000
+const FIRESTORE_SAVE_TIMEOUT_MS = 60 * 1000
 
 function haptic(pattern = 12) {
   if (
@@ -582,7 +585,7 @@ export default function Dashboard() {
       }
 
       xhr.open('POST', endpoint, true)
-      xhr.timeout = 180000
+      xhr.timeout = UPLOAD_TIMEOUT_MS
 
       xhr.upload.onprogress = event => {
         if (!event.lengthComputable || !event.total || totalFiles < 1) return
@@ -659,7 +662,7 @@ export default function Dashboard() {
       )
 
       xhr.ontimeout = () => fail(
-        'Upload timed out. Try again with a smaller file or a better connection.'
+        'Upload timed out after 5 minutes. Check your connection and Cloudinary upload limits, then retry.'
       )
 
       xhr.onabort = () => fail('Upload was cancelled.')
@@ -786,8 +789,8 @@ export default function Dashboard() {
         savePromise,
         new Promise((_, reject) => {
           saveTimeoutId = window.setTimeout(() => reject(new Error(
-            'Saving the vault is taking too long. Check your connection and Projects before retrying to avoid a duplicate.'
-          )), 30000)
+            'Saving the vault timed out after 60 seconds. Check your internet connection and Projects before retrying; the server may still have completed the save.'
+          )), FIRESTORE_SAVE_TIMEOUT_MS)
         }),
       ]).finally(() => window.clearTimeout(saveTimeoutId))
 
@@ -846,10 +849,13 @@ export default function Dashboard() {
       }
     } catch (error) {
       console.error('Vault creation failed:', error)
-      setUploadPhase('Creation failed')
+      // Never leave the UI looking permanently stuck at 88%; keep the selected
+      // files and form values so the user can retry after fixing the cause.
+      setProgress(0)
+      setUploadPhase('Could not finish — ready to retry')
 
       notify(
-        error?.message || 'Could not create the vault. Please try again.',
+        error?.message || 'Could not create the vault. Check your connection and try again.',
         'error'
       )
     } finally {
@@ -966,27 +972,6 @@ export default function Dashboard() {
     user?.email?.split('@')[0] ||
     'Creator'
 
-  const visibleProjects = useMemo(() => {
-    let list = tab === 'revisions'
-      ? filtered.filter(item => item.messages?.length)
-      : filtered
-    if (tab === 'projects' && projectStatusFilter !== 'all') {
-      list = list.filter(item => {
-        if (projectStatusFilter === 'paid') return item.status === 'Paid'
-        if (projectStatusFilter === 'pending') return !['Paid', 'Expired', 'Cancelled'].includes(item.status)
-        if (projectStatusFilter === 'closed') return ['Expired', 'Cancelled'].includes(item.status)
-        return true
-      })
-    }
-    return [...list].sort((a, b) => {
-      if (projectSort === 'title') return (a.title || '').localeCompare(b.title || '')
-      if (projectSort === 'amount-high') return (Number(b.grossAmount) || 0) - (Number(a.grossAmount) || 0)
-      const at = a.createdAt?.seconds || 0
-      const bt = b.createdAt?.seconds || 0
-      return projectSort === 'oldest' ? at - bt : bt - at
-    })
-  }, [filtered, tab, projectStatusFilter, projectSort])
-
   if (authLoading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#f5f8f5] p-6 animate-in fade-in duration-300">
@@ -1035,6 +1020,27 @@ export default function Dashboard() {
     ...monthly.map(item => item.value),
     1
   )
+
+  const visibleProjects = useMemo(() => {
+    let list = tab === 'revisions'
+      ? filtered.filter(item => item.messages?.length)
+      : filtered
+    if (tab === 'projects' && projectStatusFilter !== 'all') {
+      list = list.filter(item => {
+        if (projectStatusFilter === 'paid') return item.status === 'Paid'
+        if (projectStatusFilter === 'pending') return !['Paid', 'Expired', 'Cancelled'].includes(item.status)
+        if (projectStatusFilter === 'closed') return ['Expired', 'Cancelled'].includes(item.status)
+        return true
+      })
+    }
+    return [...list].sort((a, b) => {
+      if (projectSort === 'title') return (a.title || '').localeCompare(b.title || '')
+      if (projectSort === 'amount-high') return (Number(b.grossAmount) || 0) - (Number(a.grossAmount) || 0)
+      const at = a.createdAt?.seconds || 0
+      const bt = b.createdAt?.seconds || 0
+      return projectSort === 'oldest' ? at - bt : bt - at
+    })
+  }, [filtered, tab, projectStatusFilter, projectSort])
 
   const pageTitle =
     navigation.find(item => item.id === tab)?.label || 'Overview'
@@ -2418,7 +2424,7 @@ export default function Dashboard() {
                   <div className="rounded-2xl bg-slate-50 p-3.5 border border-slate-100">
                     <p className="text-xs font-bold text-slate-900">Need help with vaults or payments?</p>
                     <p className="mt-1 text-xs text-slate-600 leading-relaxed">
-                      Ensure files are under 100 MB and Cloudinary presets are correctly active in your environment variables.
+                      Each file must be 100 MB or less on the current Cloudinary upload setup. Uploads can run for up to 5 minutes; very large files may still be limited by your Cloudinary plan and upload preset.
                     </p>
                   </div>
                 </div>
